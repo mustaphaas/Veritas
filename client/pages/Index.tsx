@@ -32,8 +32,8 @@ const navigation = [
 const filterOptions = {
   programs: ["All programmes", "NEP", "DARES", "AMP"],
   components: ["All components", "Solar mini-grid", "Grid extension", "Standalone solar"],
-  contracts: ["All contracts", "EPC", "Framework", "Community-led"],
-  months: ["June 2024", "May 2024", "April 2024", "March 2024"],
+  contractors: ["Contractor", "NorthGrid EPC", "SunVolt Nigeria", "Apex Power Works"],
+  months: ["Month", "June 2024", "May 2024", "April 2024", "March 2024"],
 };
 
 type FilterKey = keyof typeof filterOptions;
@@ -42,13 +42,13 @@ type Filters = Record<FilterKey, string>;
 const defaultFilters: Filters = {
   programs: filterOptions.programs[0],
   components: filterOptions.components[0],
-  contracts: filterOptions.contracts[0],
+  contractors: filterOptions.contractors[0],
   months: filterOptions.months[0],
 };
 
 function getKpis(filters: Filters) {
   const selectedCount = Object.values(filters).filter((value, index) => value !== Object.values(defaultFilters)[index]).length;
-  const monthFactor = filters.months === "June 2024" ? 1 : filters.months === "May 2024" ? 0.91 : filters.months === "April 2024" ? 0.84 : 0.76;
+  const monthFactor = filters.months === "Month" || filters.months === "June 2024" ? 1 : filters.months === "May 2024" ? 0.91 : filters.months === "April 2024" ? 0.84 : 0.76;
   const factor = monthFactor * (selectedCount === 0 ? 1 : Math.max(0.38, 1 - selectedCount * 0.13));
   const format = (value: number) => Math.round(value * factor).toLocaleString();
 
@@ -65,10 +65,10 @@ function FilterSelect({ label, value, options, onChange }: { label: string; valu
 }
 
 const projects = [
-  { name: "Kano Solar Mini-grid Programme", location: "Kano Municipal, Kano", programme: "NEP", status: "Verified", tone: "verified" },
-  { name: "Gidan Dadi Electrification Project", location: "Gusau, Zamfara", programme: "DARES", status: "Pending", tone: "pending" },
-  { name: "Akpabuyo Grid Extension", location: "Akpabuyo, Cross River", programme: "AMP", status: "In progress", tone: "progress" },
-  { name: "Wuse Community Solar Hub", location: "Abuja Municipal, FCT", programme: "NEP", status: "Submitted", tone: "submitted" },
+  { name: "Kano Solar Mini-grid Programme", location: "Kano Municipal, Kano", programme: "NEP", contractor: "SunVolt Nigeria", status: "Verified", tone: "verified" },
+  { name: "Gidan Dadi Electrification Project", location: "Gusau, Zamfara", programme: "DARES", contractor: "NorthGrid EPC", status: "Pending", tone: "pending" },
+  { name: "Akpabuyo Grid Extension", location: "Akpabuyo, Cross River", programme: "AMP", contractor: "Apex Power Works", status: "In progress", tone: "progress" },
+  { name: "Wuse Community Solar Hub", location: "Abuja Municipal, FCT", programme: "NEP", contractor: "NorthGrid EPC", status: "Submitted", tone: "submitted" },
 ];
 
 function AtlasMark() {
@@ -98,6 +98,10 @@ export default function Index() {
   const [activeNav, setActiveNav] = useState("Overview");
   const [filters, setFilters] = useState<Filters>(defaultFilters);
   const metrics = getKpis(filters);
+  const visibleProjects = projects.filter((project) =>
+    (filters.programs === defaultFilters.programs || project.programme === filters.programs) &&
+    (filters.contractors === defaultFilters.contractors || project.contractor === filters.contractors),
+  );
   const updateFilter = (key: FilterKey, value: string) => setFilters((current) => ({ ...current, [key]: value }));
 
   const navContent = (
@@ -165,14 +169,14 @@ export default function Index() {
             <button className="inline-flex items-center justify-center gap-2 rounded-md bg-[#08733f] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#065d32]"><ClipboardCheck className="h-4 w-4" /> Review inspections</button>
           </div>
 
-          <section className="mt-7 rounded-lg border border-[#d6e9da] bg-[#f7fcf8] p-4 sm:p-5"><div className="mb-4 flex items-center justify-between gap-3"><div><h2 className="text-sm font-bold text-[#173b2a]">Global filters</h2><p className="mt-1 text-xs text-slate-500">Filter programme performance across the dashboard</p></div><button onClick={() => setFilters(defaultFilters)} className="text-xs font-semibold text-[#08733f] hover:underline">Reset filters</button></div><div className="flex flex-nowrap gap-3 overflow-x-auto pb-1"><FilterSelect label="Programs" value={filters.programs} options={filterOptions.programs} onChange={(value) => updateFilter("programs", value)} /><FilterSelect label="Components" value={filters.components} options={filterOptions.components} onChange={(value) => updateFilter("components", value)} /><FilterSelect label="Contract" value={filters.contracts} options={filterOptions.contracts} onChange={(value) => updateFilter("contracts", value)} /><FilterSelect label="Month" value={filters.months} options={filterOptions.months} onChange={(value) => updateFilter("months", value)} /></div></section>
+          <section className="mt-7 rounded-lg border border-[#d6e9da] bg-[#f7fcf8] p-4 sm:p-5"><div className="flex flex-nowrap items-end gap-3 overflow-x-auto pb-1"><FilterSelect label="Programs" value={filters.programs} options={filterOptions.programs} onChange={(value) => updateFilter("programs", value)} /><FilterSelect label="Components" value={filters.components} options={filterOptions.components} onChange={(value) => updateFilter("components", value)} /><FilterSelect label="Contractor" value={filters.contractors} options={filterOptions.contractors} onChange={(value) => updateFilter("contractors", value)} /><FilterSelect label="Month" value={filters.months} options={filterOptions.months} onChange={(value) => updateFilter("months", value)} /><button onClick={() => setFilters(defaultFilters)} className="mb-0.5 shrink-0 whitespace-nowrap px-2 text-xs font-semibold text-[#08733f] hover:underline">Reset filters</button></div></section>
 
           <section className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-            {metrics.map(({ label, value, detail, icon: Icon, highlighted }) => <article key={label} className={`rounded-lg border p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] ${highlighted ? "border-[#cdebd6] bg-[#f4fcf6]" : "border-slate-200 bg-white"}`}><div className="flex items-start justify-between"><div className="flex h-9 w-9 items-center justify-center rounded-md bg-[#eaf8ef] text-[#08733f]"><Icon className="h-5 w-5" /></div><MoreHorizontal className="h-5 w-5 text-slate-400" /></div><p className="mt-5 text-sm font-medium text-slate-600">{label}</p><p className="mt-1 text-2xl font-bold tracking-tight text-[#153b28]">{value}</p><p className="mt-2 text-xs text-slate-500">{detail}</p></article>)}
+            {metrics.map(({ label, value, detail, icon: Icon, highlighted }) => <article key={label} className={`flex min-h-[174px] flex-col rounded-lg border p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] ${highlighted ? "border-[#cdebd6] bg-[#f4fcf6]" : "border-slate-200 bg-white"}`}><div className="flex items-start justify-between"><div className="flex h-9 w-9 items-center justify-center rounded-md bg-[#eaf8ef] text-[#08733f]"><Icon className="h-5 w-5" /></div><MoreHorizontal className="h-5 w-5 text-slate-400" /></div><p className="mt-5 text-sm font-medium text-slate-600">{label}</p><p className="mt-1 text-2xl font-bold tracking-tight text-[#153b28]">{value}</p><p className="mt-auto pt-2 text-xs text-slate-500">{detail}</p></article>)}
           </section>
 
           <section className="mt-7 grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,.65fr)]">
-            <article className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]"><div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 px-5 py-4"><div><h2 className="font-bold text-[#173b2a]">National project coverage</h2><p className="mt-1 text-xs text-slate-500">Active projects by state and verification status</p></div><div className="flex gap-2"><button className="rounded-md border border-[#b9dfc5] bg-[#effaf2] px-3 py-1.5 text-xs font-semibold text-[#08733f]">All Programmes</button><button className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600">2024</button></div></div>
+            <article className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]"><div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 px-5 py-4"><div><h2 className="font-bold text-[#173b2a]">National project coverage</h2><p className="mt-1 text-xs text-slate-500">All programs across states in Nigeria</p></div><div className="flex gap-2"><button className="rounded-md border border-[#b9dfc5] bg-[#effaf2] px-3 py-1.5 text-xs font-semibold text-[#08733f]">All programs</button><button className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600">All states</button></div></div>
               <div className="relative h-[345px] overflow-hidden bg-[#f8fbf8] p-6">
                 <div className="absolute inset-0 opacity-[0.32]" style={{ backgroundImage: "linear-gradient(#d9eadc 1px, transparent 1px), linear-gradient(90deg, #d9eadc 1px, transparent 1px)", backgroundSize: "36px 36px" }} />
                 <svg className="relative z-10 h-full w-full" viewBox="0 0 650 300" fill="none" aria-label="Stylized Nigeria project map">
@@ -187,7 +191,7 @@ export default function Index() {
             <article className="rounded-lg border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]"><div className="border-b border-slate-200 px-5 py-4"><h2 className="font-bold text-[#173b2a]">Verification progress</h2><p className="mt-1 text-xs text-slate-500">National reporting status</p></div><div className="space-y-5 p-5">{[{label:'Verified',value:84,max:126,color:'bg-[#08733f]'},{label:'In progress',value:24,max:126,color:'bg-[#5d8fc6]'},{label:'Pending review',value:18,max:126,color:'bg-[#d89100]'}].map(item => <div key={item.label}><div className="mb-2 flex justify-between text-xs"><span className="font-medium text-slate-700">{item.label}</span><span className="font-semibold text-[#173b2a]">{item.value} <span className="font-normal text-slate-400">projects</span></span></div><div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${item.color}`} style={{width:`${item.value / item.max * 100}%`}} /></div></div>)}<div className="mt-7 border-t border-slate-100 pt-5"><div className="flex items-center gap-3 rounded-md bg-[#f4fcf6] p-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#d9f0df] text-[#08733f]"><CheckCircle2 className="h-5 w-5" /></div><p className="text-xs leading-5 text-[#396148]"><strong>12 projects</strong> were verified by field officers this week.</p></div></div></div></article>
           </section>
 
-          <section className="mt-7 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]"><div className="flex items-center justify-between border-b border-slate-200 px-5 py-4"><div><h2 className="font-bold text-[#173b2a]">Recent project activity</h2><p className="mt-1 text-xs text-slate-500">Latest submissions and field verification updates</p></div><button className="text-xs font-semibold text-[#08733f] hover:underline">View all projects</button></div><div className="overflow-x-auto"><table className="w-full min-w-[700px] text-left"><thead className="bg-slate-50 text-[10px] uppercase tracking-[0.1em] text-slate-500"><tr><th className="px-5 py-3 font-semibold">Project</th><th className="px-4 py-3 font-semibold">Programme</th><th className="px-4 py-3 font-semibold">Status</th><th className="px-5 py-3 text-right font-semibold">Updated</th></tr></thead><tbody>{projects.map((project, index) => <tr key={project.name} className={index !== projects.length - 1 ? "border-b border-slate-100" : ""}><td className="px-5 py-4"><p className="text-sm font-semibold text-[#173b2a]">{project.name}</p><p className="mt-1 flex items-center gap-1 text-xs text-slate-500"><MapPin className="h-3 w-3" />{project.location}</p></td><td className="px-4 py-4 text-xs font-medium text-slate-600">{project.programme}</td><td className="px-4 py-4"><StatusBadge tone={project.tone}>{project.status}</StatusBadge></td><td className="px-5 py-4 text-right text-xs text-slate-500">{index === 0 ? "Today, 10:24" : `${index + 1} days ago`}</td></tr>)}</tbody></table></div></section>
+          <section className="mt-7 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]"><div className="flex items-center justify-between border-b border-slate-200 px-5 py-4"><div><h2 className="font-bold text-[#173b2a]">Projects across Nigeria</h2><p className="mt-1 text-xs text-slate-500">{filters.contractors === defaultFilters.contractors ? "Breakdown by program and contractor" : `${filters.contractors} projects across Nigeria`}</p></div><button className="text-xs font-semibold text-[#08733f] hover:underline">View all projects</button></div><div className="overflow-x-auto"><table className="w-full min-w-[780px] text-left"><thead className="bg-slate-50 text-[10px] uppercase tracking-[0.1em] text-slate-500"><tr><th className="px-5 py-3 font-semibold">Project</th><th className="px-4 py-3 font-semibold">Programme</th><th className="px-4 py-3 font-semibold">Contractor</th><th className="px-4 py-3 font-semibold">Status</th><th className="px-5 py-3 text-right font-semibold">Updated</th></tr></thead><tbody>{visibleProjects.map((project, index) => <tr key={project.name} className={index !== visibleProjects.length - 1 ? "border-b border-slate-100" : ""}><td className="px-5 py-4"><p className="text-sm font-semibold text-[#173b2a]">{project.name}</p><p className="mt-1 flex items-center gap-1 text-xs text-slate-500"><MapPin className="h-3 w-3" />{project.location}</p></td><td className="px-4 py-4 text-xs font-medium text-slate-600">{project.programme}</td><td className="px-4 py-4 text-xs font-medium text-slate-600">{project.contractor}</td><td className="px-4 py-4"><StatusBadge tone={project.tone}>{project.status}</StatusBadge></td><td className="px-5 py-4 text-right text-xs text-slate-500">{index === 0 ? "Today, 10:24" : `${index + 1} days ago`}</td></tr>)}</tbody></table></div></section>
         </div>
       </main>
     </div>
