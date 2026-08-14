@@ -9,6 +9,8 @@ import {
   FolderKanban,
   LayoutDashboard,
   MapPin,
+  Home,
+  Zap,
   Menu,
   MoreHorizontal,
   Search,
@@ -27,12 +29,41 @@ const navigation = [
   { label: "Programmes", icon: UsersRound },
 ];
 
-const metrics = [
-  { label: "Total Programmes", value: "3", detail: "NEP · AMP · DARES", icon: Building2, highlighted: false },
-  { label: "Active Projects", value: "126", detail: "Across 27 states", icon: FolderKanban, highlighted: true },
-  { label: "Verified Projects", value: "84", detail: "66.7% of active projects", icon: CheckCircle2, highlighted: false },
-  { label: "Pending Verification", value: "18", detail: "Requires officer action", icon: ClipboardCheck, highlighted: false, warning: true },
-];
+const filterOptions = {
+  programs: ["All programmes", "NEP", "DARES", "AMP"],
+  components: ["All components", "Solar mini-grid", "Grid extension", "Standalone solar"],
+  contracts: ["All contracts", "EPC", "Framework", "Community-led"],
+  months: ["June 2024", "May 2024", "April 2024", "March 2024"],
+};
+
+type FilterKey = keyof typeof filterOptions;
+type Filters = Record<FilterKey, string>;
+
+const defaultFilters: Filters = {
+  programs: filterOptions.programs[0],
+  components: filterOptions.components[0],
+  contracts: filterOptions.contracts[0],
+  months: filterOptions.months[0],
+};
+
+function getKpis(filters: Filters) {
+  const selectedCount = Object.values(filters).filter((value, index) => value !== Object.values(defaultFilters)[index]).length;
+  const monthFactor = filters.months === "June 2024" ? 1 : filters.months === "May 2024" ? 0.91 : filters.months === "April 2024" ? 0.84 : 0.76;
+  const factor = monthFactor * (selectedCount === 0 ? 1 : Math.max(0.38, 1 - selectedCount * 0.13));
+  const format = (value: number) => Math.round(value * factor).toLocaleString();
+
+  return [
+    { label: "Total Programmes", value: selectedCount ? "1" : "3", detail: selectedCount ? "Filtered programme view" : "NEP · AMP · DARES", icon: Building2, highlighted: false },
+    { label: "Installed capacity", value: `${format(18420)} kW`, detail: "Across monitored projects", icon: Zap, highlighted: true },
+    { label: "Households reached", value: format(24860), detail: "Connected households", icon: Home, highlighted: false },
+    { label: "Verified inspections", value: format(84), detail: `${Math.round(66.7 * factor)}% of submitted inspections`, icon: CheckCircle2, highlighted: false },
+    { label: "Pending verification", value: format(18), detail: "Requires officer action", icon: ClipboardCheck, highlighted: false, warning: true },
+  ];
+}
+
+function FilterSelect({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
+  return <label className="flex min-w-[150px] flex-1 flex-col gap-1.5"><span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">{label}</span><select value={value} onChange={(event) => onChange(event.target.value)} className="h-10 w-full appearance-none rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-[#173b2a] outline-none transition-colors focus:border-[#08733f] focus:ring-2 focus:ring-[#08733f]/10">{options.map((option) => <option key={option}>{option}</option>)}</select></label>;
+}
 
 const projects = [
   { name: "Kano Solar Mini-grid Programme", location: "Kano Municipal, Kano", programme: "NEP", status: "Verified", tone: "verified" },
@@ -66,6 +97,9 @@ function StatusBadge({ tone, children }: { tone: string; children: string }) {
 export default function Index() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeNav, setActiveNav] = useState("Overview");
+  const [filters, setFilters] = useState<Filters>(defaultFilters);
+  const metrics = getKpis(filters);
+  const updateFilter = (key: FilterKey, value: string) => setFilters((current) => ({ ...current, [key]: value }));
 
   const navContent = (
     <>
@@ -132,8 +166,10 @@ export default function Index() {
             <button className="inline-flex items-center justify-center gap-2 rounded-md bg-[#08733f] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#065d32]"><ClipboardCheck className="h-4 w-4" /> Review inspections</button>
           </div>
 
-          <section className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {metrics.map(({ label, value, detail, icon: Icon, highlighted, warning }) => <article key={label} className={`rounded-lg border p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] ${highlighted ? "border-[#cdebd6] bg-[#f4fcf6]" : "border-slate-200 bg-white"}`}><div className="flex items-start justify-between"><div className={`flex h-9 w-9 items-center justify-center rounded-md ${warning ? "bg-[#fff5dc] text-[#ad7200]" : "bg-[#eaf8ef] text-[#08733f]"}`}><Icon className="h-5 w-5" /></div><MoreHorizontal className="h-5 w-5 text-slate-400" /></div><p className="mt-5 text-sm font-medium text-slate-600">{label}</p><p className="mt-1 text-3xl font-bold tracking-tight text-[#153b28]">{value}</p><p className="mt-2 text-xs text-slate-500">{detail}</p></article>)}
+          <section className="mt-7 rounded-lg border border-[#d6e9da] bg-[#f7fcf8] p-4 sm:p-5"><div className="mb-4 flex items-center justify-between gap-3"><div><h2 className="text-sm font-bold text-[#173b2a]">Global filters</h2><p className="mt-1 text-xs text-slate-500">Filter programme performance across the dashboard</p></div><button onClick={() => setFilters(defaultFilters)} className="text-xs font-semibold text-[#08733f] hover:underline">Reset filters</button></div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><FilterSelect label="Programmes" value={filters.programs} options={filterOptions.programs} onChange={(value) => updateFilter("programs", value)} /><FilterSelect label="Components" value={filters.components} options={filterOptions.components} onChange={(value) => updateFilter("components", value)} /><FilterSelect label="Contract" value={filters.contracts} options={filterOptions.contracts} onChange={(value) => updateFilter("contracts", value)} /><FilterSelect label="Month" value={filters.months} options={filterOptions.months} onChange={(value) => updateFilter("months", value)} /></div></section>
+
+          <section className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            {metrics.map(({ label, value, detail, icon: Icon, highlighted, warning }) => <article key={label} className={`rounded-lg border p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] ${highlighted ? "border-[#cdebd6] bg-[#f4fcf6]" : "border-slate-200 bg-white"}`}><div className="flex items-start justify-between"><div className={`flex h-9 w-9 items-center justify-center rounded-md ${warning ? "bg-[#fff5dc] text-[#ad7200]" : "bg-[#eaf8ef] text-[#08733f]"}`}><Icon className="h-5 w-5" /></div><MoreHorizontal className="h-5 w-5 text-slate-400" /></div><p className="mt-5 text-sm font-medium text-slate-600">{label}</p><p className="mt-1 text-2xl font-bold tracking-tight text-[#153b28]">{value}</p><p className="mt-2 text-xs text-slate-500">{detail}</p></article>)}
           </section>
 
           <section className="mt-7 grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,.65fr)]">
