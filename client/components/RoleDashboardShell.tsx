@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Bell,
-  ChevronDown,
+  LogOut,
   Menu,
   Settings,
   UsersRound,
@@ -10,6 +10,7 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
+import { useAuth } from "../lib/auth";
 
 export type RoleNavigationItem = {
   label: string;
@@ -55,7 +56,7 @@ export default function RoleDashboardShell({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeNav, setActiveNav] = useState("Overview");
   const navigate = useNavigate();
-  const location = useLocation();
+  const { logout } = useAuth();
 
   const navContent = (
     <>
@@ -174,19 +175,17 @@ export default function RoleDashboardShell({
                 {roleName}
               </span>
             </div>
-            <label className="relative hidden md:block">
-              <span className="sr-only">Switch dashboard</span>
-              <select
-                value={location.pathname}
-                onChange={(event) => navigate(event.target.value)}
-                className="h-9 appearance-none rounded-md border border-slate-200 bg-white pl-3 pr-8 text-[11px] font-semibold text-slate-600 outline-none focus:border-[#08733f]"
-              >
-                <option value="/">National Overview</option>
-                <option value="/field-officer">Field Officer</option>
-                <option value="/consultant-admin">Consultant Admin</option>
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-2.5 top-2.5 h-4 w-4 text-slate-400" />
-            </label>
+            <button
+              type="button"
+              onClick={() => {
+                logout();
+                navigate("/login", { replace: true });
+              }}
+              className="flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-[11px] font-bold text-slate-600 hover:border-[#e2b5b5] hover:bg-red-50 hover:text-red-700"
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="hidden xl:inline">Logout</span>
+            </button>
           </div>
         </header>
         <div className="mx-auto max-w-[1580px] px-4 py-4 sm:px-7">

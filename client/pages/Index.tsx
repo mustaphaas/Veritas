@@ -15,7 +15,6 @@ import {
   BarChart3,
   Building2,
   CheckCircle2,
-  ChevronDown,
   ClipboardCheck,
   Clock3,
   Download,
@@ -25,6 +24,7 @@ import {
   Map as MapIcon,
   MapPin,
   LocateFixed,
+  LogOut,
   Home,
   Maximize2,
   Zap,
@@ -50,6 +50,7 @@ import {
   type Project,
   type StateSummary,
 } from "../lib/dashboard-data";
+import { useAuth } from "../lib/auth";
 
 const navigation = [
   { label: "Overview", icon: LayoutDashboard },
@@ -316,6 +317,7 @@ function StatusBadge({ tone, children }: { tone: string; children: string }) {
 
 export default function Index() {
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeNav, setActiveNav] = useState("Overview");
   const [showAllProjects, setShowAllProjects] = useState(false);
@@ -562,7 +564,7 @@ export default function Index() {
             </button>
             <div>
               <h1 className="text-lg font-bold tracking-tight text-[#142a1f] sm:text-[22px]">
-                National Project Overview
+                REA Dashboard
               </h1>
               <p className="mt-1 hidden text-xs text-slate-500 sm:block">
                 Monitor programme delivery and field verification across
@@ -587,22 +589,25 @@ export default function Index() {
                 3
               </span>
             </button>
-            <label className="relative hidden items-center gap-2 sm:flex">
-              <span className="sr-only">Switch dashboard</span>
+            <div className="hidden items-center gap-2 sm:flex">
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500">
                 <UsersRound className="h-5 w-5" />
               </div>
-              <select
-                value="/"
-                onChange={(event) => navigate(event.target.value)}
-                className="h-9 appearance-none rounded-md border border-slate-200 bg-white pl-3 pr-8 text-[11px] font-semibold text-[#142a1f] outline-none focus:border-[#08733f]"
-              >
-                <option value="/">REA Admin</option>
-                <option value="/field-officer">Field Officer</option>
-                <option value="/consultant-admin">Consultant Admin</option>
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-2.5 top-2.5 h-4 w-4 text-slate-400" />
-            </label>
+              <span className="hidden text-xs font-semibold text-[#142a1f] xl:inline">
+                REA Administrator
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                logout();
+                navigate("/login", { replace: true });
+              }}
+              className="flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-[11px] font-bold text-slate-600 hover:border-[#e2b5b5] hover:bg-red-50 hover:text-red-700"
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="hidden xl:inline">Logout</span>
+            </button>
           </div>
         </header>
 
