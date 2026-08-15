@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Bar,
   CartesianGrid,
@@ -314,6 +315,7 @@ function StatusBadge({ tone, children }: { tone: string; children: string }) {
 }
 
 export default function Index() {
+  const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeNav, setActiveNav] = useState("Overview");
   const [showAllProjects, setShowAllProjects] = useState(false);
@@ -585,15 +587,22 @@ export default function Index() {
                 3
               </span>
             </button>
-            <div className="hidden items-center gap-2 sm:flex">
+            <label className="relative hidden items-center gap-2 sm:flex">
+              <span className="sr-only">Switch dashboard</span>
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500">
                 <UsersRound className="h-5 w-5" />
               </div>
-              <span className="text-xs font-semibold text-[#142a1f]">
-                REA Admin
-              </span>
-              <ChevronDown className="h-4 w-4 text-slate-500" />
-            </div>
+              <select
+                value="/"
+                onChange={(event) => navigate(event.target.value)}
+                className="h-9 appearance-none rounded-md border border-slate-200 bg-white pl-3 pr-8 text-[11px] font-semibold text-[#142a1f] outline-none focus:border-[#08733f]"
+              >
+                <option value="/">REA Admin</option>
+                <option value="/field-officer">Field Officer</option>
+                <option value="/consultant-admin">Consultant Admin</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-2.5 h-4 w-4 text-slate-400" />
+            </label>
           </div>
         </header>
 
