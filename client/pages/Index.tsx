@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import {
   Bell,
+  BarChart3,
   Building2,
   CheckCircle2,
   ChevronDown,
@@ -29,7 +30,6 @@ import {
   Menu,
   Minus,
   Plus,
-  Search,
   Settings,
   ArrowRight,
   UsersRound,
@@ -53,11 +53,12 @@ import {
 const navigation = [
   { label: "Overview", icon: LayoutDashboard },
   { label: "Projects", icon: FolderKanban },
-  { label: "Project Map", icon: MapPin },
   { label: "Inspections", icon: ClipboardCheck },
-  { label: "Verified Reports", icon: FileCheck2 },
+  { label: "Verification", icon: FileCheck2 },
   { label: "Contractors", icon: Building2 },
-  { label: "Programmes", icon: UsersRound },
+  { label: "Analytics", icon: BarChart3 },
+  { label: "Reports", icon: FileCheck2 },
+  { label: "Users", icon: UsersRound },
 ];
 
 type BoundaryFeature = {
@@ -226,14 +227,14 @@ function getKpis(filteredProjects: Project[]) {
     {
       label: "Installed Capacity",
       value: `${(totals.kw / 1000).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} MW`,
-      detail: "Total commissioned capacity",
+      detail: "Across filtered projects",
       icon: Zap,
       tone: "highlighted",
     },
     {
       label: "Households Reached",
       value: totals.households.toLocaleString(),
-      detail: "Connections delivered",
+      detail: "Connected households",
       icon: Home,
       tone: "default",
     },
@@ -287,13 +288,10 @@ function FilterSelect({
 function AtlasMark() {
   return (
     <div
-      className="grid h-10 w-10 grid-cols-2 gap-1 rounded-lg bg-[#08733f] p-2 shadow-sm"
+      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-[3px] border-[#08733f] text-[#08733f]"
       aria-hidden="true"
     >
-      <span className="rounded-sm bg-white/95" />
-      <span className="rounded-sm bg-[#a7e1bd]" />
-      <span className="rounded-sm bg-[#dff5e6]" />
-      <span className="rounded-sm bg-white/95" />
+      <Zap className="h-7 w-7" fill="#e7f7ec" strokeWidth={2.5} />
     </div>
   );
 }
@@ -478,22 +476,19 @@ export default function Index() {
 
   const navContent = (
     <>
-      <div className="flex items-center gap-3 px-5 py-6">
+      <div className="flex h-[94px] items-center gap-3 px-4">
         <AtlasMark />
         <div>
-          <p className="text-[15px] font-bold tracking-[0.08em] text-[#075c33]">
-            ATLAS GRID
-          </p>
-          <p className="mt-0.5 text-[9px] font-semibold tracking-[0.08em] text-slate-500">
-            REA FIELD MONITORING
+          <p className="text-xl font-bold tracking-tight text-[#153b28]">REA</p>
+          <p className="mt-0.5 text-[7px] font-bold leading-[9px] text-[#173b2a]">
+            RURAL ELECTRIFICATION
+            <br />
+            AGENCY
           </p>
         </div>
       </div>
-      <div className="mx-5 h-px bg-slate-200" />
-      <nav className="flex-1 space-y-1 px-3 py-5">
-        <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
-          Workspace
-        </p>
+      <div className="h-px bg-slate-200" />
+      <nav className="flex-1 space-y-2 px-3 py-5">
         {navigation.map(({ label, icon: Icon }) => (
           <button
             key={label}
@@ -519,25 +514,13 @@ export default function Index() {
         <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50">
           <Settings className="h-[18px] w-[18px]" /> Settings
         </button>
-        <div className="mt-3 flex items-center gap-3 rounded-md bg-[#f6fcf7] px-3 py-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#d8f0df] text-xs font-bold text-[#075c33]">
-            MA
-          </div>
-          <div className="min-w-0 text-left">
-            <p className="truncate text-xs font-semibold text-[#173b2a]">
-              Mustapha Aliyu
-            </p>
-            <p className="text-[10px] text-slate-500">REA Administrator</p>
-          </div>
-          <ChevronDown className="ml-auto h-4 w-4 text-slate-400" />
-        </div>
       </div>
     </>
   );
 
   return (
     <div className="min-h-screen bg-[#f6f8f6] text-slate-900">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-slate-200 bg-white lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[190px] flex-col border-r border-slate-200 bg-white lg:flex">
         {navContent}
       </aside>
       <div
@@ -560,65 +543,60 @@ export default function Index() {
         </aside>
       </div>
 
-      <main className="lg:pl-64">
-        <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-7">
+      <main className="lg:pl-[190px]">
+        <header className="sticky top-0 z-20 flex h-[94px] items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-7 lg:px-8">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="rounded-md p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
+              className="rounded-md p-2 text-slate-600 hover:bg-slate-100"
               aria-label="Open navigation"
             >
               <Menu className="h-5 w-5" />
             </button>
-            <div className="relative hidden w-64 md:block">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-              <input
-                className="h-9 w-full rounded-md border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs outline-none focus:border-[#08733f] focus:ring-2 focus:ring-[#08733f]/10"
-                placeholder="Search projects, locations..."
-              />
+            <div>
+              <h1 className="text-lg font-bold tracking-tight text-[#142a1f] sm:text-[22px]">
+                National Project Overview
+              </h1>
+              <p className="mt-1 hidden text-xs text-slate-500 sm:block">
+                Monitor programme delivery and field verification across
+                Nigeria.
+              </p>
             </div>
-            <p className="text-sm font-semibold text-[#173b2a] md:hidden">
-              ATLAS GRID
-            </p>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="hidden items-center gap-2 text-xs text-slate-500 sm:flex">
+          <div className="flex items-center gap-2 sm:gap-4">
+            <span className="hidden items-center gap-2 text-xs font-semibold text-[#08733f] md:flex">
               <i className="h-2 w-2 rounded-full bg-[#08733f]" />
-              Online · Friday, 14 June 2024
+              Live data
+            </span>
+            <span className="hidden border-l border-slate-200 pl-4 text-xs text-slate-500 xl:block">
+              Last updated: Today, 10:24 AM
             </span>
             <button
               className="relative rounded-md p-2 text-slate-500 hover:bg-slate-100"
               aria-label="Notifications"
             >
               <Bell className="h-5 w-5" />
-              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full border border-white bg-[#d89100]" />
+              <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full border border-white bg-[#df7d00] px-1 text-[8px] font-bold text-white">
+                3
+              </span>
             </button>
+            <div className="hidden items-center gap-2 sm:flex">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                <UsersRound className="h-5 w-5" />
+              </div>
+              <span className="text-xs font-semibold text-[#142a1f]">
+                REA Admin
+              </span>
+              <ChevronDown className="h-4 w-4 text-slate-500" />
+            </div>
           </div>
         </header>
 
-        <div className="mx-auto max-w-[1520px] px-4 py-7 sm:px-7 lg:px-9">
-          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-            <div>
-              <p className="mb-1 text-xs font-semibold uppercase tracking-[0.13em] text-[#08733f]">
-                RURAL ELECTRIFICATION AGENCY
-              </p>
-              <h1 className="text-2xl font-bold tracking-tight text-[#153b28] sm:text-[28px]">
-                National Project Overview
-              </h1>
-              <p className="mt-1.5 text-sm text-slate-500">
-                Monitor programme delivery and field verification across
-                Nigeria.
-              </p>
-            </div>
-            <button className="inline-flex items-center justify-center gap-2 rounded-md bg-[#08733f] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#065d32]">
-              <ClipboardCheck className="h-4 w-4" /> Review Inspections
-            </button>
-          </div>
-
-          <section className="mt-7 rounded-lg border border-[#d6e9da] bg-[#f7fcf8] p-4 sm:p-5">
-            <div className="flex flex-wrap items-end gap-3 xl:flex-nowrap">
+        <div className="mx-auto max-w-[1580px] px-4 py-0 sm:px-7 lg:px-7">
+          <section className="rounded-b-lg border border-t-0 border-[#d6e9da] bg-[#f7fcf8] p-3">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[repeat(5,minmax(0,1fr))_205px]">
               {(Object.keys(filterDefaults) as FilterKey[]).map((key) => (
-                <div key={key} className="min-w-[150px] flex-1">
+                <div key={key} className="min-w-0 self-end">
                   <FilterSelect
                     label={filterLabels[key]}
                     value={filters[key]}
@@ -629,20 +607,34 @@ export default function Index() {
                   />
                 </div>
               ))}
-              <button
-                onClick={() => {
-                  setFilters(defaultFilters);
-                  setSelectedState(null);
-                  resetMapView();
-                }}
-                className="h-10 whitespace-nowrap rounded-md border border-[#b9dfc5] bg-white px-4 text-xs font-bold text-[#08733f] hover:bg-[#edf9f0]"
-              >
-                Reset
-              </button>
+              <div className="flex gap-2 sm:col-span-2 xl:col-span-1 xl:flex-col">
+                <button
+                  onClick={() => setActiveNav("Inspections")}
+                  className="flex h-10 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[#08733f] px-3 text-[11px] font-bold text-white hover:bg-[#065d32]"
+                >
+                  <ClipboardCheck className="h-4 w-4" /> Review Pending Reports
+                  (
+                  {
+                    visibleProjects.filter((project) => !project.verified)
+                      .length
+                  }
+                  )
+                </button>
+                <button
+                  onClick={() => {
+                    setFilters(defaultFilters);
+                    setSelectedState("Kano");
+                    resetMapView();
+                  }}
+                  className="flex h-10 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-[#76bd91] bg-white px-4 text-xs font-bold text-[#08733f] hover:bg-[#edf9f0]"
+                >
+                  <LocateFixed className="h-4 w-4" /> Reset filters
+                </button>
+              </div>
             </div>
           </section>
 
-          <section className="mt-5 flex gap-4 overflow-x-auto pb-1">
+          <section className="mt-3 flex gap-3 overflow-x-auto pb-1">
             {metrics.map(
               ({ label, value, detail, icon: Icon, tone, action }) => {
                 const cardClassName = `min-h-[128px] min-w-[210px] flex-1 rounded-lg border p-4 text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)] ${tone === "highlighted" ? "border-[#cdebd6] bg-[#f4fbf6]" : tone === "pending" ? "border-[#f1dfaf] bg-[#fffaf0] transition-colors hover:border-[#d9aa37] hover:bg-[#fff7df]" : "border-slate-200 bg-white"}`;
@@ -732,7 +724,7 @@ export default function Index() {
               >
                 <div
                   ref={mapContainerRef}
-                  className="relative min-h-[460px] overflow-hidden bg-[#f7fbf8] sm:h-[520px]"
+                  className="relative min-h-[400px] overflow-hidden bg-[#f7fbf8] sm:h-[440px]"
                   onWheel={(event) => {
                     event.preventDefault();
                     setMapZoom((zoom) =>
@@ -797,7 +789,7 @@ export default function Index() {
                   </div>
 
                   <svg
-                    className="relative z-10 h-full min-h-[460px] w-full touch-pan-x touch-pan-y sm:min-h-0"
+                    className="relative z-10 h-full min-h-[400px] w-full touch-pan-x touch-pan-y sm:min-h-0"
                     viewBox="0 0 650 300"
                     fill="none"
                     aria-label={`Interactive Nigeria state map viewed by ${mapMode}`}
@@ -995,7 +987,7 @@ export default function Index() {
 
                 {selectedSummary && (
                   <aside
-                    className="border-t border-slate-200 bg-white p-5 lg:border-l lg:border-t-0"
+                    className="border-t border-slate-200 bg-white p-4 lg:border-l lg:border-t-0"
                     aria-label={`${selectedSummary.state} state details`}
                   >
                     <div className="flex items-start justify-between">
@@ -1016,7 +1008,7 @@ export default function Index() {
                         <X className="h-4 w-4" />
                       </button>
                     </div>
-                    <dl className="mt-5 divide-y divide-slate-100 text-sm">
+                    <dl className="mt-3 divide-y divide-slate-100 text-sm">
                       {[
                         {
                           label: "Projects",
@@ -1051,7 +1043,7 @@ export default function Index() {
                       ].map(({ label, value, icon: Icon, tone }) => (
                         <div
                           key={label}
-                          className="flex items-center gap-3 py-3"
+                          className="flex items-center gap-3 py-2.5"
                         >
                           <Icon className={`h-4 w-4 ${tone}`} />
                           <dt className="text-xs text-slate-600">{label}</dt>
@@ -1061,7 +1053,7 @@ export default function Index() {
                         </div>
                       ))}
                     </dl>
-                    <div className="mt-5 border-t border-slate-100 pt-5">
+                    <div className="mt-4 border-t border-slate-100 pt-4">
                       <h4 className="text-sm font-bold text-[#173b2a]">
                         Projects by Component
                       </h4>
@@ -1130,7 +1122,7 @@ export default function Index() {
                             }),
                         );
                       }}
-                      className="mt-6 flex w-full items-center justify-between rounded-md border border-[#8bcba0] px-3 py-2.5 text-xs font-bold text-[#08733f] hover:bg-[#f0fbf3]"
+                      className="mt-4 flex w-full items-center justify-between rounded-md border border-[#8bcba0] px-3 py-2.5 text-xs font-bold text-[#08733f] hover:bg-[#f0fbf3]"
                     >
                       View all projects in {selectedSummary.state}
                       <ArrowRight className="h-4 w-4" />
@@ -1312,7 +1304,7 @@ export default function Index() {
                 </button>
               </div>
               <div className="px-5 py-2">
-                {visibleProjects.slice(0, 3).map((project, index) => (
+                {visibleProjects.slice(0, 2).map((project, index) => (
                   <div
                     key={project.name}
                     className="flex items-center gap-3 border-b border-slate-100 py-3 last:border-0"
@@ -1364,17 +1356,17 @@ export default function Index() {
                   </p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3 p-4">
+              <div className="grid grid-cols-4 gap-2 p-4">
                 <button
                   onClick={() => setActiveNav("Projects")}
-                  className="flex min-h-[92px] flex-col items-center justify-center rounded-lg border border-[#cdebd6] bg-[#effaf2] p-3 text-center hover:bg-[#e6f7eb]"
+                  className="flex min-h-[92px] flex-col items-center justify-center rounded-lg border border-[#cdebd6] bg-[#effaf2] p-2 text-center hover:bg-[#e6f7eb]"
                 >
                   <FolderKanban className="h-6 w-6 text-[#08733f]" />
                   <strong className="mt-2 block text-[11px] text-[#173b2a]">
                     Add Project
                   </strong>
                 </button>
-                <button className="flex min-h-[92px] flex-col items-center justify-center rounded-lg border border-[#d7e4f5] bg-[#f1f6fd] p-3 text-center hover:bg-[#eaf2fc]">
+                <button className="flex min-h-[92px] flex-col items-center justify-center rounded-lg border border-[#d7e4f5] bg-[#f1f6fd] p-2 text-center hover:bg-[#eaf2fc]">
                   <Download className="h-6 w-6 text-[#3772ad]" />
                   <strong className="mt-2 block text-[11px] text-[#173b2a]">
                     Upload Report
@@ -1382,7 +1374,7 @@ export default function Index() {
                 </button>
                 <button
                   onClick={() => setActiveNav("Inspections")}
-                  className="flex min-h-[92px] flex-col items-center justify-center rounded-lg border border-[#dddff7] bg-[#f5f4fd] p-3 text-center hover:bg-[#eeecfb]"
+                  className="flex min-h-[92px] flex-col items-center justify-center rounded-lg border border-[#dddff7] bg-[#f5f4fd] p-2 text-center hover:bg-[#eeecfb]"
                 >
                   <UsersRound className="h-6 w-6 text-[#6078d3]" />
                   <strong className="mt-2 block text-[11px] text-[#173b2a]">
@@ -1391,7 +1383,7 @@ export default function Index() {
                 </button>
                 <button
                   onClick={() => setActiveNav("Inspections")}
-                  className="flex min-h-[92px] flex-col items-center justify-center rounded-lg border border-[#f3dfad] bg-[#fff8e8] p-3 text-center hover:bg-[#fff3d5]"
+                  className="flex min-h-[92px] flex-col items-center justify-center rounded-lg border border-[#f3dfad] bg-[#fff8e8] p-2 text-center hover:bg-[#fff3d5]"
                 >
                   <Clock3 className="h-6 w-6 text-[#d89100]" />
                   <strong className="mt-2 block text-[11px] text-[#173b2a]">
@@ -1409,44 +1401,19 @@ export default function Index() {
             <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] md:col-span-2 xl:col-span-1">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-bold text-[#173b2a]">
-                  Verification Status
+                  Projects Across Nigeria
                 </h2>
                 <span className="text-[10px] font-semibold text-slate-500">
-                  Filtered portfolio
+                  Current filtered view
                 </span>
               </div>
-              <div className="mt-5 flex items-end justify-between gap-3">
-                <div>
-                  <p className="text-4xl font-bold tracking-tight text-[#173b2a]">
-                    {visibleProjects.length
-                      ? Math.round(
-                          (visibleProjects.filter((project) => project.verified)
-                            .length /
-                            visibleProjects.length) *
-                            100,
-                        )
-                      : 0}
-                    %
-                  </p>
-                  <p className="mt-1 text-[11px] text-slate-500">
-                    {
-                      visibleProjects.filter((project) => project.verified)
-                        .length
-                    }{" "}
-                    of {visibleProjects.length} reports verified
-                  </p>
-                </div>
-                <CheckCircle2 className="h-9 w-9 text-[#119653]" />
-              </div>
-              <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="h-full rounded-full bg-[#119653]"
-                  style={{
-                    width: `${visibleProjects.length ? (visibleProjects.filter((project) => project.verified).length / visibleProjects.length) * 100 : 0}%`,
-                  }}
-                />
-              </div>
-              <div className="mt-5 grid grid-cols-2 gap-3">
+              <p className="mt-5 text-4xl font-bold tracking-tight text-[#173b2a]">
+                {visibleProjects.length}
+              </p>
+              <p className="mt-1 text-[11px] font-semibold text-slate-500">
+                Total Projects
+              </p>
+              <div className="mt-5 grid grid-cols-3 gap-3">
                 <div className="rounded-lg bg-[#edf8f0] p-3 text-center">
                   <p className="text-2xl font-bold text-[#08733f]">
                     {
@@ -1469,14 +1436,19 @@ export default function Index() {
                     Pending
                   </p>
                 </div>
+                <div className="rounded-lg bg-[#eef3fc] p-3 text-center">
+                  <p className="text-2xl font-bold text-[#4775c5]">
+                    {
+                      visibleProjects.filter(
+                        (project) => project.status === "Submitted",
+                      ).length
+                    }
+                  </p>
+                  <p className="mt-1 text-[10px] font-semibold text-[#486a9e]">
+                    Submitted
+                  </p>
+                </div>
               </div>
-              <button
-                onClick={() => setActiveNav("Inspections")}
-                className="mt-4 flex w-full items-center justify-between rounded-md border border-[#efdb9d] bg-[#fffaf0] px-3 py-2.5 text-[11px] font-bold text-[#9a6500] hover:bg-[#fff5dc]"
-              >
-                Review verification queue
-                <ArrowRight className="h-4 w-4" />
-              </button>
             </article>
           </section>
 

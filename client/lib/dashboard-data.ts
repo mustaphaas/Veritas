@@ -154,7 +154,7 @@ export const filterDefaults = {
   components: "All Components",
   states: "All States",
   contractors: "All Contractors",
-  months: "Month",
+  months: "All Months",
 } as const;
 export type FilterKey = keyof typeof filterDefaults;
 export type Filters = Record<FilterKey, string>;
