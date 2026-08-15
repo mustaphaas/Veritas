@@ -316,6 +316,7 @@ function StatusBadge({ tone, children }: { tone: string; children: string }) {
 export default function Index() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeNav, setActiveNav] = useState("Overview");
+  const [showAllProjects, setShowAllProjects] = useState(false);
   const [boundaries, setBoundaries] = useState<BoundaryFeature[]>([]);
   useEffect(() => {
     fetch("/nigeria-adm1.geojson")
@@ -335,6 +336,10 @@ export default function Index() {
   } | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const visibleProjects = useMemo(() => matchingProjects(filters), [filters]);
+  const displayedProjects = showAllProjects
+    ? visibleProjects
+    : visibleProjects.slice(0, 20);
+  useEffect(() => setShowAllProjects(false), [filters]);
   const metrics = getKpis(visibleProjects);
   const programmePerformance = useMemo(
     () =>
@@ -1462,8 +1467,17 @@ export default function Index() {
                     : `${filters.contractors} projects across Nigeria`}
                 </p>
               </div>
-              <button className="text-xs font-semibold text-[#08733f] hover:underline">
-                View all projects
+              <button
+                type="button"
+                onClick={() => setShowAllProjects((showAll) => !showAll)}
+                disabled={visibleProjects.length <= 20}
+                className="text-xs font-semibold text-[#08733f] hover:underline disabled:cursor-default disabled:text-slate-400 disabled:no-underline"
+              >
+                {visibleProjects.length <= 20
+                  ? "All projects shown"
+                  : showAllProjects
+                    ? "Show first 20"
+                    : "View all projects"}
               </button>
             </div>
             <div className="overflow-x-auto">
@@ -1480,11 +1494,11 @@ export default function Index() {
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleProjects.map((project, index) => (
+                  {displayedProjects.map((project, index) => (
                     <tr
                       key={project.name}
                       className={
-                        index !== visibleProjects.length - 1
+                        index !== displayedProjects.length - 1
                           ? "border-b border-slate-100"
                           : ""
                       }
@@ -1516,6 +1530,24 @@ export default function Index() {
                   ))}
                 </tbody>
               </table>
+            </div>
+            <div className="flex flex-col gap-3 border-t border-slate-200 bg-[#fbfefb] px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-slate-500">
+                Showing {displayedProjects.length.toLocaleString()} of{" "}
+                {visibleProjects.length.toLocaleString()} projects
+              </p>
+              {visibleProjects.length > 20 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllProjects((showAll) => !showAll)}
+                  className="inline-flex items-center gap-2 text-xs font-bold text-[#08733f] hover:underline"
+                >
+                  {showAllProjects ? "Show first 20" : "View all projects"}
+                  <ArrowRight
+                    className={`h-4 w-4 transition-transform ${showAllProjects ? "rotate-180" : ""}`}
+                  />
+                </button>
+              )}
             </div>
           </section>
           <footer className="mt-8 -mx-4 flex flex-col gap-3 border-t border-[#d6e9da] bg-[#f0fbf5] px-4 py-5 sm:-mx-7 sm:flex-row sm:items-center sm:justify-between sm:px-7 lg:-mx-9 lg:px-9">
