@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Bar,
   CartesianGrid,
+  ComposedChart,
   Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -10,7 +11,6 @@ import {
 } from "recharts";
 import {
   Bell,
-  BellRing,
   Building2,
   CheckCircle2,
   ChevronDown,
@@ -20,7 +20,6 @@ import {
   FileCheck2,
   FolderKanban,
   LayoutDashboard,
-  ListChecks,
   Map as MapIcon,
   MapPin,
   LocateFixed,
@@ -380,6 +379,13 @@ export default function Index() {
             (project) => project.status !== "In progress",
           ).length,
           verified: monthProjects.filter((project) => project.verified).length,
+          verificationRate: monthProjects.length
+            ? Math.round(
+                (monthProjects.filter((project) => project.verified).length /
+                  monthProjects.length) *
+                  100,
+              )
+            : 0,
         };
       });
   }, [visibleProjects]);
@@ -530,7 +536,7 @@ export default function Index() {
   );
 
   return (
-    <div className="min-h-screen bg-white text-slate-900">
+    <div className="min-h-screen bg-[#f6f8f6] text-slate-900">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-slate-200 bg-white lg:flex">
         {navContent}
       </aside>
@@ -689,590 +695,603 @@ export default function Index() {
             )}
           </section>
 
-          <section className="mt-7 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-            <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h2 className="font-bold text-[#173b2a]">
-                  National Project Coverage
-                </h2>
-                <p className="mt-1 text-xs text-slate-500">
-                  Project distribution across Nigeria by state
-                </p>
+          <div className="mt-4 grid items-start gap-4 xl:grid-cols-[minmax(0,2.15fr)_minmax(340px,0.9fr)]">
+            <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+              <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h2 className="font-bold text-[#173b2a]">
+                    National Project Coverage
+                  </h2>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Project distribution across Nigeria by state
+                  </p>
+                </div>
+                <div
+                  className="inline-flex w-full overflow-x-auto rounded-md border border-slate-200 bg-white p-1 lg:w-auto"
+                  aria-label="Map viewing mode"
+                >
+                  {mapModeOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setMapMode(option.value)}
+                      className={`whitespace-nowrap rounded px-3 py-2 text-xs font-semibold transition-colors ${mapMode === option.value ? "bg-[#08733f] text-white shadow-sm" : "text-slate-600 hover:bg-slate-50"}`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div
-                className="inline-flex w-full overflow-x-auto rounded-md border border-slate-200 bg-white p-1 lg:w-auto"
-                aria-label="Map viewing mode"
-              >
-                {mapModeOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setMapMode(option.value)}
-                    className={`whitespace-nowrap rounded px-3 py-2 text-xs font-semibold transition-colors ${mapMode === option.value ? "bg-[#08733f] text-white shadow-sm" : "text-slate-600 hover:bg-slate-50"}`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
 
-            <div
-              className={
-                selectedSummary
-                  ? "grid lg:grid-cols-[minmax(0,1fr)_340px]"
-                  : "grid"
-              }
-            >
               <div
-                ref={mapContainerRef}
-                className="relative min-h-[460px] overflow-hidden bg-[#f7fbf8] sm:h-[540px]"
-                onWheel={(event) => {
-                  event.preventDefault();
-                  setMapZoom((zoom) =>
-                    Math.min(
-                      2.5,
-                      Math.max(1, zoom + (event.deltaY < 0 ? 0.15 : -0.15)),
-                    ),
-                  );
-                }}
+                className={
+                  selectedSummary
+                    ? "grid lg:grid-cols-[minmax(0,1fr)_290px]"
+                    : "grid"
+                }
               >
                 <div
-                  className="absolute inset-0 opacity-80"
-                  style={{
-                    backgroundImage:
-                      "radial-gradient(circle at 48% 45%, #ffffff 0%, #f4faf6 48%, #edf6f0 100%)",
+                  ref={mapContainerRef}
+                  className="relative min-h-[460px] overflow-hidden bg-[#f7fbf8] sm:h-[520px]"
+                  onWheel={(event) => {
+                    event.preventDefault();
+                    setMapZoom((zoom) =>
+                      Math.min(
+                        2.5,
+                        Math.max(1, zoom + (event.deltaY < 0 ? 0.15 : -0.15)),
+                      ),
+                    );
                   }}
-                />
-
-                <div className="absolute left-3 top-3 z-20 flex flex-col overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setMapZoom((zoom) => Math.min(2.5, zoom + 0.25))
-                    }
-                    className="border-b border-slate-200 p-2 text-slate-600 hover:bg-slate-50"
-                    aria-label="Zoom in"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setMapZoom((zoom) => Math.max(1, zoom - 0.25))
-                    }
-                    className="border-b border-slate-200 p-2 text-slate-600 hover:bg-slate-50"
-                    aria-label="Zoom out"
-                  >
-                    <Minus className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (document.fullscreenElement) {
-                        void document.exitFullscreen();
-                      } else {
-                        void mapContainerRef.current?.requestFullscreen();
-                      }
-                    }}
-                    className="border-b border-slate-200 p-2 text-slate-600 hover:bg-slate-50"
-                    aria-label="Toggle fullscreen map"
-                  >
-                    <Maximize2 className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={resetMapView}
-                    className="p-2 text-slate-600 hover:bg-slate-50"
-                    aria-label="Fit map to Nigeria"
-                  >
-                    <LocateFixed className="h-4 w-4" />
-                  </button>
-                </div>
-
-                <svg
-                  className="relative z-10 h-full min-h-[460px] w-full touch-pan-x touch-pan-y sm:min-h-0"
-                  viewBox="0 0 650 300"
-                  fill="none"
-                  aria-label={`Interactive Nigeria state map viewed by ${mapMode}`}
                 >
-                  {stateBoundaryData.length ? (
-                    <g
-                      transform={`translate(325 150) scale(${mapZoom}) translate(${-mapFocus.x} ${-mapFocus.y})`}
+                  <div
+                    className="absolute inset-0 opacity-80"
+                    style={{
+                      backgroundImage:
+                        "radial-gradient(circle at 48% 45%, #ffffff 0%, #f4faf6 48%, #edf6f0 100%)",
+                    }}
+                  />
+
+                  <div className="absolute left-3 top-3 z-20 flex flex-col overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setMapZoom((zoom) => Math.min(2.5, zoom + 0.25))
+                      }
+                      className="border-b border-slate-200 p-2 text-slate-600 hover:bg-slate-50"
+                      aria-label="Zoom in"
                     >
-                      {stateBoundaryData.map(
-                        ({ boundary, state, centroid, key }) => {
+                      <Plus className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setMapZoom((zoom) => Math.max(1, zoom - 0.25))
+                      }
+                      className="border-b border-slate-200 p-2 text-slate-600 hover:bg-slate-50"
+                      aria-label="Zoom out"
+                    >
+                      <Minus className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (document.fullscreenElement) {
+                          void document.exitFullscreen();
+                        } else {
+                          void mapContainerRef.current?.requestFullscreen();
+                        }
+                      }}
+                      className="border-b border-slate-200 p-2 text-slate-600 hover:bg-slate-50"
+                      aria-label="Toggle fullscreen map"
+                    >
+                      <Maximize2 className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={resetMapView}
+                      className="p-2 text-slate-600 hover:bg-slate-50"
+                      aria-label="Fit map to Nigeria"
+                    >
+                      <LocateFixed className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  <svg
+                    className="relative z-10 h-full min-h-[460px] w-full touch-pan-x touch-pan-y sm:min-h-0"
+                    viewBox="0 0 650 300"
+                    fill="none"
+                    aria-label={`Interactive Nigeria state map viewed by ${mapMode}`}
+                  >
+                    {stateBoundaryData.length ? (
+                      <g
+                        transform={`translate(325 150) scale(${mapZoom}) translate(${-mapFocus.x} ${-mapFocus.y})`}
+                      >
+                        {stateBoundaryData.map(
+                          ({ boundary, state, centroid, key }) => {
+                            const summary = stateSummaries.find(
+                              (item) => item.state === state,
+                            );
+                            const value = mapMetric(summary, mapMode);
+                            const selected =
+                              state === selectedState ||
+                              filters.states === state;
+                            return (
+                              <path
+                                key={key}
+                                d={geometryPath(boundary.geometry)}
+                                fill={
+                                  mapPalette[
+                                    mapBand(value, mapMode, maximumMapMetric)
+                                  ]
+                                }
+                                stroke={selected ? "#075c33" : "#9fc8aa"}
+                                strokeWidth={
+                                  selected ? 2 : summary ? 1.05 : 0.7
+                                }
+                                vectorEffect="non-scaling-stroke"
+                                className={
+                                  summary
+                                    ? "cursor-pointer transition-colors hover:brightness-95 focus:outline-none"
+                                    : ""
+                                }
+                                role={summary ? "button" : undefined}
+                                tabIndex={summary ? 0 : undefined}
+                                aria-label={
+                                  summary
+                                    ? `${state}: ${formatMapMetric(value, mapMode)}`
+                                    : `${state}: no matching project data`
+                                }
+                                onClick={() => selectMapState(state, centroid)}
+                                onKeyDown={(event) => {
+                                  if (
+                                    summary &&
+                                    (event.key === "Enter" || event.key === " ")
+                                  )
+                                    selectMapState(state, centroid);
+                                }}
+                                onMouseMove={(event) => {
+                                  if (!summary) return;
+                                  const bounds =
+                                    mapContainerRef.current?.getBoundingClientRect();
+                                  if (bounds)
+                                    setMapTooltip({
+                                      state,
+                                      x: event.clientX - bounds.left,
+                                      y: event.clientY - bounds.top,
+                                    });
+                                }}
+                                onMouseLeave={() => setMapTooltip(null)}
+                              />
+                            );
+                          },
+                        )}
+                        {stateBoundaryData.map(({ state, centroid, key }) => {
                           const summary = stateSummaries.find(
                             (item) => item.state === state,
                           );
                           const value = mapMetric(summary, mapMode);
                           const selected =
                             state === selectedState || filters.states === state;
+                          const markerWidth =
+                            mapMode === "projects"
+                              ? 20
+                              : mapMode === "capacity"
+                                ? 42
+                                : 38;
                           return (
-                            <path
-                              key={key}
-                              d={geometryPath(boundary.geometry)}
-                              fill={
-                                mapPalette[
-                                  mapBand(value, mapMode, maximumMapMetric)
-                                ]
-                              }
-                              stroke={selected ? "#075c33" : "#9fc8aa"}
-                              strokeWidth={selected ? 2 : summary ? 1.05 : 0.7}
-                              vectorEffect="non-scaling-stroke"
-                              className={
-                                summary
-                                  ? "cursor-pointer transition-colors hover:brightness-95 focus:outline-none"
-                                  : ""
-                              }
-                              role={summary ? "button" : undefined}
-                              tabIndex={summary ? 0 : undefined}
-                              aria-label={
-                                summary
-                                  ? `${state}: ${formatMapMetric(value, mapMode)}`
-                                  : `${state}: no matching project data`
-                              }
-                              onClick={() => selectMapState(state, centroid)}
-                              onKeyDown={(event) => {
-                                if (
-                                  summary &&
-                                  (event.key === "Enter" || event.key === " ")
-                                )
-                                  selectMapState(state, centroid);
-                              }}
-                              onMouseMove={(event) => {
-                                if (!summary) return;
-                                const bounds =
-                                  mapContainerRef.current?.getBoundingClientRect();
-                                if (bounds)
-                                  setMapTooltip({
-                                    state,
-                                    x: event.clientX - bounds.left,
-                                    y: event.clientY - bounds.top,
-                                  });
-                              }}
-                              onMouseLeave={() => setMapTooltip(null)}
-                            />
-                          );
-                        },
-                      )}
-                      {stateBoundaryData.map(({ state, centroid, key }) => {
-                        const summary = stateSummaries.find(
-                          (item) => item.state === state,
-                        );
-                        const value = mapMetric(summary, mapMode);
-                        const selected =
-                          state === selectedState || filters.states === state;
-                        const markerWidth =
-                          mapMode === "projects"
-                            ? 20
-                            : mapMode === "capacity"
-                              ? 42
-                              : 38;
-                        return (
-                          <g
-                            key={`${key}-label`}
-                            transform={`translate(${centroid.x} ${centroid.y})`}
-                            pointerEvents="none"
-                          >
-                            <text
-                              y={summary ? -5 : 2}
-                              textAnchor="middle"
-                              fill={selected ? "#064e2b" : "#315b3f"}
-                              fontSize="7"
-                              fontWeight={summary ? "700" : "500"}
+                            <g
+                              key={`${key}-label`}
+                              transform={`translate(${centroid.x} ${centroid.y})`}
+                              pointerEvents="none"
                             >
-                              {state}
-                            </text>
-                            {summary && (
-                              <>
-                                <rect
-                                  x={-markerWidth / 2}
-                                  y="0"
-                                  width={markerWidth}
-                                  height="15"
-                                  rx="7.5"
-                                  fill={selected ? "#08733f" : "white"}
-                                  stroke={selected ? "white" : "#b9dfc5"}
-                                  strokeWidth="1.2"
-                                  vectorEffect="non-scaling-stroke"
-                                />
-                                <text
-                                  y="10.5"
-                                  textAnchor="middle"
-                                  fill={selected ? "white" : "#08733f"}
-                                  fontSize={
-                                    mapMode === "projects" ? "8" : "6.2"
-                                  }
-                                  fontWeight="800"
-                                >
-                                  {formatMapMetric(value, mapMode, true)}
-                                </text>
-                              </>
-                            )}
-                          </g>
-                        );
-                      })}
-                    </g>
-                  ) : (
-                    <text
-                      x="325"
-                      y="150"
-                      textAnchor="middle"
-                      fill="#557060"
-                      fontSize="12"
-                      fontWeight="600"
-                    >
-                      Nigeria state boundary data is unavailable.
-                    </text>
-                  )}
-                </svg>
+                              <text
+                                y={summary ? -5 : 2}
+                                textAnchor="middle"
+                                fill={selected ? "#064e2b" : "#315b3f"}
+                                fontSize="7"
+                                fontWeight={summary ? "700" : "500"}
+                              >
+                                {state}
+                              </text>
+                              {summary && (
+                                <>
+                                  <rect
+                                    x={-markerWidth / 2}
+                                    y="0"
+                                    width={markerWidth}
+                                    height="15"
+                                    rx="7.5"
+                                    fill={selected ? "#08733f" : "white"}
+                                    stroke={selected ? "white" : "#b9dfc5"}
+                                    strokeWidth="1.2"
+                                    vectorEffect="non-scaling-stroke"
+                                  />
+                                  <text
+                                    y="10.5"
+                                    textAnchor="middle"
+                                    fill={selected ? "white" : "#08733f"}
+                                    fontSize={
+                                      mapMode === "projects" ? "8" : "6.2"
+                                    }
+                                    fontWeight="800"
+                                  >
+                                    {formatMapMetric(value, mapMode, true)}
+                                  </text>
+                                </>
+                              )}
+                            </g>
+                          );
+                        })}
+                      </g>
+                    ) : (
+                      <text
+                        x="325"
+                        y="150"
+                        textAnchor="middle"
+                        fill="#557060"
+                        fontSize="12"
+                        fontWeight="600"
+                      >
+                        Nigeria state boundary data is unavailable.
+                      </text>
+                    )}
+                  </svg>
 
-                {mapTooltip && tooltipSummary && (
-                  <div
-                    className="pointer-events-none absolute z-30 w-52 rounded-md border border-[#b9dfc5] bg-white p-3 text-xs shadow-lg"
-                    style={{
-                      left: mapTooltip.x + 12,
-                      top: Math.max(12, mapTooltip.y - 36),
-                    }}
-                  >
-                    <p className="font-bold text-[#173b2a]">
-                      {tooltipSummary.state}
-                      {activeMapFilters ? ` — ${activeMapFilters}` : ""}
+                  {mapTooltip && tooltipSummary && (
+                    <div
+                      className="pointer-events-none absolute z-30 w-52 rounded-md border border-[#b9dfc5] bg-white p-3 text-xs shadow-lg"
+                      style={{
+                        left: mapTooltip.x + 12,
+                        top: Math.max(12, mapTooltip.y - 36),
+                      }}
+                    >
+                      <p className="font-bold text-[#173b2a]">
+                        {tooltipSummary.state}
+                        {activeMapFilters ? ` — ${activeMapFilters}` : ""}
+                      </p>
+                      <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-slate-500">
+                        <span>Projects</span>
+                        <strong className="text-right text-[#173b2a]">
+                          {tooltipSummary.projects}
+                        </strong>
+                        <span>Capacity</span>
+                        <strong className="text-right text-[#173b2a]">
+                          {(tooltipSummary.kw / 1000).toFixed(1)} MW
+                        </strong>
+                        <span>Households</span>
+                        <strong className="text-right text-[#173b2a]">
+                          {tooltipSummary.households.toLocaleString()}
+                        </strong>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="absolute bottom-3 left-3 z-20 w-[208px] max-w-[calc(100%-1.5rem)] rounded-md border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur">
+                    <p className="text-[11px] font-bold text-[#173b2a]">
+                      {
+                        mapModeOptions.find(
+                          (option) => option.value === mapMode,
+                        )?.shortLabel
+                      }
                     </p>
-                    <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-slate-500">
-                      <span>Projects</span>
-                      <strong className="text-right text-[#173b2a]">
-                        {tooltipSummary.projects}
-                      </strong>
-                      <span>Capacity</span>
-                      <strong className="text-right text-[#173b2a]">
-                        {(tooltipSummary.kw / 1000).toFixed(1)} MW
-                      </strong>
-                      <span>Households</span>
-                      <strong className="text-right text-[#173b2a]">
-                        {tooltipSummary.households.toLocaleString()}
-                      </strong>
+                    <div
+                      className="mt-2 h-2.5 rounded-full"
+                      style={{
+                        background: `linear-gradient(90deg, ${mapPalette.join(", ")})`,
+                      }}
+                    />
+                    <div className="mt-1.5 grid grid-cols-5 gap-1">
+                      {legendLabels.map((label, index) => (
+                        <span
+                          key={`${label}-${index}`}
+                          className={`${index === 0 ? "text-left" : index === legendLabels.length - 1 ? "text-right" : "text-center"} text-[9px] text-slate-500`}
+                        >
+                          {label}
+                        </span>
+                      ))}
                     </div>
                   </div>
-                )}
-
-                <div className="absolute bottom-3 left-3 z-20 w-[208px] max-w-[calc(100%-1.5rem)] rounded-md border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur">
-                  <p className="text-[11px] font-bold text-[#173b2a]">
-                    {
-                      mapModeOptions.find((option) => option.value === mapMode)
-                        ?.shortLabel
-                    }
-                  </p>
-                  <div
-                    className="mt-2 h-2.5 rounded-full"
-                    style={{
-                      background: `linear-gradient(90deg, ${mapPalette.join(", ")})`,
-                    }}
-                  />
-                  <div className="mt-1.5 grid grid-cols-5 gap-1">
-                    {legendLabels.map((label, index) => (
-                      <span
-                        key={`${label}-${index}`}
-                        className={`${index === 0 ? "text-left" : index === legendLabels.length - 1 ? "text-right" : "text-center"} text-[9px] text-slate-500`}
-                      >
-                        {label}
-                      </span>
-                    ))}
-                  </div>
                 </div>
-              </div>
 
-              {selectedSummary && (
-                <aside
-                  className="border-t border-slate-200 bg-white p-5 lg:border-l lg:border-t-0"
-                  aria-label={`${selectedSummary.state} state details`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-bold text-[#173b2a]">
-                        {selectedSummary.state} State
-                      </h3>
+                {selectedSummary && (
+                  <aside
+                    className="border-t border-slate-200 bg-white p-5 lg:border-l lg:border-t-0"
+                    aria-label={`${selectedSummary.state} state details`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="font-bold text-[#173b2a]">
+                          {selectedSummary.state} State
+                        </h3>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedState(null);
+                          resetMapView();
+                        }}
+                        className="rounded p-1 text-slate-400 hover:bg-slate-100"
+                        aria-label="Close state details"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <dl className="mt-5 divide-y divide-slate-100 text-sm">
+                      {[
+                        {
+                          label: "Projects",
+                          value: selectedSummary.projects.toLocaleString(),
+                          icon: FolderKanban,
+                          tone: "text-[#08733f]",
+                        },
+                        {
+                          label: "Installed Capacity",
+                          value: `${(selectedSummary.kw / 1000).toFixed(1)} MW`,
+                          icon: Zap,
+                          tone: "text-[#08733f]",
+                        },
+                        {
+                          label: "Households Reached",
+                          value: selectedSummary.households.toLocaleString(),
+                          icon: Home,
+                          tone: "text-[#08733f]",
+                        },
+                        {
+                          label: "Verified Reports",
+                          value: selectedSummary.verified.toLocaleString(),
+                          icon: CheckCircle2,
+                          tone: "text-[#08733f]",
+                        },
+                        {
+                          label: "Pending Verification",
+                          value: selectedSummary.pending.toLocaleString(),
+                          icon: Clock3,
+                          tone: "text-[#d89100]",
+                        },
+                      ].map(({ label, value, icon: Icon, tone }) => (
+                        <div
+                          key={label}
+                          className="flex items-center gap-3 py-3"
+                        >
+                          <Icon className={`h-4 w-4 ${tone}`} />
+                          <dt className="text-xs text-slate-600">{label}</dt>
+                          <dd className="ml-auto font-bold text-[#173b2a]">
+                            {value}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                    <div className="mt-5 border-t border-slate-100 pt-5">
+                      <h4 className="text-sm font-bold text-[#173b2a]">
+                        Projects by Component
+                      </h4>
+                      <div className="mt-4 flex items-center gap-5">
+                        <div
+                          className="relative h-[92px] w-[92px] shrink-0 rounded-full"
+                          style={{
+                            background: componentDonutGradient(selectedSummary),
+                          }}
+                          aria-label={`${selectedSummary.state} component distribution`}
+                        >
+                          <div className="absolute inset-[18px] flex items-center justify-center rounded-full bg-white">
+                            <span className="text-lg font-bold text-[#173b2a]">
+                              {selectedSummary.projects}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="min-w-0 flex-1 space-y-2.5">
+                          {selectedSummary.byComponent.map(
+                            (component, index) => (
+                              <div
+                                key={component.name}
+                                className="flex items-center gap-2 text-[10px]"
+                              >
+                                <span
+                                  className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                                  style={{
+                                    backgroundColor:
+                                      componentPalette[
+                                        index % componentPalette.length
+                                      ],
+                                  }}
+                                />
+                                <span className="min-w-0 flex-1 truncate text-slate-600">
+                                  {component.name}
+                                </span>
+                                <strong className="whitespace-nowrap text-[#173b2a]">
+                                  {component.value} (
+                                  {Math.round(
+                                    (component.value /
+                                      selectedSummary.projects) *
+                                      100,
+                                  )}
+                                  %)
+                                </strong>
+                              </div>
+                            ),
+                          )}
+                        </div>
+                      </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => {
-                        setSelectedState(null);
-                        resetMapView();
+                        updateFilterWithDependencies(
+                          "states",
+                          selectedSummary.state,
+                        );
+                        setActiveNav("Projects");
+                        window.requestAnimationFrame(() =>
+                          document
+                            .getElementById("projects-table")
+                            ?.scrollIntoView({
+                              behavior: "smooth",
+                              block: "start",
+                            }),
+                        );
                       }}
-                      className="rounded p-1 text-slate-400 hover:bg-slate-100"
-                      aria-label="Close state details"
+                      className="mt-6 flex w-full items-center justify-between rounded-md border border-[#8bcba0] px-3 py-2.5 text-xs font-bold text-[#08733f] hover:bg-[#f0fbf3]"
                     >
-                      <X className="h-4 w-4" />
+                      View all projects in {selectedSummary.state}
+                      <ArrowRight className="h-4 w-4" />
                     </button>
-                  </div>
-                  <dl className="mt-5 divide-y divide-slate-100 text-sm">
-                    {[
-                      {
-                        label: "Projects",
-                        value: selectedSummary.projects.toLocaleString(),
-                        icon: FolderKanban,
-                        tone: "text-[#08733f]",
-                      },
-                      {
-                        label: "Installed Capacity",
-                        value: `${(selectedSummary.kw / 1000).toFixed(1)} MW`,
-                        icon: Zap,
-                        tone: "text-[#08733f]",
-                      },
-                      {
-                        label: "Households Reached",
-                        value: selectedSummary.households.toLocaleString(),
-                        icon: Home,
-                        tone: "text-[#08733f]",
-                      },
-                      {
-                        label: "Verified Reports",
-                        value: selectedSummary.verified.toLocaleString(),
-                        icon: CheckCircle2,
-                        tone: "text-[#08733f]",
-                      },
-                      {
-                        label: "Pending Verification",
-                        value: selectedSummary.pending.toLocaleString(),
-                        icon: Clock3,
-                        tone: "text-[#d89100]",
-                      },
-                    ].map(({ label, value, icon: Icon, tone }) => (
-                      <div key={label} className="flex items-center gap-3 py-3">
-                        <Icon className={`h-4 w-4 ${tone}`} />
-                        <dt className="text-xs text-slate-600">{label}</dt>
-                        <dd className="ml-auto font-bold text-[#173b2a]">
-                          {value}
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
-                  <div className="mt-5 border-t border-slate-100 pt-5">
-                    <h4 className="text-sm font-bold text-[#173b2a]">
-                      Projects by Component
-                    </h4>
-                    <div className="mt-4 flex items-center gap-5">
+                  </aside>
+                )}
+              </div>
+              <div className="flex items-center gap-2 border-t border-slate-200 bg-[#fbfefb] px-5 py-3 text-xs text-slate-500">
+                <MapIcon className="h-4 w-4 text-[#08733f]" />
+                The map shows live filtered {mapMode}. Select a state for its
+                detailed breakdown.
+              </div>
+            </section>
+
+            <div className="grid gap-4">
+              <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
+                  <h2 className="text-sm font-bold text-[#173b2a]">
+                    Programme Performance
+                  </h2>
+                  <button className="text-[11px] font-semibold text-[#08733f] hover:underline">
+                    View all
+                  </button>
+                </div>
+                <div className="divide-y divide-slate-100 px-4">
+                  {programmePerformance.map((row, index) => (
+                    <div
+                      key={row.programme}
+                      className="grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-3 py-3"
+                    >
                       <div
-                        className="relative h-[92px] w-[92px] shrink-0 rounded-full"
-                        style={{
-                          background: componentDonutGradient(selectedSummary),
-                        }}
-                        aria-label={`${selectedSummary.state} component distribution`}
+                        className={`flex h-8 w-8 items-center justify-center rounded-md ${index === 3 ? "bg-[#fff4d9] text-[#d18a00]" : "bg-[#eaf8ef] text-[#0c8a49]"}`}
                       >
-                        <div className="absolute inset-[18px] flex items-center justify-center rounded-full bg-white">
-                          <span className="text-lg font-bold text-[#173b2a]">
-                            {selectedSummary.projects}
+                        <Building2 className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center justify-between gap-2 text-[11px]">
+                          <strong className="text-[#173b2a]">
+                            {row.programme}
+                          </strong>
+                          <span className="text-slate-600">
+                            {row.projects}{" "}
+                            {row.projects === 1 ? "Project" : "Projects"}
                           </span>
                         </div>
-                      </div>
-                      <div className="min-w-0 flex-1 space-y-2.5">
-                        {selectedSummary.byComponent.map((component, index) => (
+                        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100">
                           <div
-                            key={component.name}
-                            className="flex items-center gap-2 text-[10px]"
-                          >
-                            <span
-                              className="h-2.5 w-2.5 shrink-0 rounded-sm"
-                              style={{
-                                backgroundColor:
-                                  componentPalette[
-                                    index % componentPalette.length
-                                  ],
-                              }}
-                            />
-                            <span className="min-w-0 flex-1 truncate text-slate-600">
-                              {component.name}
-                            </span>
-                            <strong className="whitespace-nowrap text-[#173b2a]">
-                              {component.value} (
-                              {Math.round(
-                                (component.value / selectedSummary.projects) *
-                                  100,
-                              )}
-                              %)
-                            </strong>
-                          </div>
-                        ))}
+                            className="h-full rounded-full bg-[#08733f]"
+                            style={{
+                              width: `${(row.projects / Math.max(1, ...programmePerformance.map((item) => item.projects))) * 100}%`,
+                            }}
+                          />
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      updateFilterWithDependencies(
-                        "states",
-                        selectedSummary.state,
-                      );
-                      setActiveNav("Projects");
-                      window.requestAnimationFrame(() =>
-                        document
-                          .getElementById("projects-table")
-                          ?.scrollIntoView({
-                            behavior: "smooth",
-                            block: "start",
-                          }),
-                      );
-                    }}
-                    className="mt-6 flex w-full items-center justify-between rounded-md border border-[#8bcba0] px-3 py-2.5 text-xs font-bold text-[#08733f] hover:bg-[#f0fbf3]"
-                  >
-                    View all projects in {selectedSummary.state}
-                    <ArrowRight className="h-4 w-4" />
-                  </button>
-                </aside>
-              )}
-            </div>
-            <div className="flex items-center gap-2 border-t border-slate-200 bg-[#fbfefb] px-5 py-3 text-xs text-slate-500">
-              <MapIcon className="h-4 w-4 text-[#08733f]" />
-              The map shows live filtered {mapMode}. Select a state for its
-              detailed breakdown.
-            </div>
-          </section>
-
-          <section className="mt-7 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-            <div className="border-b border-slate-200 px-5 py-4">
-              <h2 className="font-bold text-[#173b2a]">
-                Programme Performance
-              </h2>
-              <p className="mt-1 text-xs text-slate-500">
-                Programme-level delivery for the current filtered view
-              </p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[620px] text-left">
-                <thead className="bg-slate-50 text-[10px] uppercase tracking-[0.1em] text-slate-500">
-                  <tr>
-                    {[
-                      "Programme",
-                      "Projects",
-                      "Capacity",
-                      "Households",
-                      "Verified",
-                    ].map((heading) => (
-                      <th key={heading} className="px-5 py-3 font-semibold">
-                        {heading}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {programmePerformance.map((row) => (
-                    <tr
-                      key={row.programme}
-                      className="border-t border-slate-100"
-                    >
-                      <td className="px-5 py-4 text-sm font-bold text-[#08733f]">
-                        {row.programme}
-                      </td>
-                      <td className="px-5 py-4 text-sm font-semibold text-[#173b2a]">
-                        {row.projects}
-                      </td>
-                      <td className="px-5 py-4 text-sm text-slate-600">
+                      <span className="whitespace-nowrap text-[11px] font-semibold text-slate-600">
                         {row.capacity.toFixed(1)} MW
-                      </td>
-                      <td className="px-5 py-4 text-sm text-slate-600">
-                        {row.households.toLocaleString()}
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className="rounded-full bg-[#eaf8ef] px-2.5 py-1 text-xs font-bold text-[#08733f]">
-                          {row.verified}%
-                        </span>
-                      </td>
-                    </tr>
+                      </span>
+                    </div>
                   ))}
-                </tbody>
-              </table>
-            </div>
-            {!programmePerformance.length && (
-              <p className="px-5 py-8 text-center text-sm text-slate-500">
-                No programme data matches the selected filters.
-              </p>
-            )}
-          </section>
+                </div>
+                {!programmePerformance.length && (
+                  <p className="px-5 py-8 text-center text-sm text-slate-500">
+                    No programme data matches the selected filters.
+                  </p>
+                )}
+              </section>
 
-          <section className="mt-7 rounded-lg border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-            <div>
-              <h2 className="font-bold text-[#173b2a]">
-                Project &amp; Verification Trend
-              </h2>
-              <p className="mt-1 text-xs text-slate-500">
-                Monthly movement in inspections, submissions and REA
-                verification
-              </p>
-            </div>
-            <div
-              className="mt-5 h-64"
-              aria-label="Project and verification trend chart"
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                  data={trendData}
-                  margin={{ top: 8, right: 12, left: -20, bottom: 0 }}
+              <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-sm font-bold text-[#173b2a]">
+                    Project &amp; Verification Trend
+                  </h2>
+                  <span className="rounded-md border border-slate-200 px-2.5 py-1 text-[10px] font-semibold text-slate-600">
+                    Current period
+                  </span>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-3 text-[10px] text-slate-500">
+                  {[
+                    ["#cbd5e1", "Submitted"],
+                    ["#5bc18d", "Verified"],
+                    ["#08733f", "Verification rate"],
+                  ].map(([color, label]) => (
+                    <span key={label} className="flex items-center gap-1.5">
+                      <i
+                        className="h-2 w-2 rounded-sm"
+                        style={{ backgroundColor: color }}
+                      />
+                      {label}
+                    </span>
+                  ))}
+                </div>
+                <div
+                  className="mt-3 h-[250px]"
+                  aria-label="Project and verification trend chart"
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5ece7" />
-                  <XAxis
-                    dataKey="month"
-                    tick={{ fontSize: 11, fill: "#64748b" }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    allowDecimals={false}
-                    tick={{ fontSize: 11, fill: "#64748b" }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: 8,
-                      borderColor: "#dbe7de",
-                      fontSize: 12,
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="inspections"
-                    name="Inspections completed"
-                    stroke="#08733f"
-                    strokeWidth={2.5}
-                    dot={{ r: 3 }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="submitted"
-                    name="Reports submitted"
-                    stroke="#377fd2"
-                    strokeWidth={2.5}
-                    dot={{ r: 3 }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="verified"
-                    name="Reports verified"
-                    stroke="#d89100"
-                    strokeWidth={2.5}
-                    dot={{ r: 3 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart
+                      data={trendData}
+                      margin={{ top: 8, right: -8, left: -28, bottom: 0 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5ece7" />
+                      <XAxis
+                        dataKey="month"
+                        tick={{ fontSize: 11, fill: "#64748b" }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        yAxisId="reports"
+                        allowDecimals={false}
+                        tick={{ fontSize: 9, fill: "#64748b" }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        yAxisId="rate"
+                        orientation="right"
+                        domain={[0, 100]}
+                        tickFormatter={(value) => `${value}%`}
+                        tick={{ fontSize: 9, fill: "#64748b" }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          borderRadius: 8,
+                          borderColor: "#dbe7de",
+                          fontSize: 12,
+                        }}
+                      />
+                      <Bar
+                        yAxisId="reports"
+                        dataKey="submitted"
+                        name="Submitted"
+                        fill="#cbd5e1"
+                        radius={[2, 2, 0, 0]}
+                      />
+                      <Bar
+                        yAxisId="reports"
+                        dataKey="verified"
+                        name="Verified"
+                        fill="#5bc18d"
+                        radius={[2, 2, 0, 0]}
+                      />
+                      <Line
+                        yAxisId="rate"
+                        type="monotone"
+                        dataKey="verificationRate"
+                        name="Verification rate"
+                        stroke="#08733f"
+                        strokeWidth={2}
+                        dot={{ r: 2.5, fill: "#08733f" }}
+                      />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              </section>
             </div>
-            <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-600">
-              {[
-                ["#08733f", "Inspections completed"],
-                ["#377fd2", "Reports submitted"],
-                ["#d89100", "Reports verified"],
-              ].map(([color, label]) => (
-                <span key={label} className="flex items-center gap-2">
-                  <i
-                    className="h-2.5 w-2.5 rounded-full"
-                    style={{ backgroundColor: color }}
-                  />
-                  {label}
-                </span>
-              ))}
-            </div>
-          </section>
+          </div>
 
-          <section className="mt-7 grid gap-5 sm:grid-cols-[1.25fr_.9fr]">
+          <section className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-[1.15fr_.95fr_.95fr]">
             <article className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
               <div className="flex items-start justify-between border-b border-slate-100 px-5 py-4">
                 <div className="flex items-start gap-3">
@@ -1293,7 +1312,7 @@ export default function Index() {
                 </button>
               </div>
               <div className="px-5 py-2">
-                {visibleProjects.slice(0, 5).map((project, index) => (
+                {visibleProjects.slice(0, 3).map((project, index) => (
                   <div
                     key={project.name}
                     className="flex items-center gap-3 border-b border-slate-100 py-3 last:border-0"
@@ -1345,155 +1364,120 @@ export default function Index() {
                   </p>
                 </div>
               </div>
-              <div className="space-y-2 p-3">
-                <button
-                  onClick={() => setActiveNav("Inspections")}
-                  className="flex w-full items-center gap-3 rounded-md border border-[#f1dfad] bg-[#fff9e9] px-3 py-3 text-left"
-                >
-                  <BellRing className="h-4 w-4 text-[#ad7600]" />
-                  <span className="min-w-0 flex-1">
-                    <strong className="block text-xs text-[#173b2a]">
-                      Review Pending Reports (
-                      {
-                        visibleProjects.filter((project) => !project.verified)
-                          .length
-                      }
-                      )
-                    </strong>
-                    <small className="mt-0.5 block text-[11px] text-slate-500">
-                      Awaiting REA verification
-                    </small>
-                  </span>
-                  <ArrowRight className="h-4 w-4 text-slate-500" />
-                </button>
+              <div className="grid grid-cols-2 gap-3 p-4">
                 <button
                   onClick={() => setActiveNav("Projects")}
-                  className="flex w-full items-center gap-3 rounded-md border border-slate-200 px-3 py-3 text-left hover:bg-slate-50"
+                  className="flex min-h-[92px] flex-col items-center justify-center rounded-lg border border-[#cdebd6] bg-[#effaf2] p-3 text-center hover:bg-[#e6f7eb]"
                 >
-                  <ListChecks className="h-4 w-4 text-[#3772ad]" />
-                  <span className="min-w-0 flex-1">
-                    <strong className="block text-xs text-[#173b2a]">
-                      View All Projects
-                    </strong>
-                    <small className="mt-0.5 block text-[11px] text-slate-500">
-                      See full list and details
-                    </small>
-                  </span>
-                  <ArrowRight className="h-4 w-4 text-slate-500" />
+                  <FolderKanban className="h-6 w-6 text-[#08733f]" />
+                  <strong className="mt-2 block text-[11px] text-[#173b2a]">
+                    Add Project
+                  </strong>
+                </button>
+                <button className="flex min-h-[92px] flex-col items-center justify-center rounded-lg border border-[#d7e4f5] bg-[#f1f6fd] p-3 text-center hover:bg-[#eaf2fc]">
+                  <Download className="h-6 w-6 text-[#3772ad]" />
+                  <strong className="mt-2 block text-[11px] text-[#173b2a]">
+                    Upload Report
+                  </strong>
                 </button>
                 <button
-                  onClick={() => setActiveNav("Project Map")}
-                  className="flex w-full items-center gap-3 rounded-md border border-slate-200 px-3 py-3 text-left hover:bg-slate-50"
+                  onClick={() => setActiveNav("Inspections")}
+                  className="flex min-h-[92px] flex-col items-center justify-center rounded-lg border border-[#dddff7] bg-[#f5f4fd] p-3 text-center hover:bg-[#eeecfb]"
                 >
-                  <MapIcon className="h-4 w-4 text-[#08733f]" />
-                  <span className="min-w-0 flex-1">
-                    <strong className="block text-xs text-[#173b2a]">
-                      View Map
-                    </strong>
-                    <small className="mt-0.5 block text-[11px] text-slate-500">
-                      Explore projects by location
-                    </small>
-                  </span>
-                  <ArrowRight className="h-4 w-4 text-slate-500" />
+                  <UsersRound className="h-6 w-6 text-[#6078d3]" />
+                  <strong className="mt-2 block text-[11px] text-[#173b2a]">
+                    Assign Inspector
+                  </strong>
                 </button>
-                <button className="flex w-full items-center gap-3 rounded-md border border-slate-200 px-3 py-3 text-left hover:bg-slate-50">
-                  <Download className="h-4 w-4 text-slate-700" />
-                  <span className="min-w-0 flex-1">
-                    <strong className="block text-xs text-[#173b2a]">
-                      Export Reports
-                    </strong>
-                    <small className="mt-0.5 block text-[11px] text-slate-500">
-                      Download summary data
-                    </small>
-                  </span>
-                  <ArrowRight className="h-4 w-4 text-slate-500" />
+                <button
+                  onClick={() => setActiveNav("Inspections")}
+                  className="flex min-h-[92px] flex-col items-center justify-center rounded-lg border border-[#f3dfad] bg-[#fff8e8] p-3 text-center hover:bg-[#fff3d5]"
+                >
+                  <Clock3 className="h-6 w-6 text-[#d89100]" />
+                  <strong className="mt-2 block text-[11px] text-[#173b2a]">
+                    View Pending (
+                    {
+                      visibleProjects.filter((project) => !project.verified)
+                        .length
+                    }
+                    )
+                  </strong>
                 </button>
               </div>
             </article>
-          </section>
 
-          <section className="mt-7 rounded-lg border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 className="font-bold text-[#173b2a]">
-                  Inspection &amp; Verification Pipeline
+            <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] md:col-span-2 xl:col-span-1">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-bold text-[#173b2a]">
+                  Verification Status
                 </h2>
-                <p className="mt-1 text-xs text-slate-500">
-                  Workflow status for the current filtered view
-                </p>
-              </div>
-              <span className="rounded-full bg-[#f0fbf3] px-2.5 py-1 text-xs font-semibold text-[#08733f]">
-                {visibleProjects.length} reports
-              </span>
-            </div>
-            <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-center md:gap-0">
-              {[
-                {
-                  label: "Inspection Conducted",
-                  value: visibleProjects.length,
-                },
-                {
-                  label: "Submitted",
-                  value: visibleProjects.filter(
-                    (project) => project.status !== "In progress",
-                  ).length,
-                },
-                {
-                  label: "Consultant Approved",
-                  value: visibleProjects.filter(
-                    (project) =>
-                      project.verified || project.status === "In progress",
-                  ).length,
-                },
-                {
-                  label: "Pending REA Review",
-                  value: visibleProjects.filter((project) => !project.verified)
-                    .length,
-                },
-                {
-                  label: "REA Verified",
-                  value: visibleProjects.filter((project) => project.verified)
-                    .length,
-                },
-              ].map((stage, index, stages) => (
-                <div key={stage.label} className="flex flex-1 items-center">
-                  <div className="min-w-0 flex-1 rounded-md bg-[#f7fcf8] px-3 py-3 text-center">
-                    <p className="text-xl font-bold text-[#153b28]">
-                      {stage.value}
-                    </p>
-                    <p className="mt-1 text-[10px] font-semibold leading-4 text-slate-500">
-                      {stage.label}
-                    </p>
-                  </div>
-                  {index < stages.length - 1 && (
-                    <span className="hidden px-2 text-lg text-[#8ab69a] md:block">
-                      →
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 flex flex-col items-start justify-between gap-3 rounded-md bg-[#fff9ea] px-4 py-3 sm:flex-row sm:items-center">
-              <p className="text-xs text-[#745313]">
-                <strong>
-                  {
-                    visibleProjects.filter((project) => !project.verified)
-                      .length
-                  }{" "}
-                  reports
-                </strong>{" "}
-                are pending REA verification{" "}
-                <span className="ml-1 text-[#9a7a3c]">
-                  · Review-time data unavailable
+                <span className="text-[10px] font-semibold text-slate-500">
+                  Filtered portfolio
                 </span>
-              </p>
+              </div>
+              <div className="mt-5 flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-4xl font-bold tracking-tight text-[#173b2a]">
+                    {visibleProjects.length
+                      ? Math.round(
+                          (visibleProjects.filter((project) => project.verified)
+                            .length /
+                            visibleProjects.length) *
+                            100,
+                        )
+                      : 0}
+                    %
+                  </p>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    {
+                      visibleProjects.filter((project) => project.verified)
+                        .length
+                    }{" "}
+                    of {visibleProjects.length} reports verified
+                  </p>
+                </div>
+                <CheckCircle2 className="h-9 w-9 text-[#119653]" />
+              </div>
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className="h-full rounded-full bg-[#119653]"
+                  style={{
+                    width: `${visibleProjects.length ? (visibleProjects.filter((project) => project.verified).length / visibleProjects.length) * 100 : 0}%`,
+                  }}
+                />
+              </div>
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <div className="rounded-lg bg-[#edf8f0] p-3 text-center">
+                  <p className="text-2xl font-bold text-[#08733f]">
+                    {
+                      visibleProjects.filter((project) => project.verified)
+                        .length
+                    }
+                  </p>
+                  <p className="mt-1 text-[10px] font-semibold text-[#39764d]">
+                    Verified
+                  </p>
+                </div>
+                <div className="rounded-lg bg-[#fff7e3] p-3 text-center">
+                  <p className="text-2xl font-bold text-[#c88400]">
+                    {
+                      visibleProjects.filter((project) => !project.verified)
+                        .length
+                    }
+                  </p>
+                  <p className="mt-1 text-[10px] font-semibold text-[#8a6721]">
+                    Pending
+                  </p>
+                </div>
+              </div>
               <button
                 onClick={() => setActiveNav("Inspections")}
-                className="text-xs font-bold text-[#9a6500] hover:underline"
+                className="mt-4 flex w-full items-center justify-between rounded-md border border-[#efdb9d] bg-[#fffaf0] px-3 py-2.5 text-[11px] font-bold text-[#9a6500] hover:bg-[#fff5dc]"
               >
-                Review queue →
+                Review verification queue
+                <ArrowRight className="h-4 w-4" />
               </button>
-            </div>
+            </article>
           </section>
 
           <section
