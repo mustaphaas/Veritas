@@ -23,13 +23,14 @@ import {
   ListChecks,
   Map as MapIcon,
   MapPin,
+  LocateFixed,
   Home,
+  Maximize2,
   Zap,
   Menu,
   Minus,
   Plus,
   Search,
-  ScanSearch,
   Settings,
   ArrowRight,
   UsersRound,
@@ -76,7 +77,11 @@ const mapModeOptions: Array<{
   shortLabel: string;
 }> = [
   { value: "projects", label: "View by Projects", shortLabel: "Projects" },
-  { value: "capacity", label: "View by Capacity", shortLabel: "Capacity" },
+  {
+    value: "capacity",
+    label: "View by Capacity (MW)",
+    shortLabel: "Capacity",
+  },
   {
     value: "households",
     label: "View by Households",
@@ -194,6 +199,19 @@ function mapLegend(mode: MapMode, maximum: number) {
     ),
     `${maximum.toLocaleString(undefined, { maximumFractionDigits: mode === "capacity" ? 1 : 0 })}${unit}`,
   ];
+}
+
+const componentPalette = ["#0f9f55", "#378ce7", "#f5b514", "#a56de2"];
+
+function componentDonutGradient(summary: StateSummary) {
+  if (!summary.projects || !summary.byComponent.length) return "#e8eef0";
+  let cursor = 0;
+  const segments = summary.byComponent.map((component, index) => {
+    const start = cursor;
+    cursor += (component.value / summary.projects) * 100;
+    return `${componentPalette[index % componentPalette.length]} ${start}% ${cursor}%`;
+  });
+  return `conic-gradient(${segments.join(", ")})`;
 }
 
 function getKpis(filteredProjects: Project[]) {
@@ -365,7 +383,7 @@ export default function Index() {
         };
       });
   }, [visibleProjects]);
-  const [selectedState, setSelectedState] = useState<string | null>(null);
+  const [selectedState, setSelectedState] = useState<string | null>("Kano");
   const stateSummaries = useMemo(
     () => summarizeProjectsByState(visibleProjects),
     [visibleProjects],
@@ -618,27 +636,39 @@ export default function Index() {
             </div>
           </section>
 
-          <section className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          <section className="mt-5 flex gap-4 overflow-x-auto pb-1">
             {metrics.map(
               ({ label, value, detail, icon: Icon, tone, action }) => {
-                const cardClassName = `flex min-h-[174px] w-full flex-col items-center justify-center rounded-lg border p-5 text-center shadow-[0_1px_2px_rgba(16,24,40,0.04)] ${tone === "highlighted" ? "border-[#cdebd6] bg-[#f0fdf4]" : tone === "pending" ? "border-[#f1d48a] bg-[#fffbeb] transition-colors hover:border-[#d97706] hover:bg-[#fff7d6]" : "border-slate-200 bg-white"}`;
+                const cardClassName = `min-h-[128px] min-w-[210px] flex-1 rounded-lg border p-4 text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)] ${tone === "highlighted" ? "border-[#cdebd6] bg-[#f4fbf6]" : tone === "pending" ? "border-[#f1dfaf] bg-[#fffaf0] transition-colors hover:border-[#d9aa37] hover:bg-[#fff7df]" : "border-slate-200 bg-white"}`;
                 const cardContent = (
-                  <>
+                  <div className="flex h-full items-start gap-4">
                     <div
-                      className={`flex h-10 w-10 items-center justify-center rounded-md ${tone === "pending" ? "bg-[#fef3c7] text-[#d97706]" : "bg-[#eaf8ef] text-[#15803d]"}`}
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${tone === "pending" ? "bg-[#fff3cf] text-[#e29a00]" : "bg-[#e9f7ed] text-[#159455]"}`}
                     >
-                      <Icon className="h-5 w-5" />
+                      <Icon className="h-6 w-6" />
                     </div>
-                    <p className="mt-4 text-sm font-medium text-slate-600">
-                      {label}
-                    </p>
-                    <p
-                      className={`mt-1 text-2xl font-bold tracking-tight ${tone === "pending" ? "text-[#92400e]" : tone === "highlighted" ? "text-[#166534]" : "text-[#111827]"}`}
-                    >
-                      {value}
-                    </p>
-                    <p className="mt-2 text-xs text-slate-500">{detail}</p>
-                  </>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-[#263c31]">
+                        {label}
+                      </p>
+                      <p
+                        className={`mt-1 text-[25px] font-bold leading-none tracking-tight ${tone === "pending" ? "text-[#9a6300]" : "text-[#13281e]"}`}
+                      >
+                        {value}
+                      </p>
+                      <p className="mt-3 text-[11px] leading-4 text-slate-500">
+                        {detail}
+                      </p>
+                      {label === "Verification Rate" && (
+                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                          <div
+                            className="h-full rounded-full bg-[#119653]"
+                            style={{ width: value }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 );
                 return action ? (
                   <button
@@ -666,8 +696,7 @@ export default function Index() {
                   National Project Coverage
                 </h2>
                 <p className="mt-1 text-xs text-slate-500">
-                  Live distribution across all 36 states and FCT · Values
-                  reflect the current dashboard filters
+                  Project distribution across Nigeria by state
                 </p>
               </div>
               <div
@@ -690,13 +719,13 @@ export default function Index() {
             <div
               className={
                 selectedSummary
-                  ? "grid lg:grid-cols-[minmax(0,1fr)_320px]"
+                  ? "grid lg:grid-cols-[minmax(0,1fr)_340px]"
                   : "grid"
               }
             >
               <div
                 ref={mapContainerRef}
-                className="relative min-h-[440px] overflow-hidden bg-[#f8fbf8] sm:h-[520px]"
+                className="relative min-h-[460px] overflow-hidden bg-[#f7fbf8] sm:h-[540px]"
                 onWheel={(event) => {
                   event.preventDefault();
                   setMapZoom((zoom) =>
@@ -708,11 +737,10 @@ export default function Index() {
                 }}
               >
                 <div
-                  className="absolute inset-0 opacity-[0.28]"
+                  className="absolute inset-0 opacity-80"
                   style={{
                     backgroundImage:
-                      "linear-gradient(#d9eadc 1px, transparent 1px), linear-gradient(90deg, #d9eadc 1px, transparent 1px)",
-                    backgroundSize: "40px 40px",
+                      "radial-gradient(circle at 48% 45%, #ffffff 0%, #f4faf6 48%, #edf6f0 100%)",
                   }}
                 />
 
@@ -739,16 +767,30 @@ export default function Index() {
                   </button>
                   <button
                     type="button"
+                    onClick={() => {
+                      if (document.fullscreenElement) {
+                        void document.exitFullscreen();
+                      } else {
+                        void mapContainerRef.current?.requestFullscreen();
+                      }
+                    }}
+                    className="border-b border-slate-200 p-2 text-slate-600 hover:bg-slate-50"
+                    aria-label="Toggle fullscreen map"
+                  >
+                    <Maximize2 className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
                     onClick={resetMapView}
                     className="p-2 text-slate-600 hover:bg-slate-50"
                     aria-label="Fit map to Nigeria"
                   >
-                    <ScanSearch className="h-4 w-4" />
+                    <LocateFixed className="h-4 w-4" />
                   </button>
                 </div>
 
                 <svg
-                  className="relative z-10 h-full min-h-[440px] w-full touch-pan-x touch-pan-y sm:min-h-0"
+                  className="relative z-10 h-full min-h-[460px] w-full touch-pan-x touch-pan-y sm:min-h-0"
                   viewBox="0 0 650 300"
                   fill="none"
                   aria-label={`Interactive Nigeria state map viewed by ${mapMode}`}
@@ -836,7 +878,7 @@ export default function Index() {
                               y={summary ? -5 : 2}
                               textAnchor="middle"
                               fill={selected ? "#064e2b" : "#315b3f"}
-                              fontSize="6.5"
+                              fontSize="7"
                               fontWeight={summary ? "700" : "500"}
                             >
                               {state}
@@ -914,23 +956,25 @@ export default function Index() {
                   </div>
                 )}
 
-                <div className="absolute bottom-3 left-3 z-20 max-w-[calc(100%-1.5rem)] rounded-md border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#173b2a]">
+                <div className="absolute bottom-3 left-3 z-20 w-[208px] max-w-[calc(100%-1.5rem)] rounded-md border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur">
+                  <p className="text-[11px] font-bold text-[#173b2a]">
                     {
                       mapModeOptions.find((option) => option.value === mapMode)
                         ?.shortLabel
                     }
                   </p>
-                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-2">
+                  <div
+                    className="mt-2 h-2.5 rounded-full"
+                    style={{
+                      background: `linear-gradient(90deg, ${mapPalette.join(", ")})`,
+                    }}
+                  />
+                  <div className="mt-1.5 grid grid-cols-5 gap-1">
                     {legendLabels.map((label, index) => (
                       <span
                         key={`${label}-${index}`}
-                        className="flex items-center gap-1.5 text-[10px] text-slate-500"
+                        className={`${index === 0 ? "text-left" : index === legendLabels.length - 1 ? "text-right" : "text-center"} text-[9px] text-slate-500`}
                       >
-                        <i
-                          className="h-2.5 w-5 rounded-sm"
-                          style={{ backgroundColor: mapPalette[index] }}
-                        />
                         {label}
                       </span>
                     ))}
@@ -948,9 +992,6 @@ export default function Index() {
                       <h3 className="font-bold text-[#173b2a]">
                         {selectedSummary.state} State
                       </h3>
-                      <p className="mt-1 text-xs text-slate-500">
-                        Current filtered view
-                      </p>
                     </div>
                     <button
                       type="button"
@@ -1010,27 +1051,49 @@ export default function Index() {
                     <h4 className="text-sm font-bold text-[#173b2a]">
                       Projects by Component
                     </h4>
-                    <div className="mt-3 space-y-3">
-                      {selectedSummary.byComponent.map((component) => (
-                        <div key={component.name}>
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-slate-600">
-                              {component.name}
-                            </span>
-                            <strong className="text-[#173b2a]">
-                              {component.value}
-                            </strong>
-                          </div>
-                          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                            <div
-                              className="h-full rounded-full bg-[#18a15b]"
+                    <div className="mt-4 flex items-center gap-5">
+                      <div
+                        className="relative h-[92px] w-[92px] shrink-0 rounded-full"
+                        style={{
+                          background: componentDonutGradient(selectedSummary),
+                        }}
+                        aria-label={`${selectedSummary.state} component distribution`}
+                      >
+                        <div className="absolute inset-[18px] flex items-center justify-center rounded-full bg-white">
+                          <span className="text-lg font-bold text-[#173b2a]">
+                            {selectedSummary.projects}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="min-w-0 flex-1 space-y-2.5">
+                        {selectedSummary.byComponent.map((component, index) => (
+                          <div
+                            key={component.name}
+                            className="flex items-center gap-2 text-[10px]"
+                          >
+                            <span
+                              className="h-2.5 w-2.5 shrink-0 rounded-sm"
                               style={{
-                                width: `${(component.value / selectedSummary.projects) * 100}%`,
+                                backgroundColor:
+                                  componentPalette[
+                                    index % componentPalette.length
+                                  ],
                               }}
                             />
+                            <span className="min-w-0 flex-1 truncate text-slate-600">
+                              {component.name}
+                            </span>
+                            <strong className="whitespace-nowrap text-[#173b2a]">
+                              {component.value} (
+                              {Math.round(
+                                (component.value / selectedSummary.projects) *
+                                  100,
+                              )}
+                              %)
+                            </strong>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   </div>
                   <button
