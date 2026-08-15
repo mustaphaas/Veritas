@@ -26,128 +26,116 @@ export type StateSummary = {
   pending: number;
 };
 
-export const projects: Project[] = [
-  {
-    name: "Kano Solar Mini-grid Programme",
-    state: "Kano",
-    programme: "NEP",
-    component: "Mini Grid",
-    contractor: "SunVolt Nigeria",
-    month: "June 2024",
-    status: "Verified",
-    tone: "verified",
-    kw: 3200,
-    households: 4200,
-    verified: true,
-    x: 218,
-    y: 107,
-  },
-  {
-    name: "Kaduna Rural Energy Access",
-    state: "Kaduna",
-    programme: "DARES",
-    component: "Solar Home System",
-    contractor: "NorthGrid EPC",
-    month: "June 2024",
-    status: "Verified",
-    tone: "verified",
-    kw: 2800,
-    households: 3600,
-    verified: true,
-    x: 293,
-    y: 129,
-  },
-  {
-    name: "Katsina Community Power",
-    state: "Katsina",
-    programme: "AMP",
-    component: "Mini Grid",
-    contractor: "Apex Power Works",
-    month: "May 2024",
-    status: "In progress",
-    tone: "progress",
-    kw: 2400,
-    households: 3100,
-    verified: false,
-    x: 358,
-    y: 113,
-  },
-  {
-    name: "Abuja Solar Hub",
-    state: "FCT",
-    programme: "NEP",
-    component: "Solar Street Light",
-    contractor: "NorthGrid EPC",
-    month: "June 2024",
-    status: "Submitted",
-    tone: "submitted",
-    kw: 1800,
-    households: 2500,
-    verified: false,
-    x: 421,
-    y: 151,
-  },
-  {
-    name: "Akpabuyo Grid Extension",
-    state: "Cross River",
-    programme: "AMP",
-    component: "Solar Home System",
-    contractor: "Apex Power Works",
-    month: "April 2024",
-    status: "Verified",
-    tone: "verified",
-    kw: 3900,
-    households: 5200,
-    verified: true,
-    x: 250,
-    y: 192,
-  },
-  {
-    name: "Sokoto Solar Home Systems",
-    state: "Sokoto",
-    programme: "DARES",
-    component: "Solar Home System",
-    contractor: "SunVolt Nigeria",
-    month: "March 2024",
-    status: "Verified",
-    tone: "verified",
-    kw: 1700,
-    households: 2100,
-    verified: true,
-    x: 376,
-    y: 205,
-  },
-  {
-    name: "Jigawa Mini-grid Expansion",
-    state: "Jigawa",
-    programme: "NEP",
-    component: "Mini Grid",
-    contractor: "SunVolt Nigeria",
-    month: "May 2024",
-    status: "Pending",
-    tone: "pending",
-    kw: 1500,
-    households: 1900,
-    verified: false,
-    x: 325,
-    y: 237,
-  },
-  {
-    name: "Gombe Grid Extension",
-    state: "Gombe",
-    programme: "DARES",
-    component: "Mini Grid",
-    contractor: "NorthGrid EPC",
-    month: "April 2024",
-    status: "Verified",
-    tone: "verified",
-    kw: 1200,
-    households: 1700,
-    verified: true,
-    x: 440,
-    y: 190,
-  },
+export const stateProjectTargets = {
+  Abia: 8,
+  Adamawa: 11,
+  "Akwa Ibom": 9,
+  Anambra: 14,
+  Bauchi: 13,
+  Bayelsa: 5,
+  Benue: 12,
+  Borno: 10,
+  "Cross River": 9,
+  Delta: 15,
+  Ebonyi: 7,
+  Edo: 13,
+  Ekiti: 6,
+  Enugu: 11,
+  FCT: 8,
+  Gombe: 10,
+  Imo: 9,
+  Jigawa: 12,
+  Kaduna: 16,
+  Kano: 20,
+  Katsina: 15,
+  Kebbi: 8,
+  Kogi: 9,
+  Kwara: 10,
+  Lagos: 18,
+  Nasarawa: 11,
+  Niger: 14,
+  Ogun: 15,
+  Ondo: 8,
+  Osun: 9,
+  Oyo: 14,
+  Plateau: 12,
+  Rivers: 16,
+  Sokoto: 11,
+  Taraba: 7,
+  Yobe: 8,
+  Zamfara: 9,
+} as const;
+
+const programmes = ["NEP", "DARES", "AMP", "Others"];
+const components = [
+  "Mini Grid",
+  "Solar Home System",
+  "Grid Extension",
+  "Solar Street Light",
 ];
+const contractors = [
+  "SunVolt Nigeria",
+  "NorthGrid EPC",
+  "Apex Power Works",
+  "GreenTech Ltd",
+];
+const months = [
+  "January 2024",
+  "February 2024",
+  "March 2024",
+  "April 2024",
+  "May 2024",
+  "June 2024",
+  "July 2024",
+  "August 2024",
+  "September 2024",
+  "October 2024",
+  "November 2024",
+  "December 2024",
+];
+const statuses = [
+  { status: "Verified", tone: "verified", verified: true },
+  { status: "Verified", tone: "verified", verified: true },
+  { status: "Verified", tone: "verified", verified: true },
+  { status: "Submitted", tone: "submitted", verified: false },
+  { status: "Pending", tone: "pending", verified: false },
+  { status: "In progress", tone: "progress", verified: false },
+] as const;
+
+export const projects: Project[] = Object.entries(stateProjectTargets).flatMap(
+  ([state, count], stateIndex) =>
+    Array.from({ length: count }, (_, projectIndex) => {
+      const seed = stateIndex * 37 + projectIndex * 11;
+      const firstStateProject = projectIndex === 0;
+      const status = statuses[seed % statuses.length];
+      const component = firstStateProject
+        ? "Mini Grid"
+        : components[
+            (seed + projectIndex * 2 + stateIndex) % components.length
+          ];
+      return {
+        name: `${state} ${component} Project ${String(projectIndex + 1).padStart(2, "0")}`,
+        state,
+        programme: firstStateProject
+          ? "NEP"
+          : programmes[(seed + projectIndex * 2) % programmes.length],
+        component,
+        contractor: firstStateProject
+          ? "SunVolt Nigeria"
+          : contractors[(seed + stateIndex) % contractors.length],
+        month: firstStateProject
+          ? "June 2024"
+          : months[(seed + projectIndex * 6) % months.length],
+        status: status.status,
+        tone: status.tone,
+        kw: 120 + ((seed * 173 + projectIndex * 61) % 880),
+        households: 80 + ((seed * 211 + projectIndex * 97) % 1420),
+        verified: status.verified,
+        x: 0,
+        y: 0,
+      };
+    }),
+);
 
 export const filterDefaults = {
   programs: "All Programmes",

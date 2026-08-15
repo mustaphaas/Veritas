@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   defaultFilters,
   matchingProjects,
+  projects,
+  stateProjectTargets,
   summarizePortfolio,
   summarizeProjectsByState,
   type Filters,
@@ -23,50 +25,53 @@ function stateSummary(
 describe("REA dashboard filter-driven map data", () => {
   it("keeps the map state total equal to the Projects KPI for the all-project view", () => {
     const filtered = withFilters({});
-    const mapTotal = summarizeProjectsByState(filtered).reduce(
-      (total, state) => total + state.projects,
-      0,
-    );
+    const states = summarizeProjectsByState(filtered);
+    const mapTotal = states.reduce((total, state) => total + state.projects, 0);
 
-    expect(filtered).toHaveLength(8);
-    expect(mapTotal).toBe(8);
-    expect(summarizePortfolio(filtered)).toMatchObject({
-      projects: 8,
-      kw: 18500,
-      households: 24300,
-      verified: 5,
-      pending: 3,
-      verificationRate: 63,
-    });
+    expect(states).toHaveLength(37);
+    expect(states.every((state) => state.projects >= 5)).toBe(true);
+    expect(states.every((state) => state.projects <= 20)).toBe(true);
+    expect(mapTotal).toBe(projects.length);
+    expect(summarizePortfolio(filtered).projects).toBe(projects.length);
+    expect(projects.length).toBe(
+      Object.values(stateProjectTargets).reduce(
+        (total, count) => total + count,
+        0,
+      ),
+    );
   });
 
   it("recalculates state counts after selecting NEP", () => {
     const filtered = withFilters({ programs: "NEP" });
 
-    expect(filtered).toHaveLength(3);
-    expect(stateSummary(filtered, "Kano")?.projects).toBe(1);
-    expect(stateSummary(filtered, "FCT")?.projects).toBe(1);
-    expect(stateSummary(filtered, "Jigawa")?.projects).toBe(1);
+    expect(filtered.length).toBeGreaterThan(0);
+    expect(filtered.length).toBeLessThan(projects.length);
+    expect(filtered.every((project) => project.programme === "NEP")).toBe(true);
+    expect(stateSummary(filtered, "Kano")?.projects).toBeGreaterThan(0);
   });
 
   it("combines NEP and Mini Grid filters with AND semantics", () => {
     const filtered = withFilters({ programs: "NEP", components: "Mini Grid" });
 
-    expect(filtered).toHaveLength(2);
-    expect(filtered.map((project) => project.state).sort()).toEqual([
-      "Jigawa",
-      "Kano",
-    ]);
+    expect(filtered.length).toBeGreaterThan(0);
+    expect(
+      filtered.every(
+        (project) =>
+          project.programme === "NEP" && project.component === "Mini Grid",
+      ),
+    ).toBe(true);
   });
 
   it("applies the selected reporting month to the same map dataset", () => {
     const filtered = withFilters({ programs: "NEP", months: "June 2024" });
 
-    expect(filtered).toHaveLength(2);
-    expect(filtered.map((project) => project.state).sort()).toEqual([
-      "FCT",
-      "Kano",
-    ]);
+    expect(filtered.length).toBeGreaterThan(0);
+    expect(
+      filtered.every(
+        (project) =>
+          project.programme === "NEP" && project.month === "June 2024",
+      ),
+    ).toBe(true);
   });
 
   it("focuses the data on Kano while preserving the active programme and component filters", () => {
@@ -76,8 +81,8 @@ describe("REA dashboard filter-driven map data", () => {
       states: "Kano",
     });
 
-    expect(filtered).toHaveLength(1);
-    expect(filtered[0].state).toBe("Kano");
+    expect(filtered.length).toBeGreaterThan(0);
+    expect(filtered.every((project) => project.state === "Kano")).toBe(true);
   });
 
   it("keeps only SunVolt projects when the contractor filter is added", () => {
@@ -88,8 +93,10 @@ describe("REA dashboard filter-driven map data", () => {
       contractors: "SunVolt Nigeria",
     });
 
-    expect(filtered).toHaveLength(1);
-    expect(filtered[0].contractor).toBe("SunVolt Nigeria");
+    expect(filtered.length).toBeGreaterThan(0);
+    expect(
+      filtered.every((project) => project.contractor === "SunVolt Nigeria"),
+    ).toBe(true);
   });
 
   it("builds the Kano details panel metrics from the same filtered record", () => {
@@ -102,12 +109,17 @@ describe("REA dashboard filter-driven map data", () => {
     const kano = stateSummary(filtered, "Kano");
 
     expect(kano).toMatchObject({
-      projects: 1,
-      kw: 3200,
-      households: 4200,
-      verified: 1,
-      pending: 0,
+      projects: filtered.length,
+      kw: filtered.reduce((total, project) => total + project.kw, 0),
+      households: filtered.reduce(
+        (total, project) => total + project.households,
+        0,
+      ),
+      verified: filtered.filter((project) => project.verified).length,
+      pending: filtered.filter((project) => !project.verified).length,
     });
-    expect(kano?.byComponent).toEqual([{ name: "Mini Grid", value: 1 }]);
+    expect(kano?.byComponent).toEqual([
+      { name: "Mini Grid", value: filtered.length },
+    ]);
   });
 });

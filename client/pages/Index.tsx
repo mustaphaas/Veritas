@@ -177,9 +177,9 @@ function formatMapMetric(value: number, mode: MapMode, compact = false) {
 function mapBand(value: number, mode: MapMode, maximum: number) {
   if (value <= 0) return 0;
   if (mode === "projects") {
-    if (value <= 2) return 1;
-    if (value <= 5) return 2;
-    if (value <= 9) return 3;
+    if (value <= 8) return 1;
+    if (value <= 12) return 2;
+    if (value <= 16) return 3;
     return 4;
   }
   const ratio = maximum ? value / maximum : 0;
@@ -189,7 +189,7 @@ function mapBand(value: number, mode: MapMode, maximum: number) {
   return 4;
 }
 function mapLegend(mode: MapMode, maximum: number) {
-  if (mode === "projects") return ["0", "1–2", "3–5", "6–9", "10+"];
+  if (mode === "projects") return ["0", "5–8", "9–12", "13–16", "17–20"];
   const unit = mode === "capacity" ? " MW" : "";
   return [
     "0",
@@ -637,7 +637,7 @@ export default function Index() {
           <section className="mt-3 flex gap-3 overflow-x-auto pb-1">
             {metrics.map(
               ({ label, value, detail, icon: Icon, tone, action }) => {
-                const cardClassName = `min-h-[128px] min-w-[210px] flex-1 rounded-lg border p-4 text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)] ${tone === "highlighted" ? "border-[#cdebd6] bg-[#f4fbf6]" : tone === "pending" ? "border-[#f1dfaf] bg-[#fffaf0] transition-colors hover:border-[#d9aa37] hover:bg-[#fff7df]" : "border-slate-200 bg-white"}`;
+                const cardClassName = `min-h-[120px] min-w-[210px] flex-1 rounded-lg border p-4 text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)] ${tone === "highlighted" ? "border-[#cdebd6] bg-[#f4fbf6]" : tone === "pending" ? "border-[#f1dfaf] bg-[#fffaf0] transition-colors hover:border-[#d9aa37] hover:bg-[#fff7df]" : "border-slate-200 bg-white"}`;
                 const cardContent = (
                   <div className="flex h-full items-start gap-4">
                     <div
@@ -687,19 +687,14 @@ export default function Index() {
             )}
           </section>
 
-          <div className="mt-4 grid items-start gap-4 xl:grid-cols-[minmax(0,2.15fr)_minmax(340px,0.9fr)]">
+          <div className="mt-3 grid items-start gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)]">
             <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-              <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <h2 className="font-bold text-[#173b2a]">
-                    National Project Coverage
-                  </h2>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Project distribution across Nigeria by state
-                  </p>
-                </div>
+              <div className="border-b border-slate-200 px-3 py-3">
+                <h2 className="text-sm font-bold text-[#173b2a]">
+                  National Project Coverage
+                </h2>
                 <div
-                  className="inline-flex w-full overflow-x-auto rounded-md border border-slate-200 bg-white p-1 lg:w-auto"
+                  className="mt-3 inline-flex max-w-full overflow-x-auto rounded-md border border-slate-200 bg-white p-0.5"
                   aria-label="Map viewing mode"
                 >
                   {mapModeOptions.map((option) => (
@@ -707,7 +702,7 @@ export default function Index() {
                       key={option.value}
                       type="button"
                       onClick={() => setMapMode(option.value)}
-                      className={`whitespace-nowrap rounded px-3 py-2 text-xs font-semibold transition-colors ${mapMode === option.value ? "bg-[#08733f] text-white shadow-sm" : "text-slate-600 hover:bg-slate-50"}`}
+                      className={`whitespace-nowrap rounded px-3 py-2 text-[10px] font-semibold transition-colors ${mapMode === option.value ? "bg-[#08733f] text-white shadow-sm" : "text-slate-600 hover:bg-slate-50"}`}
                     >
                       {option.label}
                     </button>
@@ -724,7 +719,7 @@ export default function Index() {
               >
                 <div
                   ref={mapContainerRef}
-                  className="relative min-h-[400px] overflow-hidden bg-[#f7fbf8] sm:h-[440px]"
+                  className="relative min-h-[390px] overflow-hidden bg-[#f7fbf8] sm:h-[390px]"
                   onWheel={(event) => {
                     event.preventDefault();
                     setMapZoom((zoom) =>
@@ -789,7 +784,7 @@ export default function Index() {
                   </div>
 
                   <svg
-                    className="relative z-10 h-full min-h-[400px] w-full touch-pan-x touch-pan-y sm:min-h-0"
+                    className="relative z-10 h-full min-h-[390px] w-full touch-pan-x touch-pan-y sm:min-h-0"
                     viewBox="0 0 650 300"
                     fill="none"
                     aria-label={`Interactive Nigeria state map viewed by ${mapMode}`}
@@ -866,7 +861,7 @@ export default function Index() {
                             state === selectedState || filters.states === state;
                           const markerWidth =
                             mapMode === "projects"
-                              ? 20
+                              ? 18
                               : mapMode === "capacity"
                                 ? 42
                                 : 38;
@@ -891,15 +886,15 @@ export default function Index() {
                                     x={-markerWidth / 2}
                                     y="0"
                                     width={markerWidth}
-                                    height="15"
-                                    rx="7.5"
+                                    height={mapMode === "projects" ? 18 : 15}
+                                    rx={mapMode === "projects" ? 9 : 7.5}
                                     fill={selected ? "#08733f" : "white"}
                                     stroke={selected ? "white" : "#b9dfc5"}
                                     strokeWidth="1.2"
                                     vectorEffect="non-scaling-stroke"
                                   />
                                   <text
-                                    y="10.5"
+                                    y={mapMode === "projects" ? 12.2 : 10.5}
                                     textAnchor="middle"
                                     fill={selected ? "white" : "#08733f"}
                                     fontSize={
@@ -1059,13 +1054,13 @@ export default function Index() {
                       </h4>
                       <div className="mt-4 flex items-center gap-5">
                         <div
-                          className="relative h-[92px] w-[92px] shrink-0 rounded-full"
+                          className="relative h-[78px] w-[78px] shrink-0 rounded-full"
                           style={{
                             background: componentDonutGradient(selectedSummary),
                           }}
                           aria-label={`${selectedSummary.state} component distribution`}
                         >
-                          <div className="absolute inset-[18px] flex items-center justify-center rounded-full bg-white">
+                          <div className="absolute inset-[15px] flex items-center justify-center rounded-full bg-white">
                             <span className="text-lg font-bold text-[#173b2a]">
                               {selectedSummary.projects}
                             </span>
@@ -1151,10 +1146,10 @@ export default function Index() {
                   {programmePerformance.map((row, index) => (
                     <div
                       key={row.programme}
-                      className="grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-3 py-3"
+                      className="grid grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-2.5 py-2"
                     >
                       <div
-                        className={`flex h-8 w-8 items-center justify-center rounded-md ${index === 3 ? "bg-[#fff4d9] text-[#d18a00]" : "bg-[#eaf8ef] text-[#0c8a49]"}`}
+                        className={`flex h-7 w-7 items-center justify-center rounded-md ${index === 3 ? "bg-[#fff4d9] text-[#d18a00]" : "bg-[#eaf8ef] text-[#0c8a49]"}`}
                       >
                         <Building2 className="h-4 w-4" />
                       </div>
@@ -1215,7 +1210,7 @@ export default function Index() {
                   ))}
                 </div>
                 <div
-                  className="mt-3 h-[250px]"
+                  className="mt-3 h-[180px]"
                   aria-label="Project and verification trend chart"
                 >
                   <ResponsiveContainer width="100%" height="100%">
@@ -1283,7 +1278,7 @@ export default function Index() {
             </div>
           </div>
 
-          <section className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-[1.15fr_.95fr_.95fr]">
+          <section className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-[1.08fr_.95fr_1fr]">
             <article className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
               <div className="flex items-start justify-between border-b border-slate-100 px-5 py-4">
                 <div className="flex items-start gap-3">
