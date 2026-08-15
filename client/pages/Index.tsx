@@ -94,8 +94,8 @@ function getFilterOptions(filters: Filters, key: FilterKey) {
 
 const programmeTotals = {
   NEP: { projects: 24, capacity: 8.4, households: 11200, verified: 78 },
-  DARES: { projects: 18, capacity: 6.2, households: 8400, verified: 64 },
-  AMP: { projects: 15, capacity: 3.9, households: 4700, verified: 51 },
+  DARES: { projects: 18, capacity: 6.7, households: 8900, verified: 84 },
+  AMP: { projects: 12, capacity: 4.1, households: 5600, verified: 71 },
 } as const;
 
 const trendBaseline = [
@@ -111,12 +111,21 @@ const trendBaseline = [
 
 function getKpis(filteredProjects: Project[]) {
   const verified = filteredProjects.filter((project) => project.verified).length;
-  const sum = (field: "kw" | "households") => filteredProjects.reduce((total, project) => total + project[field], 0).toLocaleString();
+  const pending = filteredProjects.length - verified;
+  const totalKw = filteredProjects.reduce((total, project) => total + project.kw, 0);
+  const households = filteredProjects.reduce((total, project) => total + project.households, 0);
+  const projectedProjects = (Object.keys(programmeTotals) as Array<keyof typeof programmeTotals>).reduce((total, programme) => {
+    const programmeProjects = projects.filter((project) => project.programme === programme);
+    const matchingProjects = filteredProjects.filter((project) => project.programme === programme);
+    return total + Math.round(programmeTotals[programme].projects * (matchingProjects.length / programmeProjects.length));
+  }, 0);
+
   return [
-    { label: "Programs", value: new Set(filteredProjects.map((project) => project.programme)).size.toString(), detail: "Filtered portfolio", icon: Building2, highlighted: false },
-    { label: "Installed capacity", value: `${sum("kw")} kW`, detail: "Across filtered projects", icon: Zap, highlighted: true },
-    { label: "Households reached", value: sum("households"), detail: "Connected households", icon: Home, highlighted: false },
-    { label: "Verified inspections", value: filteredProjects.length ? `${Math.round((verified / filteredProjects.length) * 100)}%` : "0%", detail: `${verified} inspections verified`, icon: CheckCircle2, highlighted: false },
+    { label: "Projects", value: projectedProjects.toLocaleString(), detail: "Active across all programmes", icon: FolderKanban, tone: "default" },
+    { label: "Installed Capacity", value: `${(totalKw / 1000).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} MW`, detail: "Total commissioned capacity", icon: Zap, tone: "highlighted" },
+    { label: "Households Reached", value: households.toLocaleString(), detail: "Connections delivered", icon: Home, tone: "default" },
+    { label: "Verification Rate", value: filteredProjects.length ? `${Math.round((verified / filteredProjects.length) * 100)}%` : "0%", detail: `${verified} of ${filteredProjects.length} reports verified`, icon: CheckCircle2, tone: "default" },
+    { label: "Pending Verification", value: pending.toLocaleString(), detail: "Reports awaiting REA review", icon: Clock3, tone: "pending", action: "Inspections" },
   ];
 }
 
@@ -260,8 +269,12 @@ export default function Index() {
 
           <section className="mt-7 rounded-lg border border-[#d6e9da] bg-[#f7fcf8] p-4 sm:p-5"><div className="flex flex-wrap items-end gap-3 xl:flex-nowrap">{(Object.keys(filterDefaults) as FilterKey[]).map((key) => <div key={key} className="min-w-[150px] flex-1"><FilterSelect label={filterLabels[key]} value={filters[key]} options={getFilterOptions(filters, key)} onChange={(value) => updateFilterWithDependencies(key, value)} /></div>)}<button onClick={() => { setFilters(defaultFilters); setSelectedState(null); }} className="h-10 whitespace-nowrap rounded-md border border-[#b9dfc5] bg-white px-4 text-xs font-bold text-[#08733f] hover:bg-[#edf9f0]">Reset</button></div></section>
 
-          <section className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {metrics.map(({ label, value, detail, icon: Icon, highlighted }) => <article key={label} className={`flex min-h-[174px] flex-col items-center justify-center rounded-lg border p-5 text-center shadow-[0_1px_2px_rgba(16,24,40,0.04)] ${highlighted ? "border-[#cdebd6] bg-[#f4fcf6]" : "border-slate-200 bg-white"}`}><div className="flex h-10 w-10 items-center justify-center rounded-md bg-[#eaf8ef] text-[#08733f]"><Icon className="h-5 w-5" /></div><p className="mt-4 text-sm font-medium text-slate-600">{label}</p><p className="mt-1 text-2xl font-bold tracking-tight text-[#153b28]">{value}</p><p className="mt-2 text-xs text-slate-500">{detail}</p></article>)}
+          <section className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            {metrics.map(({ label, value, detail, icon: Icon, tone, action }) => {
+              const cardClassName = `flex min-h-[174px] w-full flex-col items-center justify-center rounded-lg border p-5 text-center shadow-[0_1px_2px_rgba(16,24,40,0.04)] ${tone === "highlighted" ? "border-[#cdebd6] bg-[#f0fdf4]" : tone === "pending" ? "border-[#f1d48a] bg-[#fffbeb] transition-colors hover:border-[#d97706] hover:bg-[#fff7d6]" : "border-slate-200 bg-white"}`;
+              const cardContent = <><div className={`flex h-10 w-10 items-center justify-center rounded-md ${tone === "pending" ? "bg-[#fef3c7] text-[#d97706]" : "bg-[#eaf8ef] text-[#15803d]"}`}><Icon className="h-5 w-5" /></div><p className="mt-4 text-sm font-medium text-slate-600">{label}</p><p className={`mt-1 text-2xl font-bold tracking-tight ${tone === "pending" ? "text-[#92400e]" : tone === "highlighted" ? "text-[#166534]" : "text-[#111827]"}`}>{value}</p><p className="mt-2 text-xs text-slate-500">{detail}</p></>;
+              return action ? <button key={label} type="button" onClick={() => setActiveNav(action)} className={cardClassName} aria-label={`${label}: ${value}. Open verification queue`}>{cardContent}</button> : <article key={label} className={cardClassName}>{cardContent}</article>;
+            })}
           </section>
 
           <section className="mt-7">
