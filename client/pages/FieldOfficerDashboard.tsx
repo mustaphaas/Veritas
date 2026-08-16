@@ -260,6 +260,9 @@ function InspectionModal({
   );
   const canCollect =
     locked || arrivalFresh || gpsMessage.startsWith("Verified");
+  const verificationBlocked =
+    gpsMessage.startsWith("Outside approved area") ||
+    gpsMessage.startsWith("Verification blocked");
   const update = (key: keyof InspectionReport, value: string) =>
     !locked && setReport((current) => ({ ...current, [key]: value }));
   const captureArrival = (demo = false) => {
@@ -467,7 +470,7 @@ function InspectionModal({
                 Use project coordinates for demo
               </button>
               <div
-                className={`rounded-md border p-3 text-xs font-semibold ${canCollect ? "border-[#b9dfc5] bg-[#eef9f1] text-[#08733f]" : gpsMessage.startsWith("Outside") ? "border-red-200 bg-red-50 text-red-700" : "border-[#f0d88d] bg-[#fff8e5] text-[#956300]"}`}
+                className={`rounded-md border p-3 text-xs ${canCollect ? "border-[#b9dfc5] bg-[#eef9f1] font-semibold text-[#08733f]" : verificationBlocked ? "border-red-300 bg-red-50 font-bold text-red-700" : "border-[#f0d88d] bg-[#fff8e5] font-semibold text-[#956300]"}`}
               >
                 {gpsMessage}
               </div>
