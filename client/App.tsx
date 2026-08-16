@@ -35,7 +35,7 @@ const App = () => (
                 }
               />
               <Route
-                path="/field-officer"
+                path="/field-officer/*"
                 element={
                   <RequireRole role="field">
                     <FieldOfficerDashboard />
@@ -43,7 +43,7 @@ const App = () => (
                 }
               />
               <Route
-                path="/consultant-admin"
+                path="/consultant-admin/*"
                 element={
                   <RequireRole role="consultant">
                     <ConsultantAdminDashboard />

@@ -27,6 +27,7 @@ import {
   WifiOff,
   X,
 } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 import RoleDashboardShell from "../components/RoleDashboardShell";
 import {
   getDeviceId,
@@ -37,13 +38,36 @@ import {
 } from "../lib/inspection-workflow";
 
 const navigation = [
-  { label: "Overview", icon: Home },
-  { label: "My Assignments", icon: FolderKanban },
-  { label: "Inspections", icon: ClipboardCheck },
-  { label: "Draft Reports", icon: FileEdit },
-  { label: "Sync Queue", icon: RefreshCw },
-  { label: "Profile", icon: UserRound },
+  { label: "Overview", icon: Home, href: "/field-officer" },
+  {
+    label: "My Assignments",
+    icon: FolderKanban,
+    href: "/field-officer/assignments",
+  },
+  {
+    label: "Inspections",
+    icon: ClipboardCheck,
+    href: "/field-officer/inspections",
+  },
+  { label: "Draft Reports", icon: FileEdit, href: "/field-officer/drafts" },
+  { label: "Sync Queue", icon: RefreshCw, href: "/field-officer/sync" },
+  { label: "Profile", icon: UserRound, href: "/field-officer/profile" },
 ];
+
+const fieldViewPaths: Record<string, string> = {
+  Overview: "/field-officer",
+  "My Assignments": "/field-officer/assignments",
+  Inspections: "/field-officer/inspections",
+  "Draft Reports": "/field-officer/drafts",
+  "Sync Queue": "/field-officer/sync",
+  Profile: "/field-officer/profile",
+  Settings: "/field-officer/settings",
+  Notifications: "/field-officer/notifications",
+};
+
+const fieldPathViews: Record<string, string> = Object.fromEntries(
+  Object.entries(fieldViewPaths).map(([view, path]) => [path, view]),
+);
 const fieldClass =
   "mt-1.5 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-[#173b2a] outline-none focus:border-[#08733f]";
 const areaClass =
@@ -861,7 +885,9 @@ export default function FieldOfficerDashboard() {
   const [stateFilter, setStateFilter] = useState("All Assigned States");
   const [statusFilter, setStatusFilter] = useState("All Statuses");
   const [selected, setSelected] = useState<InspectionAssignment | null>(null);
-  const [activeView, setActiveView] = useState("Overview");
+  const location = useLocation();
+  const navigate = useNavigate();
+  const activeView = fieldPathViews[location.pathname] ?? "Overview";
   const mine = assignments.filter(
     (assignment) => assignment.officer === "Amina Yusuf",
   );
@@ -901,7 +927,9 @@ export default function FieldOfficerDashboard() {
       initials="AY"
       navigation={navigation}
       activeNavigation={activeView}
-      onNavigationChange={setActiveView}
+      onNavigationChange={(label) =>
+        navigate(fieldViewPaths[label] ?? "/field-officer")
+      }
     >
       {activeView !== "Overview" && (
         <FieldWorkspace

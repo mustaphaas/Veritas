@@ -18,6 +18,7 @@ import {
   Zap,
 } from "lucide-react";
 import RoleDashboardShell from "../components/RoleDashboardShell";
+import { useLocation, useNavigate } from "react-router-dom";
 import { projects, type Project } from "../lib/dashboard-data";
 import {
   fieldOfficers,
@@ -26,14 +27,42 @@ import {
 } from "../lib/inspection-workflow";
 
 const navigation = [
-  { label: "Overview", icon: Home },
-  { label: "Review Queue", icon: ClipboardCheck },
-  { label: "Projects", icon: FolderKanban },
-  { label: "Field Officers", icon: UsersRound },
-  { label: "Verification", icon: ShieldCheck },
-  { label: "Analytics", icon: BarChart3 },
-  { label: "Reports", icon: FileText },
+  { label: "Overview", icon: Home, href: "/consultant-admin" },
+  {
+    label: "Review Queue",
+    icon: ClipboardCheck,
+    href: "/consultant-admin/reviews",
+  },
+  { label: "Projects", icon: FolderKanban, href: "/consultant-admin/projects" },
+  {
+    label: "Field Officers",
+    icon: UsersRound,
+    href: "/consultant-admin/officers",
+  },
+  {
+    label: "Verification",
+    icon: ShieldCheck,
+    href: "/consultant-admin/verification",
+  },
+  { label: "Analytics", icon: BarChart3, href: "/consultant-admin/analytics" },
+  { label: "Reports", icon: FileText, href: "/consultant-admin/reports" },
 ];
+
+const consultantViewPaths: Record<string, string> = {
+  Overview: "/consultant-admin",
+  "Review Queue": "/consultant-admin/reviews",
+  Projects: "/consultant-admin/projects",
+  "Field Officers": "/consultant-admin/officers",
+  Verification: "/consultant-admin/verification",
+  Analytics: "/consultant-admin/analytics",
+  Reports: "/consultant-admin/reports",
+  Settings: "/consultant-admin/settings",
+  Notifications: "/consultant-admin/notifications",
+};
+
+const consultantPathViews: Record<string, string> = Object.fromEntries(
+  Object.entries(consultantViewPaths).map(([view, path]) => [path, view]),
+);
 const inputClass =
   "mt-1.5 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-[#173b2a] outline-none focus:border-[#08733f]";
 
@@ -714,7 +743,9 @@ export default function ConsultantAdminDashboard() {
   const [officerFilter, setOfficerFilter] = useState("All Field Officers");
   const [assignOpen, setAssignOpen] = useState(false);
   const [reviewing, setReviewing] = useState<InspectionAssignment | null>(null);
-  const [activeView, setActiveView] = useState("Overview");
+  const location = useLocation();
+  const navigate = useNavigate();
+  const activeView = consultantPathViews[location.pathname] ?? "Overview";
   const [mapAssignment, setMapAssignment] =
     useState<InspectionAssignment | null>(assignments[0] ?? null);
   const filtered = useMemo(
@@ -774,7 +805,9 @@ export default function ConsultantAdminDashboard() {
       initials="IM"
       navigation={navigation}
       activeNavigation={activeView}
-      onNavigationChange={setActiveView}
+      onNavigationChange={(label) =>
+        navigate(consultantViewPaths[label] ?? "/consultant-admin")
+      }
     >
       {activeView !== "Overview" && (
         <ConsultantWorkspace
@@ -784,7 +817,7 @@ export default function ConsultantAdminDashboard() {
           onReview={setReviewing}
           onMap={(assignment) => {
             setMapAssignment(assignment);
-            setActiveView("Overview");
+            navigate("/consultant-admin");
           }}
         />
       )}
