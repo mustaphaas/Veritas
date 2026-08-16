@@ -965,7 +965,10 @@ function InlineInspectionWorkspace({
             </div>
           )}
           {locationMessage && (
-            <div className="mt-2 rounded-md bg-slate-50 px-3 py-2 text-[10px] text-slate-600">
+            <div
+              role="alert"
+              className={`mt-2 rounded-md border px-3 py-2 text-[10px] ${locationMessage.startsWith("Verification blocked") ? "border-red-300 bg-red-50 font-bold text-red-700" : locationMessage.startsWith("Arrival verified") ? "border-[#a8d8b7] bg-[#eff9f2] font-bold text-[#08733f]" : "border-slate-200 bg-slate-50 text-slate-600"}`}
+            >
               {locationMessage}
             </div>
           )}
