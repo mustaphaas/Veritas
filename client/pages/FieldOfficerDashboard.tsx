@@ -13,6 +13,8 @@ import {
   FileEdit,
   FolderKanban,
   Home,
+  LocateFixed,
+  LockKeyhole,
   MapPin,
   Navigation,
   QrCode,
@@ -714,6 +716,417 @@ function InspectionModal({
   );
 }
 
+function InlineInspectionWorkspace({
+  assignments,
+  onOpen,
+}: {
+  assignments: InspectionAssignment[];
+  onOpen: (assignment: InspectionAssignment) => void;
+}) {
+  const { startRoute, verifyArrival } = useInspectionWorkflow();
+  const actionable =
+    assignments.find((item) => item.status === "Re-inspection") ??
+    assignments.find(
+      (item) => !["Submitted", "Approved"].includes(item.status),
+    ) ??
+    assignments[0];
+  const [selectedId, setSelectedId] = useState(actionable?.id ?? "");
+  const [locationMessage, setLocationMessage] = useState("");
+  const [locating, setLocating] = useState(false);
+  const selected =
+    assignments.find((item) => item.id === selectedId) ?? actionable;
+
+  if (!selected) return null;
+  const locked = !selected.arrival && !isFieldReportLocked(selected.status);
+  const routeReady = selected.status === "En route";
+  const completed = ["Submitted", "Approved"].includes(selected.status);
+  const currentStep = completed
+    ? 4
+    : selected.report
+      ? 3
+      : selected.arrival
+        ? 2
+        : 1;
+  const progress = completed
+    ? 100
+    : selected.report
+      ? 72
+      : selected.arrival
+        ? 48
+        : 31;
+  const statusLabel =
+    selected.status === "Re-inspection"
+      ? "Re-inspection Required"
+      : selected.status === "Assigned"
+        ? "Field Officer Assigned"
+        : selected.status;
+
+  const beginRoute = () => {
+    startRoute(selected.id);
+    setLocationMessage(
+      "Navigation started. Verify your location when you arrive at the project site.",
+    );
+    window.open(
+      `https://www.google.com/maps/dir/?api=1&destination=${selected.latitude},${selected.longitude}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
+  };
+
+  const verify = (demo = false) => {
+    if (!routeReady) {
+      setLocationMessage("Start navigation before verifying arrival.");
+      return;
+    }
+    setLocating(true);
+    const apply = (latitude: number, longitude: number) => {
+      const result = verifyArrival(selected.id, latitude, longitude);
+      setLocationMessage(
+        result.allowed
+          ? `Arrival verified — ${result.distance} m from the approved project centre.`
+          : `Verification blocked — you are ${result.distance.toLocaleString()} m outside the project centre.`,
+      );
+      setLocating(false);
+    };
+    if (demo) return apply(selected.latitude, selected.longitude);
+    if (!navigator.geolocation) {
+      setLocationMessage("GPS is unavailable on this device.");
+      setLocating(false);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => apply(position.coords.latitude, position.coords.longitude),
+      () => {
+        setLocationMessage(
+          "Location permission is required to verify arrival.",
+        );
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 12000 },
+    );
+  };
+
+  const previewFields = [
+    ["Inspection type", selected.component],
+    [
+      "Equipment installed",
+      selected.report?.equipmentInstalled ??
+        "e.g. PV modules, inverters, batteries",
+    ],
+    ["Verified capacity (kW)", selected.report?.capacity ?? ""],
+    ["Beneficiaries confirmed", selected.report?.beneficiaries ?? ""],
+    ["Meter number", selected.report?.meterDetails ?? "MTR-…"],
+    [
+      "Transformer serial number",
+      selected.report?.transformerDetails ?? "TR-…",
+    ],
+    ["Observed poles", selected.report?.poleCount ?? ""],
+    ["Installed cable length", selected.report?.cableLength ?? ""],
+  ];
+
+  return (
+    <div className="mt-3 space-y-4">
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-100 px-4 py-4 sm:px-5">
+          <h2 className="text-sm font-bold text-[#173b2a]">
+            Assigned projects
+          </h2>
+          <p className="mt-1 text-[10px] text-slate-500">
+            Select an assignment to continue its inspection workflow
+          </p>
+        </div>
+        <div className="space-y-2 p-3 sm:p-4">
+          {assignments.slice(0, 4).map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => {
+                setSelectedId(item.id);
+                setLocationMessage("");
+              }}
+              className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition ${selected.id === item.id ? "border-[#9ed5af] bg-[#effaf2] shadow-sm" : "border-slate-200 bg-white hover:border-[#b9dfc5]"}`}
+            >
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-[#08733f] shadow-sm">
+                <Navigation className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <strong className="block truncate text-xs text-[#173b2a]">
+                  {item.projectName}
+                </strong>
+                <span className="mt-1 block truncate text-[9px] text-slate-500">
+                  {item.id} · {item.community}, {item.state}
+                </span>
+              </span>
+              <span
+                className={`shrink-0 rounded-md border px-2 py-1 text-[8px] font-bold ${item.status === "Re-inspection" ? "border-red-200 bg-red-50 text-red-700" : "border-[#c8daef] bg-[#eef5fc] text-[#356ca5]"}`}
+              >
+                {item.status === "Re-inspection"
+                  ? "Re-inspection Required"
+                  : item.status === "Assigned"
+                    ? "Field Officer Assigned"
+                    : item.status}
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-4 py-4 sm:px-5">
+          <div>
+            <h2 className="text-base font-bold text-[#173b2a]">
+              Site arrival &amp; workflow
+            </h2>
+            <p className="mt-1 text-[10px] text-slate-500">
+              {selected.projectName} · {selected.id}
+            </p>
+          </div>
+          <span
+            className={`rounded-md border px-2.5 py-1 text-[9px] font-bold ${selected.status === "Re-inspection" ? "border-red-200 bg-red-50 text-red-700" : "border-[#c8daef] bg-[#eef5fc] text-[#356ca5]"}`}
+          >
+            {statusLabel}
+          </span>
+        </div>
+        <div className="p-4 sm:p-5">
+          <div
+            className="relative flex h-52 items-center justify-center overflow-hidden rounded-xl border border-[#d7e9dc] bg-[#f6fbf7]"
+            style={{
+              backgroundImage:
+                "linear-gradient(#e7f1e9 1px, transparent 1px), linear-gradient(90deg, #e7f1e9 1px, transparent 1px)",
+              backgroundSize: "22px 22px",
+            }}
+          >
+            <div className="absolute h-32 w-32 rounded-full border border-dashed border-[#65aa7d] bg-[#dff4e6]/50" />
+            <div className="relative z-10 text-center">
+              <MapPin className="mx-auto h-7 w-7 text-[#16824a]" />
+              <strong className="mt-2 block text-xs text-[#173b2a]">
+                {selected.community}
+              </strong>
+              <span className="mt-1 block text-[9px] text-slate-500">
+                {selected.latitude.toFixed(3)}, {selected.longitude.toFixed(3)}{" "}
+                · {selected.geofenceRadius} m approved radius
+              </span>
+            </div>
+          </div>
+
+          {!completed && !selected.arrival && (
+            <div className="mt-3 flex flex-col gap-3 rounded-lg border border-[#eed89c] bg-[#fff9e9] p-3 sm:flex-row sm:items-center">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#fff0bf] text-[#a36b00]">
+                <LocateFixed className="h-4 w-4" />
+              </span>
+              <div className="flex-1">
+                <strong className="text-[10px] text-[#5f4615]">
+                  Verify arrival before data entry
+                </strong>
+                <p className="mt-1 text-[9px] text-[#8b7548]">
+                  The inspection form remains locked until the officer is within
+                  the approved project geofence.
+                </p>
+              </div>
+              {!routeReady ? (
+                <button
+                  type="button"
+                  onClick={beginRoute}
+                  className="rounded-md bg-[#08733f] px-4 py-2.5 text-[10px] font-bold text-white"
+                >
+                  Start navigation
+                </button>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={locating}
+                    onClick={() => verify()}
+                    className="rounded-md bg-[#b27a12] px-4 py-2.5 text-[10px] font-bold text-white disabled:opacity-50"
+                  >
+                    {locating ? "Checking GPS…" : "Verify location"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => verify(true)}
+                    className="rounded-md border border-[#d9bd77] bg-white px-3 py-2.5 text-[9px] font-bold text-[#8b650e]"
+                  >
+                    Demo GPS
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          {selected.arrival && (
+            <div className="mt-3 rounded-lg border border-[#a8d8b7] bg-[#eff9f2] p-3 text-[10px] font-semibold text-[#08733f]">
+              Arrival verified at {selected.arrival.distance} m ·{" "}
+              {new Date(selected.arrival.at).toLocaleString()}
+            </div>
+          )}
+          {locationMessage && (
+            <div className="mt-2 rounded-md bg-slate-50 px-3 py-2 text-[10px] text-slate-600">
+              {locationMessage}
+            </div>
+          )}
+
+          <div className="mt-4 grid grid-cols-4 gap-1">
+            {["Assigned", "Arrival verified", "Data entry", "Submitted"].map(
+              (label, index) => {
+                const active = currentStep >= index + 1;
+                return (
+                  <div key={label} className="relative text-center">
+                    <div className="flex items-center">
+                      <span
+                        className={`h-px flex-1 ${index === 0 ? "bg-transparent" : active ? "bg-[#65aa7d]" : "bg-slate-200"}`}
+                      />
+                      <span
+                        className={`flex h-7 w-7 items-center justify-center rounded-full border-2 text-[9px] font-bold ${active ? "border-[#08733f] bg-[#08733f] text-white" : "border-slate-200 bg-white text-slate-400"}`}
+                      >
+                        {index + 1}
+                      </span>
+                      <span
+                        className={`h-px flex-1 ${index === 3 ? "bg-transparent" : currentStep > index + 1 ? "bg-[#65aa7d]" : "bg-slate-200"}`}
+                      />
+                    </div>
+                    <span
+                      className={`mt-1 block text-[8px] ${active ? "font-semibold text-[#173b2a]" : "text-slate-400"}`}
+                    >
+                      {label}
+                    </span>
+                  </div>
+                );
+              },
+            )}
+          </div>
+
+          <div className="mt-4 flex gap-3 rounded-lg border border-[#d7e9dc] bg-[#f4faf6] p-3">
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#16824a]" />
+            <div>
+              <strong className="text-[10px] text-[#173b2a]">
+                Consultant instructions
+              </strong>
+              <p className="mt-1 text-[9px] leading-4 text-slate-500">
+                Verify arrival within the {selected.geofenceRadius} m geofence,
+                capture transformer and meter nameplates, confirm installed
+                capacity and collect both representative signatures.
+              </p>
+              {selected.report?.reviewNote && (
+                <p className="mt-1 text-[9px] font-semibold text-red-700">
+                  Re-inspection note: {selected.report.reviewNote}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center justify-between border-b border-slate-100 px-4 py-4 sm:px-5">
+          <div>
+            <h2 className="text-base font-bold text-[#173b2a]">
+              Inspection data entry
+            </h2>
+            <p className="mt-1 text-[10px] text-slate-500">
+              {locked
+                ? "Locked until site arrival is verified and the inspection is started"
+                : completed
+                  ? "Submitted report is locked for consultant review"
+                  : "Complete the inspection record and supporting evidence"}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-1.5 w-20 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full bg-[#08733f]"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <span className="text-[9px] font-bold text-slate-600">
+              {progress}%
+            </span>
+          </div>
+        </div>
+        <div className="p-4 sm:p-5">
+          {locked && (
+            <div className="mb-4 flex min-h-28 flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-center">
+              <LockKeyhole className="h-6 w-6 text-slate-400" />
+              <strong className="mt-2 text-[10px] text-slate-600">
+                Data entry is locked
+              </strong>
+              <p className="mt-1 text-[9px] text-slate-400">
+                Complete the GPS/geofence arrival check before entering
+                inspection data.
+              </p>
+            </div>
+          )}
+          <div
+            className={`space-y-4 ${locked ? "pointer-events-none opacity-35" : ""}`}
+          >
+            {[
+              "Inspection and asset details",
+              "Meter and transformer",
+              "Infrastructure verification",
+            ].map((title, sectionIndex) => (
+              <div
+                key={title}
+                className="rounded-lg border border-slate-100 p-4"
+              >
+                <div className="flex gap-3">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#eff9f2] text-[9px] font-bold text-[#08733f]">
+                    0{sectionIndex + 1}
+                  </span>
+                  <div>
+                    <h3 className="text-xs font-bold text-[#173b2a]">
+                      {title}
+                    </h3>
+                    <p className="mt-1 text-[9px] text-slate-400">
+                      {sectionIndex === 0
+                        ? "Record the physical equipment and verified capacity."
+                        : sectionIndex === 1
+                          ? "Use the serial numbers visible on installed equipment."
+                          : "Compare observed infrastructure against the approved scope."}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {previewFields
+                    .slice(
+                      sectionIndex === 0 ? 0 : sectionIndex === 1 ? 4 : 6,
+                      sectionIndex === 0 ? 4 : sectionIndex === 1 ? 6 : 8,
+                    )
+                    .map(([label, value]) => (
+                      <label
+                        key={label}
+                        className="text-[9px] font-semibold text-slate-500"
+                      >
+                        {label}
+                        <input
+                          readOnly
+                          value={value}
+                          placeholder="Enter verified value"
+                          className="mt-1.5 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-[#173b2a]"
+                        />
+                      </label>
+                    ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 flex justify-end">
+            <button
+              type="button"
+              disabled={locked}
+              onClick={() => onOpen(selected)}
+              className="rounded-md bg-[#08733f] px-5 py-2.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {completed
+                ? "View submitted report"
+                : selected.report
+                  ? "Continue data entry"
+                  : "Start data entry"}
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function FieldWorkspace({
   view,
   assignments,
@@ -1058,7 +1471,11 @@ export default function FieldOfficerDashboard() {
             tone="amber"
           />
         </section>
-        <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.65fr)_minmax(360px,1fr)]">
+        <InlineInspectionWorkspace
+          assignments={filtered}
+          onOpen={setSelected}
+        />
+        <div className="hidden">
           <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
             <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
               <div>
