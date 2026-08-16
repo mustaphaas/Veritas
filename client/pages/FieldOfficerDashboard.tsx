@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import RoleDashboardShell from "../components/RoleDashboardShell";
 import {
+  canSubmitReport,
   getDeviceId,
   isFieldReportLocked,
   useInspectionWorkflow,
@@ -667,12 +668,9 @@ function InspectionModal({
                 </button>
                 <button
                   type="button"
-                  disabled={
-                    !report.communitySignature ||
-                    !report.contractorSignature ||
-                    report.evidence.length === 0
-                  }
+                  disabled={!canSubmitReport(assignment, report)}
                   onClick={() => {
+                    if (!canSubmitReport(assignment, report)) return;
                     submitReport(assignment.id, report);
                     onClose();
                   }}
