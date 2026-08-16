@@ -31,18 +31,9 @@ export function canVerifyArrival(status: AssignmentStatus) {
 }
 
 export function canEditReport(assignment: InspectionAssignment) {
-  return Boolean(assignment.arrival) && !isFieldReportLocked(assignment.status);
-}
-
-export function canSubmitReport(
-  assignment: InspectionAssignment,
-  report: InspectionReport,
-) {
   return (
-    canEditReport(assignment) &&
-    report.evidence.length > 0 &&
-    Boolean(report.communitySignature) &&
-    Boolean(report.contractorSignature)
+    Boolean(assignment.arrival) &&
+    (assignment.status === "Arrived" || assignment.status === "Draft")
   );
 }
 
@@ -89,6 +80,74 @@ export type InspectionReport = {
   submittedAt?: string;
   reviewNote?: string;
 };
+
+const requiredReportFields = [
+  "projectId",
+  "contractor",
+  "state",
+  "lga",
+  "community",
+  "inspector",
+  "equipmentInstalled",
+  "capacity",
+  "meterDetails",
+  "transformerDetails",
+  "poleCount",
+  "cableLength",
+  "beneficiaries",
+  "observations",
+  "recommendations",
+] as const satisfies readonly (keyof InspectionReport)[];
+
+export function isReportComplete(report: InspectionReport) {
+  return requiredReportFields.every((field) => report[field].trim().length > 0);
+}
+
+export function canSubmitReport(
+  assignment: InspectionAssignment,
+  report: InspectionReport,
+) {
+  const arrival = assignment.arrival;
+  if (!arrival || !canEditReport(assignment) || !isReportComplete(report)) {
+    return false;
+  }
+
+  const arrivalTime = Date.parse(arrival.at);
+  const inspectedTime = Date.parse(report.inspectedAt);
+  const hasFreshEvidence = report.evidence.some((item) => {
+    const capturedTime = Date.parse(item.capturedAt);
+    return (
+      item.projectId === assignment.id &&
+      item.inspector === assignment.officer &&
+      Number.isFinite(capturedTime) &&
+      capturedTime >= arrivalTime
+    );
+  });
+
+  return (
+    report.projectId === assignment.id &&
+    report.inspector === assignment.officer &&
+    Number.isFinite(arrivalTime) &&
+    Number.isFinite(inspectedTime) &&
+    inspectedTime >= arrivalTime &&
+    hasFreshEvidence &&
+    Boolean(report.communitySignature?.trim()) &&
+    Boolean(report.contractorSignature?.trim())
+  );
+}
+
+export function prepareReportForReinspection(
+  report: InspectionReport,
+  note: string,
+): InspectionReport {
+  return {
+    ...report,
+    reviewNote: note,
+    communitySignature: undefined,
+    contractorSignature: undefined,
+    submittedAt: undefined,
+  };
+}
 
 export type AuditEvent = {
   id: string;
@@ -543,7 +602,9 @@ export function InspectionWorkflowProvider({
           arrival:
             decision === "Re-inspection" ? undefined : assignment.arrival,
           report: assignment.report
-            ? { ...assignment.report, reviewNote: note }
+            ? decision === "Re-inspection"
+              ? prepareReportForReinspection(assignment.report, note)
+              : { ...assignment.report, reviewNote: note }
             : assignment.report,
           audit: [
             ...assignment.audit,
