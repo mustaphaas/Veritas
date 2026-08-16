@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { projects } from "./dashboard-data";
 import {
+  canReviewReport,
+  canStartRoute,
+  canVerifyArrival,
   createAssignment,
   distanceMeters,
   isFieldReportLocked,
@@ -43,5 +46,14 @@ describe("inspection workflow", () => {
     expect(isFieldReportLocked("Submitted")).toBe(true);
     expect(isFieldReportLocked("Approved")).toBe(true);
     expect(isFieldReportLocked("Re-inspection")).toBe(false);
+  });
+
+  it("enforces the ordered field and consultant status transitions", () => {
+    expect(canStartRoute("Assigned")).toBe(true);
+    expect(canStartRoute("Submitted")).toBe(false);
+    expect(canVerifyArrival("Assigned")).toBe(false);
+    expect(canVerifyArrival("En route")).toBe(true);
+    expect(canReviewReport("Draft")).toBe(false);
+    expect(canReviewReport("Submitted")).toBe(true);
   });
 });

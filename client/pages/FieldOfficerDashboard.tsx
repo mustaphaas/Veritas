@@ -195,6 +195,9 @@ function InspectionModal({
       : "Arrival verification required",
   );
   const [gpsBusy, setGpsBusy] = useState(false);
+  const [routeStarted, setRouteStarted] = useState(
+    assignment.status === "En route",
+  );
   const [report, setReport] = useState<InspectionReport>(
     () =>
       assignment.report ?? {
@@ -227,6 +230,10 @@ function InspectionModal({
     !locked && setReport((current) => ({ ...current, [key]: value }));
   const captureArrival = (demo = false) => {
     if (locked) return;
+    if (!routeStarted) {
+      setGpsMessage("Start navigation before verifying arrival");
+      return;
+    }
     setGpsBusy(true);
     const apply = (latitude: number, longitude: number) => {
       const result = verifyArrival(assignment.id, latitude, longitude);
@@ -387,18 +394,26 @@ function InspectionModal({
                   Approved geofence: {assignment.geofenceRadius} metres
                 </p>
               </div>
-              <a
-                href={navUrl}
-                target="_blank"
-                rel="noreferrer"
-                onClick={() => startRoute(assignment.id)}
-                className="flex h-11 items-center justify-center gap-2 rounded-md border border-[#8bcba0] bg-white text-xs font-bold text-[#08733f]"
-              >
-                <Navigation className="h-4 w-4" /> Navigate with GPS
-              </a>
+              {!locked && (
+                <a
+                  href={navUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => {
+                    startRoute(assignment.id);
+                    setRouteStarted(true);
+                    setGpsMessage(
+                      "Navigation started · verify arrival at the site",
+                    );
+                  }}
+                  className="flex h-11 items-center justify-center gap-2 rounded-md border border-[#8bcba0] bg-white text-xs font-bold text-[#08733f]"
+                >
+                  <Navigation className="h-4 w-4" /> Navigate with GPS
+                </a>
+              )}
               <button
                 type="button"
-                disabled={gpsBusy}
+                disabled={gpsBusy || locked || !routeStarted}
                 onClick={() => captureArrival()}
                 className="flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#08733f] text-xs font-bold text-white disabled:opacity-60"
               >
@@ -407,8 +422,9 @@ function InspectionModal({
               </button>
               <button
                 type="button"
+                disabled={locked || !routeStarted}
                 onClick={() => captureArrival(true)}
-                className="w-full text-[10px] font-bold text-slate-500 underline"
+                className="w-full text-[10px] font-bold text-slate-500 underline disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Use project coordinates for demo
               </button>
@@ -674,12 +690,178 @@ function InspectionModal({
   );
 }
 
+function FieldWorkspace({
+  view,
+  assignments,
+  isOnline,
+  onOpen,
+  onSync,
+}: {
+  view: string;
+  assignments: InspectionAssignment[];
+  isOnline: boolean;
+  onOpen: (assignment: InspectionAssignment) => void;
+  onSync: () => void;
+}) {
+  const rows =
+    view === "Draft Reports"
+      ? assignments.filter((item) => item.status === "Draft")
+      : view === "Sync Queue"
+        ? assignments.filter((item) => item.syncStatus === "queued")
+        : view === "Inspections"
+          ? assignments.filter((item) =>
+              [
+                "Assigned",
+                "En route",
+                "Arrived",
+                "Draft",
+                "Re-inspection",
+              ].includes(item.status),
+            )
+          : assignments;
+
+  if (view === "Profile" || view === "Settings") {
+    return (
+      <section className="rounded-lg border border-slate-200 bg-white p-5">
+        <h2 className="text-base font-bold text-[#173b2a]">
+          {view === "Profile" ? "Field Officer Profile" : "Field App Settings"}
+        </h2>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            ["Officer", "Amina Yusuf"],
+            ["Operational zone", "North West"],
+            ["Device ID", getDeviceId()],
+            [
+              "GPS permission",
+              navigator.geolocation ? "Available" : "Unavailable",
+            ],
+            ["Connectivity", isOnline ? "Online" : "Offline"],
+            ["Automatic synchronization", "Enabled"],
+          ].map(([label, value]) => (
+            <div
+              key={label}
+              className="rounded-lg border border-slate-100 bg-[#f7faf8] p-4"
+            >
+              <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500">
+                {label}
+              </p>
+              <p className="mt-2 text-xs font-bold text-[#173b2a]">{value}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  if (view === "Notifications") {
+    const reinspection = assignments.filter(
+      (item) => item.status === "Re-inspection",
+    );
+    return (
+      <section className="rounded-lg border border-slate-200 bg-white">
+        <div className="border-b border-slate-100 px-5 py-4">
+          <h2 className="text-base font-bold text-[#173b2a]">Notifications</h2>
+        </div>
+        <div className="divide-y divide-slate-100">
+          {reinspection.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => onOpen(item)}
+              className="flex w-full items-start justify-between gap-4 p-4 text-left hover:bg-slate-50"
+            >
+              <div>
+                <p className="text-xs font-bold text-red-700">
+                  Re-inspection requested
+                </p>
+                <p className="mt-1 text-xs text-[#173b2a]">
+                  {item.projectName}
+                </p>
+                <p className="mt-1 text-[10px] text-slate-500">
+                  {item.report?.reviewNote}
+                </p>
+              </div>
+              <span className="text-[10px] font-bold text-[#08733f]">
+                Open →
+              </span>
+            </button>
+          ))}
+          {!reinspection.length && (
+            <p className="p-8 text-center text-xs text-slate-500">
+              No new notifications.
+            </p>
+          )}
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+        <div>
+          <h2 className="text-base font-bold text-[#173b2a]">{view}</h2>
+          <p className="mt-1 text-[10px] text-slate-500">
+            Actions are enabled only when the required previous workflow step is
+            complete.
+          </p>
+        </div>
+        {view === "Sync Queue" && (
+          <button
+            onClick={onSync}
+            disabled={!isOnline || !rows.length}
+            className="rounded-md bg-[#08733f] px-4 py-2 text-[10px] font-bold text-white disabled:opacity-40"
+          >
+            Synchronize now
+          </button>
+        )}
+      </div>
+      <div className="divide-y divide-slate-100">
+        {rows.map((item) => (
+          <div
+            key={item.id}
+            className="grid gap-3 px-5 py-4 sm:grid-cols-[1fr_auto] sm:items-center"
+          >
+            <div>
+              <p className="text-xs font-bold text-[#173b2a]">
+                {item.projectName}
+              </p>
+              <p className="mt-1 text-[10px] text-slate-500">
+                {item.id} · {item.community}, {item.state} · Due{" "}
+                {new Date(item.dueDate).toLocaleDateString()}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <StatusPill status={item.status} />
+              <button
+                onClick={() => onOpen(item)}
+                className="rounded-md border border-[#8bcba0] px-3 py-2 text-[10px] font-bold text-[#08733f]"
+              >
+                {["Submitted", "Approved"].includes(item.status)
+                  ? "View locked report"
+                  : item.status === "Re-inspection"
+                    ? "Start re-inspection"
+                    : "Continue"}
+              </button>
+            </div>
+          </div>
+        ))}
+        {!rows.length && (
+          <p className="p-8 text-center text-xs text-slate-500">
+            No records in this workspace.
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export default function FieldOfficerDashboard() {
   const { assignments, isOnline, startRoute, syncNow } =
     useInspectionWorkflow();
   const [stateFilter, setStateFilter] = useState("All Assigned States");
   const [statusFilter, setStatusFilter] = useState("All Statuses");
   const [selected, setSelected] = useState<InspectionAssignment | null>(null);
+  const [activeView, setActiveView] = useState("Overview");
   const mine = assignments.filter(
     (assignment) => assignment.officer === "Amina Yusuf",
   );
@@ -718,246 +900,262 @@ export default function FieldOfficerDashboard() {
       roleName="Amina Yusuf · Field Officer"
       initials="AY"
       navigation={navigation}
+      activeNavigation={activeView}
+      onNavigationChange={setActiveView}
     >
-      <section
-        className={`mb-3 flex items-center justify-between rounded-lg border px-4 py-2.5 ${isOnline ? "border-[#b9dfc5] bg-[#eff9f2] text-[#08733f]" : "border-[#f0d88d] bg-[#fff8e5] text-[#956300]"}`}
-      >
-        <span className="flex items-center gap-2 text-xs font-bold">
-          {isOnline ? (
-            <Wifi className="h-4 w-4" />
-          ) : (
-            <WifiOff className="h-4 w-4" />
-          )}
-          {isOnline
-            ? "Online · field data sync is active"
-            : "Offline · drafts and evidence will remain on this device"}
-        </span>
-        <button
-          type="button"
-          onClick={syncNow}
-          disabled={!isOnline || queued === 0}
-          className="rounded-md border border-current px-3 py-1.5 text-[10px] font-bold disabled:opacity-40"
+      {activeView !== "Overview" && (
+        <FieldWorkspace
+          view={activeView}
+          assignments={mine}
+          isOnline={isOnline}
+          onOpen={setSelected}
+          onSync={syncNow}
+        />
+      )}
+      <div className={activeView === "Overview" ? "" : "hidden"}>
+        <section
+          className={`mb-3 flex items-center justify-between rounded-lg border px-4 py-2.5 ${isOnline ? "border-[#b9dfc5] bg-[#eff9f2] text-[#08733f]" : "border-[#f0d88d] bg-[#fff8e5] text-[#956300]"}`}
         >
-          Sync now {queued ? `(${queued})` : ""}
-        </button>
-      </section>
-      <section className="rounded-lg border border-[#d6e9da] bg-[#f7fcf8] p-3">
-        <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-[1fr_1fr_1fr_205px]">
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
-              Assigned state
-            </span>
-            <select
-              value={stateFilter}
-              onChange={(event) => setStateFilter(event.target.value)}
-              className={fieldClass}
-            >
-              <option>All Assigned States</option>
-              {[...new Set(mine.map((item) => item.state))].map((state) => (
-                <option key={state}>{state}</option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
-              Assignment status
-            </span>
-            <select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
-              className={fieldClass}
-            >
-              <option>All Statuses</option>
-              {[
-                "Assigned",
-                "En route",
-                "Arrived",
-                "Draft",
-                "Submitted",
-                "Approved",
-                "Re-inspection",
-              ].map((status) => (
-                <option key={status}>{status}</option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
-              Schedule
-            </span>
-            <select className={fieldClass}>
-              <option>This Week</option>
-              <option>Next Week</option>
-              <option>This Month</option>
-            </select>
-          </label>
+          <span className="flex items-center gap-2 text-xs font-bold">
+            {isOnline ? (
+              <Wifi className="h-4 w-4" />
+            ) : (
+              <WifiOff className="h-4 w-4" />
+            )}
+            {isOnline
+              ? "Online · field data sync is active"
+              : "Offline · drafts and evidence will remain on this device"}
+          </span>
           <button
             type="button"
-            disabled={!next}
-            onClick={() => next && openRoute(next)}
-            className="mt-auto flex h-10 items-center justify-center gap-2 rounded-md bg-[#08733f] px-4 text-xs font-bold text-white disabled:opacity-50"
+            onClick={syncNow}
+            disabled={!isOnline || queued === 0}
+            className="rounded-md border border-current px-3 py-1.5 text-[10px] font-bold disabled:opacity-40"
           >
-            <Navigation className="h-4 w-4" /> Open next route
+            Sync now {queued ? `(${queued})` : ""}
           </button>
-        </div>
-      </section>
-      <section className="mt-3 flex gap-3 overflow-x-auto pb-1">
-        <MetricCard
-          label="Assigned Projects"
-          value={mine.length}
-          detail="Received from Consultant Admin"
-          icon={FolderKanban}
-        />
-        <MetricCard
-          label="Inspections Due"
-          value={due}
-          detail="Visits requiring action"
-          icon={Clock3}
-          tone="amber"
-        />
-        <MetricCard
-          label="Approved"
-          value={completed}
-          detail="Reports passed consultant QA"
-          icon={CheckCircle2}
-        />
-        <MetricCard
-          label="Draft Reports"
-          value={drafts}
-          detail="Saved on this device"
-          icon={FileEdit}
-          tone="blue"
-        />
-        <MetricCard
-          label="Sync Pending"
-          value={queued}
-          detail="Automatically uploads online"
-          icon={WifiOff}
-          tone="amber"
-        />
-      </section>
-      <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.65fr)_minmax(360px,1fr)]">
-        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
-            <div>
-              <h2 className="text-sm font-bold text-[#173b2a]">
-                My Project Assignments
-              </h2>
-              <p className="mt-1 text-[10px] text-slate-500">
-                Project details, due dates and inspection status
-              </p>
-            </div>
-            <span className="rounded-full bg-[#edf8f0] px-2.5 py-1 text-[10px] font-bold text-[#08733f]">
-              {filtered.length} projects
-            </span>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left">
-              <thead className="bg-slate-50 text-[9px] uppercase tracking-[0.1em] text-slate-500">
-                <tr>
-                  <th className="px-4 py-2.5">Project</th>
-                  <th className="px-3 py-2.5">Location</th>
-                  <th className="px-3 py-2.5">Due</th>
-                  <th className="px-3 py-2.5">Status</th>
-                  <th className="px-4 py-2.5 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((assignment) => (
-                  <tr key={assignment.id} className="border-t border-slate-100">
-                    <td className="px-4 py-3">
-                      <p className="text-xs font-semibold text-[#173b2a]">
-                        {assignment.projectName}
-                      </p>
-                      <p className="mt-1 text-[10px] text-slate-500">
-                        {assignment.id} · {assignment.contractor}
-                      </p>
-                    </td>
-                    <td className="px-3 py-3 text-xs text-slate-600">
-                      {assignment.community}, {assignment.state}
-                    </td>
-                    <td className="px-3 py-3 text-xs text-slate-600">
-                      {new Date(assignment.dueDate).toLocaleDateString()}
-                    </td>
-                    <td className="px-3 py-3">
-                      <StatusPill status={assignment.status} />
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => setSelected(assignment)}
-                        className="rounded-md border border-[#8bcba0] px-3 py-2 text-[10px] font-bold text-[#08733f]"
-                      >
-                        {["Submitted", "Approved"].includes(assignment.status)
-                          ? "View report"
-                          : assignment.status === "Assigned"
-                            ? "Open assignment"
-                            : "Continue inspection"}
-                      </button>
-                    </td>
-                  </tr>
+        </section>
+        <section className="rounded-lg border border-[#d6e9da] bg-[#f7fcf8] p-3">
+          <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-[1fr_1fr_1fr_205px]">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                Assigned state
+              </span>
+              <select
+                value={stateFilter}
+                onChange={(event) => setStateFilter(event.target.value)}
+                className={fieldClass}
+              >
+                <option>All Assigned States</option>
+                {[...new Set(mine.map((item) => item.state))].map((state) => (
+                  <option key={state}>{state}</option>
                 ))}
-              </tbody>
-            </table>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                Assignment status
+              </span>
+              <select
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+                className={fieldClass}
+              >
+                <option>All Statuses</option>
+                {[
+                  "Assigned",
+                  "En route",
+                  "Arrived",
+                  "Draft",
+                  "Submitted",
+                  "Approved",
+                  "Re-inspection",
+                ].map((status) => (
+                  <option key={status}>{status}</option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                Schedule
+              </span>
+              <select className={fieldClass}>
+                <option>This Week</option>
+                <option>Next Week</option>
+                <option>This Month</option>
+              </select>
+            </label>
+            <button
+              type="button"
+              disabled={!next}
+              onClick={() => next && openRoute(next)}
+              className="mt-auto flex h-10 items-center justify-center gap-2 rounded-md bg-[#08733f] px-4 text-xs font-bold text-white disabled:opacity-50"
+            >
+              <Navigation className="h-4 w-4" /> Open next route
+            </button>
           </div>
         </section>
-        <aside className="space-y-3">
-          <section className="rounded-lg border border-slate-200 bg-white p-4">
-            <div className="flex items-center justify-between">
+        <section className="mt-3 flex gap-3 overflow-x-auto pb-1">
+          <MetricCard
+            label="Assigned Projects"
+            value={mine.length}
+            detail="Received from Consultant Admin"
+            icon={FolderKanban}
+          />
+          <MetricCard
+            label="Inspections Due"
+            value={due}
+            detail="Visits requiring action"
+            icon={Clock3}
+            tone="amber"
+          />
+          <MetricCard
+            label="Approved"
+            value={completed}
+            detail="Reports passed consultant QA"
+            icon={CheckCircle2}
+          />
+          <MetricCard
+            label="Draft Reports"
+            value={drafts}
+            detail="Saved on this device"
+            icon={FileEdit}
+            tone="blue"
+          />
+          <MetricCard
+            label="Sync Pending"
+            value={queued}
+            detail="Automatically uploads online"
+            icon={WifiOff}
+            tone="amber"
+          />
+        </section>
+        <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.65fr)_minmax(360px,1fr)]">
+          <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
+              <div>
+                <h2 className="text-sm font-bold text-[#173b2a]">
+                  My Project Assignments
+                </h2>
+                <p className="mt-1 text-[10px] text-slate-500">
+                  Project details, due dates and inspection status
+                </p>
+              </div>
+              <span className="rounded-full bg-[#edf8f0] px-2.5 py-1 text-[10px] font-bold text-[#08733f]">
+                {filtered.length} projects
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] text-left">
+                <thead className="bg-slate-50 text-[9px] uppercase tracking-[0.1em] text-slate-500">
+                  <tr>
+                    <th className="px-4 py-2.5">Project</th>
+                    <th className="px-3 py-2.5">Location</th>
+                    <th className="px-3 py-2.5">Due</th>
+                    <th className="px-3 py-2.5">Status</th>
+                    <th className="px-4 py-2.5 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((assignment) => (
+                    <tr
+                      key={assignment.id}
+                      className="border-t border-slate-100"
+                    >
+                      <td className="px-4 py-3">
+                        <p className="text-xs font-semibold text-[#173b2a]">
+                          {assignment.projectName}
+                        </p>
+                        <p className="mt-1 text-[10px] text-slate-500">
+                          {assignment.id} · {assignment.contractor}
+                        </p>
+                      </td>
+                      <td className="px-3 py-3 text-xs text-slate-600">
+                        {assignment.community}, {assignment.state}
+                      </td>
+                      <td className="px-3 py-3 text-xs text-slate-600">
+                        {new Date(assignment.dueDate).toLocaleDateString()}
+                      </td>
+                      <td className="px-3 py-3">
+                        <StatusPill status={assignment.status} />
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => setSelected(assignment)}
+                          className="rounded-md border border-[#8bcba0] px-3 py-2 text-[10px] font-bold text-[#08733f]"
+                        >
+                          {["Submitted", "Approved"].includes(assignment.status)
+                            ? "View report"
+                            : assignment.status === "Assigned"
+                              ? "Open assignment"
+                              : "Continue inspection"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+          <aside className="space-y-3">
+            <section className="rounded-lg border border-slate-200 bg-white p-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-bold text-[#173b2a]">
+                  Field Workflow
+                </h2>
+                <Signal className="h-4 w-4 text-[#119653]" />
+              </div>
+              <div className="mt-4 space-y-2">
+                {[
+                  [Route, "Navigate to site"],
+                  [ShieldCheck, "GPS & geofence arrival"],
+                  [ClipboardCheck, "ODK-style data form"],
+                  [Camera, "Tagged photos & video"],
+                  [UploadCloud, "Submit for consultant QA"],
+                ].map(([Icon, label], index) => (
+                  <div
+                    key={String(label)}
+                    className="flex items-center gap-3 rounded-md bg-[#f7faf8] p-2.5"
+                  >
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#e6f6eb] text-[10px] font-bold text-[#08733f]">
+                      {index + 1}
+                    </span>
+                    <Icon className="h-4 w-4 text-[#08733f]" />
+                    <span className="text-[10px] font-semibold text-[#173b2a]">
+                      {String(label)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+            <section className="rounded-lg border border-slate-200 bg-white p-4">
               <h2 className="text-sm font-bold text-[#173b2a]">
-                Field Workflow
+                Anti-fraud protection
               </h2>
-              <Signal className="h-4 w-4 text-[#119653]" />
-            </div>
-            <div className="mt-4 space-y-2">
-              {[
-                [Route, "Navigate to site"],
-                [ShieldCheck, "GPS & geofence arrival"],
-                [ClipboardCheck, "ODK-style data form"],
-                [Camera, "Tagged photos & video"],
-                [UploadCloud, "Submit for consultant QA"],
-              ].map(([Icon, label], index) => (
-                <div
-                  key={String(label)}
-                  className="flex items-center gap-3 rounded-md bg-[#f7faf8] p-2.5"
-                >
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#e6f6eb] text-[10px] font-bold text-[#08733f]">
-                    {index + 1}
-                  </span>
-                  <Icon className="h-4 w-4 text-[#08733f]" />
-                  <span className="text-[10px] font-semibold text-[#173b2a]">
-                    {String(label)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </section>
-          <section className="rounded-lg border border-slate-200 bg-white p-4">
-            <h2 className="text-sm font-bold text-[#173b2a]">
-              Anti-fraud protection
-            </h2>
-            <div className="mt-3 grid grid-cols-2 gap-2 text-[9px] font-semibold text-slate-600">
-              {[
-                "GPS verification",
-                "Geofencing",
-                "Automatic timestamps",
-                "In-app camera",
-                `Device ${getDeviceId()}`,
-                "Digital signatures",
-                "Audit trail",
-                "Offline-ready storage",
-              ].map((item) => (
-                <div
-                  key={item}
-                  className="flex items-center gap-1.5 rounded-md bg-slate-50 p-2"
-                >
-                  <CheckCircle2 className="h-3 w-3 text-[#08733f]" />
-                  {item}
-                </div>
-              ))}
-            </div>
-          </section>
-        </aside>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-[9px] font-semibold text-slate-600">
+                {[
+                  "GPS verification",
+                  "Geofencing",
+                  "Automatic timestamps",
+                  "In-app camera",
+                  `Device ${getDeviceId()}`,
+                  "Digital signatures",
+                  "Audit trail",
+                  "Offline-ready storage",
+                ].map((item) => (
+                  <div
+                    key={item}
+                    className="flex items-center gap-1.5 rounded-md bg-slate-50 p-2"
+                  >
+                    <CheckCircle2 className="h-3 w-3 text-[#08733f]" />
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </section>
+          </aside>
+        </div>
       </div>
       {selected && (
         <InspectionModal

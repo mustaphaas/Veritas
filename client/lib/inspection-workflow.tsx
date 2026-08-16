@@ -22,6 +22,34 @@ export function isFieldReportLocked(status: AssignmentStatus) {
   return status === "Submitted" || status === "Approved";
 }
 
+export function canStartRoute(status: AssignmentStatus) {
+  return status === "Assigned" || status === "Re-inspection";
+}
+
+export function canVerifyArrival(status: AssignmentStatus) {
+  return status === "En route";
+}
+
+export function canEditReport(assignment: InspectionAssignment) {
+  return Boolean(assignment.arrival) && !isFieldReportLocked(assignment.status);
+}
+
+export function canSubmitReport(
+  assignment: InspectionAssignment,
+  report: InspectionReport,
+) {
+  return (
+    canEditReport(assignment) &&
+    report.evidence.length > 0 &&
+    Boolean(report.communitySignature) &&
+    Boolean(report.contractorSignature)
+  );
+}
+
+export function canReviewReport(status: AssignmentStatus) {
+  return status === "Submitted";
+}
+
 export type EvidenceItem = {
   id: string;
   name: string;
@@ -394,7 +422,7 @@ export function InspectionWorkflowProvider({
   const startRoute = useCallback(
     (id: string) =>
       update(id, (assignment) =>
-        isFieldReportLocked(assignment.status)
+        !canStartRoute(assignment.status)
           ? assignment
           : {
               ...assignment,
@@ -418,7 +446,7 @@ export function InspectionWorkflowProvider({
     (id: string, latitude: number, longitude: number) => {
       const assignment = assignments.find((item) => item.id === id);
       if (!assignment) return { allowed: false, distance: 0 };
-      if (isFieldReportLocked(assignment.status)) {
+      if (!canVerifyArrival(assignment.status)) {
         return { allowed: false, distance: 0 };
       }
       const distance = distanceMeters(
@@ -453,7 +481,7 @@ export function InspectionWorkflowProvider({
   const saveReport = useCallback(
     (id: string, report: InspectionReport) =>
       update(id, (assignment) => {
-        if (isFieldReportLocked(assignment.status)) {
+        if (!canEditReport(assignment)) {
           return assignment;
         }
         return {
@@ -479,7 +507,7 @@ export function InspectionWorkflowProvider({
   const submitReport = useCallback(
     (id: string, report: InspectionReport) =>
       update(id, (assignment) => {
-        if (isFieldReportLocked(assignment.status)) {
+        if (!canSubmitReport(assignment, report)) {
           return assignment;
         }
         return {
@@ -506,27 +534,32 @@ export function InspectionWorkflowProvider({
 
   const reviewReport = useCallback(
     (id: string, decision: "Approved" | "Re-inspection", note: string) =>
-      update(id, (assignment) => ({
-        ...assignment,
-        status: decision,
-        arrival: decision === "Re-inspection" ? undefined : assignment.arrival,
-        report: assignment.report
-          ? { ...assignment.report, reviewNote: note }
-          : assignment.report,
-        audit: [
-          ...assignment.audit,
-          {
-            id: uid("audit"),
-            at: new Date().toISOString(),
-            actor: "Ibrahim Musa",
-            action:
-              decision === "Approved"
-                ? "Report approved after QA"
-                : "Returned for re-inspection",
-            deviceId: getDeviceId(),
-          },
-        ],
-      })),
+      update(id, (assignment) => {
+        if (!canReviewReport(assignment.status)) return assignment;
+        if (decision === "Re-inspection" && !note.trim()) return assignment;
+        return {
+          ...assignment,
+          status: decision,
+          arrival:
+            decision === "Re-inspection" ? undefined : assignment.arrival,
+          report: assignment.report
+            ? { ...assignment.report, reviewNote: note }
+            : assignment.report,
+          audit: [
+            ...assignment.audit,
+            {
+              id: uid("audit"),
+              at: new Date().toISOString(),
+              actor: "Ibrahim Musa",
+              action:
+                decision === "Approved"
+                  ? "Report approved after QA"
+                  : "Returned for re-inspection",
+              deviceId: getDeviceId(),
+            },
+          ],
+        };
+      }),
     [update],
   );
 

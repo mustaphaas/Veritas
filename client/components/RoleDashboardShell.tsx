@@ -24,6 +24,8 @@ type RoleDashboardShellProps = {
   roleName: string;
   initials: string;
   navigation: RoleNavigationItem[];
+  activeNavigation?: string;
+  onNavigationChange?: (label: string) => void;
   children: ReactNode;
 };
 
@@ -51,18 +53,30 @@ export default function RoleDashboardShell({
   roleName,
   initials,
   navigation,
+  activeNavigation,
+  onNavigationChange,
   children,
 }: RoleDashboardShellProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeNav, setActiveNav] = useState("Overview");
+  const [internalActiveNav, setInternalActiveNav] = useState("Overview");
+  const activeNav = activeNavigation ?? internalActiveNav;
   const navigate = useNavigate();
   const { logout } = useAuth();
 
   const navContent = (
     <>
-      <Link to="/" aria-label="Return to national overview">
+      <button
+        type="button"
+        className="w-full text-left"
+        aria-label="Open dashboard overview"
+        onClick={() => {
+          setInternalActiveNav("Overview");
+          onNavigationChange?.("Overview");
+          setMobileMenuOpen(false);
+        }}
+      >
         <ReaBrand />
-      </Link>
+      </button>
       <div className="h-px bg-slate-200" />
       <nav className="flex-1 space-y-2 px-3 py-5">
         {navigation.map(({ label, icon: Icon, href }) => {
@@ -73,7 +87,8 @@ export default function RoleDashboardShell({
               key={label}
               to={href}
               onClick={() => {
-                setActiveNav(label);
+                setInternalActiveNav(label);
+                onNavigationChange?.(label);
                 setMobileMenuOpen(false);
               }}
               className={className}
@@ -86,7 +101,8 @@ export default function RoleDashboardShell({
               key={label}
               type="button"
               onClick={() => {
-                setActiveNav(label);
+                setInternalActiveNav(label);
+                onNavigationChange?.(label);
                 setMobileMenuOpen(false);
               }}
               className={className}
@@ -98,7 +114,15 @@ export default function RoleDashboardShell({
         })}
       </nav>
       <div className="border-t border-slate-200 p-3">
-        <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50">
+        <button
+          type="button"
+          onClick={() => {
+            setInternalActiveNav("Settings");
+            onNavigationChange?.("Settings");
+            setMobileMenuOpen(false);
+          }}
+          className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium ${activeNav === "Settings" ? "bg-[#edf9f0] text-[#08733f]" : "text-slate-600 hover:bg-slate-50"}`}
+        >
           <Settings className="h-[18px] w-[18px]" /> Settings
         </button>
       </div>
@@ -159,6 +183,11 @@ export default function RoleDashboardShell({
               <i className="h-2 w-2 rounded-full bg-[#16a05a]" /> Live data
             </span>
             <button
+              type="button"
+              onClick={() => {
+                setInternalActiveNav("Notifications");
+                onNavigationChange?.("Notifications");
+              }}
               className="relative rounded-md p-2 text-slate-500 hover:bg-slate-100"
               aria-label="Notifications"
             >

@@ -219,6 +219,7 @@ function ReviewModal({
   const { reviewReport } = useInspectionWorkflow();
   const [note, setNote] = useState(assignment.report?.reviewNote ?? "");
   const report = assignment.report;
+  const reviewable = assignment.status === "Submitted";
   const decide = (decision: "Approved" | "Re-inspection") => {
     if (decision === "Re-inspection" && !note.trim()) return;
     reviewReport(assignment.id, decision, note);
@@ -438,26 +439,29 @@ function ReviewModal({
               QA note
               <textarea
                 value={note}
+                readOnly={!reviewable}
                 onChange={(event) => setNote(event.target.value)}
                 placeholder="Add approval note or describe what must be corrected…"
                 className="mt-1.5 min-h-24 w-full rounded-md border border-slate-200 bg-white p-3 text-xs font-normal normal-case text-[#173b2a] outline-none focus:border-[#08733f]"
               />
             </label>
-            <div className="flex flex-wrap justify-end gap-2">
-              <button
-                onClick={() => decide("Re-inspection")}
-                disabled={!note.trim()}
-                className="rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-xs font-bold text-red-700 disabled:opacity-40"
-              >
-                Return for re-inspection
-              </button>
-              <button
-                onClick={() => decide("Approved")}
-                className="flex items-center gap-2 rounded-md bg-[#08733f] px-5 py-2.5 text-xs font-bold text-white"
-              >
-                <CheckCircle2 className="h-4 w-4" /> Approve report
-              </button>
-            </div>
+            {reviewable && (
+              <div className="flex flex-wrap justify-end gap-2">
+                <button
+                  onClick={() => decide("Re-inspection")}
+                  disabled={!note.trim()}
+                  className="rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-xs font-bold text-red-700 disabled:opacity-40"
+                >
+                  Return for re-inspection
+                </button>
+                <button
+                  onClick={() => decide("Approved")}
+                  className="flex items-center gap-2 rounded-md bg-[#08733f] px-5 py-2.5 text-xs font-bold text-white"
+                >
+                  <CheckCircle2 className="h-4 w-4" /> Approve report
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="p-10 text-center text-sm text-slate-500">
@@ -469,6 +473,240 @@ function ReviewModal({
   );
 }
 
+function ConsultantWorkspace({
+  view,
+  assignments,
+  onAssign,
+  onReview,
+  onMap,
+}: {
+  view: string;
+  assignments: InspectionAssignment[];
+  onAssign: () => void;
+  onReview: (assignment: InspectionAssignment) => void;
+  onMap: (assignment: InspectionAssignment) => void;
+}) {
+  if (view === "Field Officers") {
+    return (
+      <section className="rounded-lg border border-slate-200 bg-white">
+        <div className="border-b border-slate-100 px-5 py-4">
+          <h2 className="text-base font-bold text-[#173b2a]">Field Officers</h2>
+          <p className="mt-1 text-[10px] text-slate-500">
+            Live workload and inspection outcomes
+          </p>
+        </div>
+        <div className="grid gap-px bg-slate-100 sm:grid-cols-2">
+          {fieldOfficers.map((officer) => {
+            const rows = assignments.filter(
+              (item) => item.officer === officer.name,
+            );
+            const approved = rows.filter(
+              (item) => item.status === "Approved",
+            ).length;
+            return (
+              <article key={officer.name} className="bg-white p-5">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm font-bold text-[#173b2a]">
+                      {officer.name}
+                    </p>
+                    <p className="mt-1 text-[10px] text-slate-500">
+                      {officer.zone} · {officer.device}
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-[#edf8f0] px-2 py-1 text-[9px] font-bold text-[#08733f]">
+                    Active
+                  </span>
+                </div>
+                <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-md bg-slate-50 p-2">
+                    <b className="block text-lg text-[#173b2a]">
+                      {rows.length}
+                    </b>
+                    <span className="text-[8px] text-slate-500">Assigned</span>
+                  </div>
+                  <div className="rounded-md bg-slate-50 p-2">
+                    <b className="block text-lg text-[#08733f]">{approved}</b>
+                    <span className="text-[8px] text-slate-500">Approved</span>
+                  </div>
+                  <div className="rounded-md bg-slate-50 p-2">
+                    <b className="block text-lg text-amber-600">
+                      {
+                        rows.filter((item) => item.status === "Re-inspection")
+                          .length
+                      }
+                    </b>
+                    <span className="text-[8px] text-slate-500">
+                      Re-inspect
+                    </span>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+    );
+  }
+  if (view === "Analytics") {
+    const byContractor = [
+      ...new Set(assignments.map((item) => item.contractor)),
+    ].map((contractor) => {
+      const rows = assignments.filter((item) => item.contractor === contractor);
+      return {
+        contractor,
+        total: rows.length,
+        approved: rows.filter((item) => item.status === "Approved").length,
+        submitted: rows.filter((item) => item.status === "Submitted").length,
+      };
+    });
+    return (
+      <section className="rounded-lg border border-slate-200 bg-white p-5">
+        <h2 className="text-base font-bold text-[#173b2a]">
+          Inspection Analytics
+        </h2>
+        <div className="mt-5 space-y-4">
+          {byContractor.map((row) => {
+            const rate = row.total
+              ? Math.round((row.approved / row.total) * 100)
+              : 0;
+            return (
+              <div key={row.contractor}>
+                <div className="flex justify-between text-xs">
+                  <strong>{row.contractor}</strong>
+                  <span className="text-slate-500">
+                    {row.approved} approved · {row.submitted} awaiting QA ·{" "}
+                    {rate}%
+                  </span>
+                </div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full rounded-full bg-[#119653]"
+                    style={{ width: `${rate}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    );
+  }
+  if (view === "Settings") {
+    return (
+      <section className="rounded-lg border border-slate-200 bg-white p-5">
+        <h2 className="text-base font-bold text-[#173b2a]">
+          Consultant Workspace Settings
+        </h2>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            ["QA approval rule", "Submitted reports only"],
+            ["Re-inspection rule", "Reason and fresh GPS required"],
+            ["Evidence policy", "GPS and time stamp required"],
+            ["Assignment authority", "Consultant Admin"],
+            ["REA visibility", "Approved reports only"],
+            ["Audit logging", "Enabled for all actions"],
+          ].map(([label, value]) => (
+            <div
+              key={label}
+              className="rounded-lg border border-slate-100 bg-[#f7faf8] p-4"
+            >
+              <p className="text-[9px] font-bold uppercase text-slate-500">
+                {label}
+              </p>
+              <p className="mt-2 text-xs font-bold text-[#173b2a]">{value}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  }
+  const rows =
+    view === "Review Queue"
+      ? assignments.filter((item) => item.status === "Submitted")
+      : view === "Verification"
+        ? assignments.filter((item) =>
+            ["Submitted", "Approved", "Re-inspection"].includes(item.status),
+          )
+        : view === "Reports"
+          ? assignments.filter(
+              (item) =>
+                item.report && ["Submitted", "Approved"].includes(item.status),
+            )
+          : view === "Notifications"
+            ? assignments.filter((item) =>
+                ["Submitted", "Re-inspection"].includes(item.status),
+              )
+            : assignments;
+  return (
+    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+        <div>
+          <h2 className="text-base font-bold text-[#173b2a]">{view}</h2>
+          <p className="mt-1 text-[10px] text-slate-500">
+            Workflow actions are restricted by the current inspection status.
+          </p>
+        </div>
+        {view === "Projects" && (
+          <button
+            onClick={onAssign}
+            className="flex items-center gap-2 rounded-md bg-[#08733f] px-4 py-2.5 text-[10px] font-bold text-white"
+          >
+            <Plus className="h-4 w-4" /> Assign project
+          </button>
+        )}
+      </div>
+      <div className="divide-y divide-slate-100">
+        {rows.map((item) => (
+          <div
+            key={item.id}
+            className="grid gap-3 px-5 py-4 sm:grid-cols-[1fr_auto] sm:items-center"
+          >
+            <div>
+              <p className="text-xs font-bold text-[#173b2a]">
+                {item.projectName}
+              </p>
+              <p className="mt-1 text-[10px] text-slate-500">
+                {item.id} · {item.officer} · {item.community}, {item.state}
+              </p>
+              {item.status === "Re-inspection" && (
+                <p className="mt-1 text-[10px] font-semibold text-red-700">
+                  Returned: {item.report?.reviewNote}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              <StatusPill status={item.status} />
+              {item.report ? (
+                <button
+                  onClick={() => onReview(item)}
+                  className="rounded-md border border-[#8bcba0] px-3 py-2 text-[10px] font-bold text-[#08733f]"
+                >
+                  {item.status === "Submitted"
+                    ? "Review report"
+                    : "View report"}
+                </button>
+              ) : (
+                <button
+                  onClick={() => onMap(item)}
+                  className="rounded-md border border-slate-200 px-3 py-2 text-[10px] font-bold text-slate-600"
+                >
+                  View location
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+        {!rows.length && (
+          <p className="p-8 text-center text-xs text-slate-500">
+            No records in this workspace.
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export default function ConsultantAdminDashboard() {
   const { assignments } = useInspectionWorkflow();
   const [programmeFilter, setProgrammeFilter] = useState("All Programmes");
@@ -476,6 +714,7 @@ export default function ConsultantAdminDashboard() {
   const [officerFilter, setOfficerFilter] = useState("All Field Officers");
   const [assignOpen, setAssignOpen] = useState(false);
   const [reviewing, setReviewing] = useState<InspectionAssignment | null>(null);
+  const [activeView, setActiveView] = useState("Overview");
   const [mapAssignment, setMapAssignment] =
     useState<InspectionAssignment | null>(assignments[0] ?? null);
   const filtered = useMemo(
@@ -534,288 +773,308 @@ export default function ConsultantAdminDashboard() {
       roleName="Ibrahim Musa · Consultant Admin"
       initials="IM"
       navigation={navigation}
+      activeNavigation={activeView}
+      onNavigationChange={setActiveView}
     >
-      <section className="rounded-lg border border-[#d6e9da] bg-[#f7fcf8] p-3">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[repeat(3,minmax(0,1fr))_205px]">
-          <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
-            Programme
-            <select
-              value={programmeFilter}
-              onChange={(event) => setProgrammeFilter(event.target.value)}
-              className={inputClass}
+      {activeView !== "Overview" && (
+        <ConsultantWorkspace
+          view={activeView}
+          assignments={filtered}
+          onAssign={() => setAssignOpen(true)}
+          onReview={setReviewing}
+          onMap={(assignment) => {
+            setMapAssignment(assignment);
+            setActiveView("Overview");
+          }}
+        />
+      )}
+      <div className={activeView === "Overview" ? "" : "hidden"}>
+        <section className="rounded-lg border border-[#d6e9da] bg-[#f7fcf8] p-3">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[repeat(3,minmax(0,1fr))_205px]">
+            <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+              Programme
+              <select
+                value={programmeFilter}
+                onChange={(event) => setProgrammeFilter(event.target.value)}
+                className={inputClass}
+              >
+                <option>All Programmes</option>
+                {[...new Set(assignments.map((item) => item.programme))].map(
+                  (item) => (
+                    <option key={item}>{item}</option>
+                  ),
+                )}
+              </select>
+            </label>
+            <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+              State
+              <select
+                value={stateFilter}
+                onChange={(event) => setStateFilter(event.target.value)}
+                className={inputClass}
+              >
+                <option>All States</option>
+                {[...new Set(assignments.map((item) => item.state))].map(
+                  (item) => (
+                    <option key={item}>{item}</option>
+                  ),
+                )}
+              </select>
+            </label>
+            <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+              Field officer
+              <select
+                value={officerFilter}
+                onChange={(event) => setOfficerFilter(event.target.value)}
+                className={inputClass}
+              >
+                <option>All Field Officers</option>
+                {fieldOfficers.map((item) => (
+                  <option key={item.name}>{item.name}</option>
+                ))}
+              </select>
+            </label>
+            <button
+              onClick={() => setAssignOpen(true)}
+              className="mt-auto flex h-10 items-center justify-center gap-2 rounded-md bg-[#08733f] px-4 text-xs font-bold text-white"
             >
-              <option>All Programmes</option>
-              {[...new Set(assignments.map((item) => item.programme))].map(
-                (item) => (
-                  <option key={item}>{item}</option>
-                ),
-              )}
-            </select>
-          </label>
-          <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
-            State
-            <select
-              value={stateFilter}
-              onChange={(event) => setStateFilter(event.target.value)}
-              className={inputClass}
-            >
-              <option>All States</option>
-              {[...new Set(assignments.map((item) => item.state))].map(
-                (item) => (
-                  <option key={item}>{item}</option>
-                ),
-              )}
-            </select>
-          </label>
-          <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
-            Field officer
-            <select
-              value={officerFilter}
-              onChange={(event) => setOfficerFilter(event.target.value)}
-              className={inputClass}
-            >
-              <option>All Field Officers</option>
-              {fieldOfficers.map((item) => (
-                <option key={item.name}>{item.name}</option>
-              ))}
-            </select>
-          </label>
-          <button
-            onClick={() => setAssignOpen(true)}
-            className="mt-auto flex h-10 items-center justify-center gap-2 rounded-md bg-[#08733f] px-4 text-xs font-bold text-white"
-          >
-            <Plus className="h-4 w-4" /> Assign project
-          </button>
-        </div>
-      </section>
-      <section className="mt-3 flex gap-3 overflow-x-auto pb-1">
-        <MetricCard
-          label="Assigned Projects"
-          value={filtered.length}
-          detail="Consultant-managed portfolio"
-          icon={FolderKanban}
-        />
-        <MetricCard
-          label="Field Officers"
-          value={fieldOfficers.length}
-          detail="Across operational zones"
-          icon={UsersRound}
-          tone="blue"
-        />
-        <MetricCard
-          label="Awaiting QA Review"
-          value={reviewQueue.length}
-          detail="Submitted field reports"
-          icon={Clock3}
-          tone="amber"
-        />
-        <MetricCard
-          label="Approved Reports"
-          value={approved}
-          detail="Ready for REA access"
-          icon={CheckCircle2}
-        />
-        <MetricCard
-          label="Approval Rate"
-          value={`${approvalRate}%`}
-          detail={`${pending} field activities in progress`}
-          icon={ShieldCheck}
-        />
-      </section>
-      <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.45fr)_minmax(380px,1fr)]">
-        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
-            <div>
-              <h2 className="text-sm font-bold text-[#173b2a]">
-                Interactive Project Map
-              </h2>
-              <p className="mt-1 text-[10px] text-slate-500">
-                Select an assignment to inspect its field location
-              </p>
-            </div>
-            {mapTarget && <StatusPill status={mapTarget.status} />}
+              <Plus className="h-4 w-4" /> Assign project
+            </button>
           </div>
-          {mapTarget ? (
-            <div className="grid lg:grid-cols-[1fr_230px]">
-              <iframe
-                title="Consultant project map"
-                src={mapUrl}
-                className="h-[350px] w-full bg-slate-100"
-                loading="lazy"
-              />
-              <div className="max-h-[350px] overflow-y-auto border-l border-slate-100 p-3">
-                <p className="mb-2 text-[9px] font-bold uppercase tracking-wide text-slate-500">
-                  Filtered assignments
+        </section>
+        <section className="mt-3 flex gap-3 overflow-x-auto pb-1">
+          <MetricCard
+            label="Assigned Projects"
+            value={filtered.length}
+            detail="Consultant-managed portfolio"
+            icon={FolderKanban}
+          />
+          <MetricCard
+            label="Field Officers"
+            value={fieldOfficers.length}
+            detail="Across operational zones"
+            icon={UsersRound}
+            tone="blue"
+          />
+          <MetricCard
+            label="Awaiting QA Review"
+            value={reviewQueue.length}
+            detail="Submitted field reports"
+            icon={Clock3}
+            tone="amber"
+          />
+          <MetricCard
+            label="Approved Reports"
+            value={approved}
+            detail="Ready for REA access"
+            icon={CheckCircle2}
+          />
+          <MetricCard
+            label="Approval Rate"
+            value={`${approvalRate}%`}
+            detail={`${pending} field activities in progress`}
+            icon={ShieldCheck}
+          />
+        </section>
+        <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.45fr)_minmax(380px,1fr)]">
+          <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
+              <div>
+                <h2 className="text-sm font-bold text-[#173b2a]">
+                  Interactive Project Map
+                </h2>
+                <p className="mt-1 text-[10px] text-slate-500">
+                  Select an assignment to inspect its field location
                 </p>
-                {filtered.slice(0, 12).map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => setMapAssignment(item)}
-                    className={`mb-2 w-full rounded-md border p-2.5 text-left ${mapTarget.id === item.id ? "border-[#8bcba0] bg-[#eff9f2]" : "border-slate-100 hover:bg-slate-50"}`}
-                  >
-                    <p className="truncate text-[10px] font-bold text-[#173b2a]">
-                      {item.projectName}
-                    </p>
-                    <p className="mt-1 flex items-center gap-1 text-[9px] text-slate-500">
-                      <MapPin className="h-3 w-3" /> {item.community},{" "}
-                      {item.state}
-                    </p>
-                  </button>
+              </div>
+              {mapTarget && <StatusPill status={mapTarget.status} />}
+            </div>
+            {mapTarget ? (
+              <div className="grid lg:grid-cols-[1fr_230px]">
+                <iframe
+                  title="Consultant project map"
+                  src={mapUrl}
+                  className="h-[350px] w-full bg-slate-100"
+                  loading="lazy"
+                />
+                <div className="max-h-[350px] overflow-y-auto border-l border-slate-100 p-3">
+                  <p className="mb-2 text-[9px] font-bold uppercase tracking-wide text-slate-500">
+                    Filtered assignments
+                  </p>
+                  {filtered.slice(0, 12).map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => setMapAssignment(item)}
+                      className={`mb-2 w-full rounded-md border p-2.5 text-left ${mapTarget.id === item.id ? "border-[#8bcba0] bg-[#eff9f2]" : "border-slate-100 hover:bg-slate-50"}`}
+                    >
+                      <p className="truncate text-[10px] font-bold text-[#173b2a]">
+                        {item.projectName}
+                      </p>
+                      <p className="mt-1 flex items-center gap-1 text-[9px] text-slate-500">
+                        <MapPin className="h-3 w-3" /> {item.community},{" "}
+                        {item.state}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="p-10 text-center text-sm text-slate-500">
+                No assigned projects match these filters.
+              </div>
+            )}
+          </section>
+          <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
+              <div>
+                <h2 className="text-sm font-bold text-[#173b2a]">
+                  QA Review Queue
+                </h2>
+                <p className="mt-1 text-[10px] text-slate-500">
+                  Approve or return submitted inspections
+                </p>
+              </div>
+              <span className="rounded-full bg-[#fff4d9] px-2.5 py-1 text-[10px] font-bold text-[#a66b00]">
+                {reviewQueue.length} pending
+              </span>
+            </div>
+            {reviewQueue.length ? (
+              <div className="divide-y divide-slate-100">
+                {reviewQueue.map((assignment) => (
+                  <div key={assignment.id} className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-bold text-[#173b2a]">
+                          {assignment.projectName}
+                        </p>
+                        <p className="mt-1 text-[10px] text-slate-500">
+                          {assignment.officer} · {assignment.state}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setReviewing(assignment)}
+                        className="shrink-0 rounded-md border border-[#8bcba0] px-3 py-2 text-[10px] font-bold text-[#08733f]"
+                      >
+                        Review report
+                      </button>
+                    </div>
+                    <div className="mt-3 flex gap-3 text-[9px] text-slate-500">
+                      <span>
+                        {assignment.report?.evidence.length ?? 0} evidence files
+                      </span>
+                      <span>
+                        GPS {assignment.arrival ? "verified" : "missing"}
+                      </span>
+                      <span>{assignment.syncStatus}</span>
+                    </div>
+                  </div>
                 ))}
               </div>
-            </div>
-          ) : (
-            <div className="p-10 text-center text-sm text-slate-500">
-              No assigned projects match these filters.
-            </div>
-          )}
-        </section>
-        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
-            <div>
+            ) : (
+              <div className="p-10 text-center">
+                <CheckCircle2 className="mx-auto h-8 w-8 text-[#119653]" />
+                <p className="mt-2 text-xs font-bold text-[#173b2a]">
+                  Review queue is clear
+                </p>
+                <p className="mt-1 text-[10px] text-slate-500">
+                  New field submissions will appear here.
+                </p>
+              </div>
+            )}
+          </section>
+        </div>
+        <div className="mt-3 grid gap-3 xl:grid-cols-2">
+          <section className="rounded-lg border border-slate-200 bg-white">
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
               <h2 className="text-sm font-bold text-[#173b2a]">
-                QA Review Queue
+                Field Officer Activity
               </h2>
-              <p className="mt-1 text-[10px] text-slate-500">
-                Approve or return submitted inspections
-              </p>
+              <UserCheck className="h-4 w-4 text-[#08733f]" />
             </div>
-            <span className="rounded-full bg-[#fff4d9] px-2.5 py-1 text-[10px] font-bold text-[#a66b00]">
-              {reviewQueue.length} pending
-            </span>
-          </div>
-          {reviewQueue.length ? (
-            <div className="divide-y divide-slate-100">
-              {reviewQueue.map((assignment) => (
-                <div key={assignment.id} className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-bold text-[#173b2a]">
-                        {assignment.projectName}
-                      </p>
-                      <p className="mt-1 text-[10px] text-slate-500">
-                        {assignment.officer} · {assignment.state}
-                      </p>
+            <div className="grid gap-px bg-slate-100 sm:grid-cols-2">
+              {team.map((officer) => {
+                const rate = officer.assigned
+                  ? Math.round((officer.completed / officer.assigned) * 100)
+                  : 0;
+                return (
+                  <div key={officer.name} className="bg-white p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-bold text-[#173b2a]">
+                          {officer.name}
+                        </p>
+                        <p className="mt-1 text-[9px] text-slate-500">
+                          {officer.zone} · {officer.device}
+                        </p>
+                      </div>
+                      <strong className="text-sm text-[#08733f]">
+                        {rate}%
+                      </strong>
                     </div>
-                    <button
-                      onClick={() => setReviewing(assignment)}
-                      className="shrink-0 rounded-md border border-[#8bcba0] px-3 py-2 text-[10px] font-bold text-[#08733f]"
-                    >
-                      Review report
-                    </button>
-                  </div>
-                  <div className="mt-3 flex gap-3 text-[9px] text-slate-500">
-                    <span>
-                      {assignment.report?.evidence.length ?? 0} evidence files
-                    </span>
-                    <span>
-                      GPS {assignment.arrival ? "verified" : "missing"}
-                    </span>
-                    <span>{assignment.syncStatus}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="p-10 text-center">
-              <CheckCircle2 className="mx-auto h-8 w-8 text-[#119653]" />
-              <p className="mt-2 text-xs font-bold text-[#173b2a]">
-                Review queue is clear
-              </p>
-              <p className="mt-1 text-[10px] text-slate-500">
-                New field submissions will appear here.
-              </p>
-            </div>
-          )}
-        </section>
-      </div>
-      <div className="mt-3 grid gap-3 xl:grid-cols-2">
-        <section className="rounded-lg border border-slate-200 bg-white">
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
-            <h2 className="text-sm font-bold text-[#173b2a]">
-              Field Officer Activity
-            </h2>
-            <UserCheck className="h-4 w-4 text-[#08733f]" />
-          </div>
-          <div className="grid gap-px bg-slate-100 sm:grid-cols-2">
-            {team.map((officer) => {
-              const rate = officer.assigned
-                ? Math.round((officer.completed / officer.assigned) * 100)
-                : 0;
-              return (
-                <div key={officer.name} className="bg-white p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-bold text-[#173b2a]">
-                        {officer.name}
-                      </p>
-                      <p className="mt-1 text-[9px] text-slate-500">
-                        {officer.zone} · {officer.device}
-                      </p>
-                    </div>
-                    <strong className="text-sm text-[#08733f]">{rate}%</strong>
-                  </div>
-                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                    <div
-                      className="h-full bg-[#119653]"
-                      style={{ width: `${rate}%` }}
-                    />
-                  </div>
-                  <p className="mt-2 text-[9px] text-slate-500">
-                    {officer.assigned} assigned · {officer.completed} approved ·{" "}
-                    {officer.active} active
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-        <section className="rounded-lg border border-slate-200 bg-white">
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
-            <h2 className="text-sm font-bold text-[#173b2a]">
-              Contractor Performance
-            </h2>
-            <span className="text-[10px] font-bold text-[#08733f]">
-              Live from inspections
-            </span>
-          </div>
-          <div className="divide-y divide-slate-100 px-4">
-            {contractors.map((contractor, index) => {
-              const rate = contractor.projects
-                ? Math.round((contractor.approved / contractor.projects) * 100)
-                : 0;
-              return (
-                <div
-                  key={contractor.name}
-                  className="grid grid-cols-[34px_1fr_auto] items-center gap-3 py-3"
-                >
-                  <div
-                    className={`flex h-8 w-8 items-center justify-center rounded-md ${index === 3 ? "bg-[#fff4d9] text-[#d18a00]" : "bg-[#eaf8ef] text-[#0c8a49]"}`}
-                  >
-                    <Zap className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-[10px]">
-                      <strong>{contractor.name}</strong>
-                      <span className="text-slate-500">
-                        {contractor.projects} projects
-                      </span>
-                    </div>
-                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
                       <div
-                        className="h-full bg-[#08733f]"
+                        className="h-full bg-[#119653]"
                         style={{ width: `${rate}%` }}
                       />
                     </div>
+                    <p className="mt-2 text-[9px] text-slate-500">
+                      {officer.assigned} assigned · {officer.completed} approved
+                      · {officer.active} active
+                    </p>
                   </div>
-                  <span className="text-xs font-bold text-[#08733f]">
-                    {rate}%
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </section>
+                );
+              })}
+            </div>
+          </section>
+          <section className="rounded-lg border border-slate-200 bg-white">
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
+              <h2 className="text-sm font-bold text-[#173b2a]">
+                Contractor Performance
+              </h2>
+              <span className="text-[10px] font-bold text-[#08733f]">
+                Live from inspections
+              </span>
+            </div>
+            <div className="divide-y divide-slate-100 px-4">
+              {contractors.map((contractor, index) => {
+                const rate = contractor.projects
+                  ? Math.round(
+                      (contractor.approved / contractor.projects) * 100,
+                    )
+                  : 0;
+                return (
+                  <div
+                    key={contractor.name}
+                    className="grid grid-cols-[34px_1fr_auto] items-center gap-3 py-3"
+                  >
+                    <div
+                      className={`flex h-8 w-8 items-center justify-center rounded-md ${index === 3 ? "bg-[#fff4d9] text-[#d18a00]" : "bg-[#eaf8ef] text-[#0c8a49]"}`}
+                    >
+                      <Zap className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-[10px]">
+                        <strong>{contractor.name}</strong>
+                        <span className="text-slate-500">
+                          {contractor.projects} projects
+                        </span>
+                      </div>
+                      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                        <div
+                          className="h-full bg-[#08733f]"
+                          style={{ width: `${rate}%` }}
+                        />
+                      </div>
+                    </div>
+                    <span className="text-xs font-bold text-[#08733f]">
+                      {rate}%
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        </div>
       </div>
       {assignOpen && (
         <AssignProjectModal onClose={() => setAssignOpen(false)} />
