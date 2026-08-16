@@ -6,6 +6,7 @@ import {
   canVerifyArrival,
   createAssignment,
   distanceMeters,
+  getAssignmentDisplayStatus,
   isFieldReportLocked,
 } from "./inspection-workflow";
 
@@ -45,7 +46,16 @@ describe("inspection workflow", () => {
   it("locks submitted and approved reports but unlocks re-inspections", () => {
     expect(isFieldReportLocked("Submitted")).toBe(true);
     expect(isFieldReportLocked("Approved")).toBe(true);
+    expect(isFieldReportLocked("Verified")).toBe(true);
     expect(isFieldReportLocked("Re-inspection")).toBe(false);
+  });
+
+  it("exposes only the four management assignment statuses", () => {
+    expect(getAssignmentDisplayStatus("En route")).toBe("Assigned");
+    expect(getAssignmentDisplayStatus("Submitted")).toBe("Draft");
+    expect(getAssignmentDisplayStatus("Re-inspection")).toBe("Draft");
+    expect(getAssignmentDisplayStatus("Approved")).toBe("Approved");
+    expect(getAssignmentDisplayStatus("Verified")).toBe("Verified");
   });
 
   it("enforces the ordered field and consultant status transitions", () => {

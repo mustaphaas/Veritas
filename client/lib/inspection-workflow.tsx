@@ -16,10 +16,31 @@ export type AssignmentStatus =
   | "Draft"
   | "Submitted"
   | "Approved"
+  | "Verified"
   | "Re-inspection";
 
+export type AssignmentDisplayStatus =
+  "Assigned" | "Draft" | "Approved" | "Verified";
+
+export function getAssignmentDisplayStatus(
+  status: AssignmentStatus,
+): AssignmentDisplayStatus {
+  if (status === "Approved") return "Approved";
+  if (status === "Verified") return "Verified";
+  if (["Draft", "Submitted", "Re-inspection"].includes(status)) return "Draft";
+  return "Assigned";
+}
+
+export function assignmentDisplayRank(status: AssignmentStatus) {
+  return { Assigned: 0, Draft: 1, Approved: 2, Verified: 3 }[
+    getAssignmentDisplayStatus(status)
+  ];
+}
+
 export function isFieldReportLocked(status: AssignmentStatus) {
-  return status === "Submitted" || status === "Approved";
+  return (
+    status === "Submitted" || status === "Approved" || status === "Verified"
+  );
 }
 
 export function canStartRoute(status: AssignmentStatus) {
@@ -243,8 +264,9 @@ function seedAssignments() {
     );
     if (index === 0) assignment.status = "En route";
     if (index === 1) assignment.status = "Draft";
-    if (index === 2 || index === 3) {
-      assignment.status = index === 2 ? "Submitted" : "Approved";
+    if (index === 2 || index === 3 || index === 4) {
+      assignment.status =
+        index === 2 ? "Submitted" : index === 3 ? "Approved" : "Verified";
       assignment.arrival = {
         latitude: assignment.latitude,
         longitude: assignment.longitude,

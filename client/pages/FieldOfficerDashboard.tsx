@@ -32,7 +32,9 @@ import {
 import { useLocation, useNavigate } from "react-router-dom";
 import RoleDashboardShell from "../components/RoleDashboardShell";
 import {
+  assignmentDisplayRank,
   getDeviceId,
+  getAssignmentDisplayStatus,
   isFieldReportLocked,
   useInspectionWorkflow,
   type InspectionAssignment,
@@ -115,19 +117,20 @@ function MetricCard({
 }
 
 function StatusPill({ status }: { status: InspectionAssignment["status"] }) {
+  const displayStatus = getAssignmentDisplayStatus(status);
   const style =
-    status === "Approved"
-      ? "border-[#b9dfc5] bg-[#eaf8ef] text-[#08733f]"
-      : status === "Re-inspection"
-        ? "border-red-200 bg-red-50 text-red-700"
-        : status === "Submitted"
+    displayStatus === "Verified"
+      ? "border-[#08733f] bg-[#08733f] text-white"
+      : displayStatus === "Approved"
+        ? "border-[#b9dfc5] bg-[#eaf8ef] text-[#08733f]"
+        : displayStatus === "Draft"
           ? "border-[#c8daef] bg-[#eef5fc] text-[#356ca5]"
           : "border-[#f0d88d] bg-[#fff8e5] text-[#956300]";
   return (
     <span
       className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${style}`}
     >
-      {status}
+      {displayStatus}
     </span>
   );
 }
@@ -724,12 +727,14 @@ function InlineInspectionWorkspace({
   onOpen: (assignment: InspectionAssignment) => void;
 }) {
   const { startRoute, verifyArrival } = useInspectionWorkflow();
+  const orderedAssignments = [...assignments].sort(
+    (left, right) =>
+      assignmentDisplayRank(left.status) - assignmentDisplayRank(right.status),
+  );
   const actionable =
-    assignments.find((item) => item.status === "Re-inspection") ??
-    assignments.find(
-      (item) => !["Submitted", "Approved"].includes(item.status),
-    ) ??
-    assignments[0];
+    orderedAssignments.find(
+      (item) => getAssignmentDisplayStatus(item.status) === "Assigned",
+    ) ?? orderedAssignments[0];
   const [selectedId, setSelectedId] = useState(actionable?.id ?? "");
   const [locationMessage, setLocationMessage] = useState("");
   const [locating, setLocating] = useState(false);
@@ -739,7 +744,9 @@ function InlineInspectionWorkspace({
   if (!selected) return null;
   const locked = !selected.arrival && !isFieldReportLocked(selected.status);
   const routeReady = selected.status === "En route";
-  const completed = ["Submitted", "Approved"].includes(selected.status);
+  const completed = ["Submitted", "Approved", "Verified"].includes(
+    selected.status,
+  );
   const currentStep = completed
     ? 4
     : selected.report
@@ -754,12 +761,6 @@ function InlineInspectionWorkspace({
       : selected.arrival
         ? 48
         : 31;
-  const statusLabel =
-    selected.status === "Re-inspection"
-      ? "Re-inspection Required"
-      : selected.status === "Assigned"
-        ? "Field Officer Assigned"
-        : selected.status;
 
   const beginRoute = () => {
     startRoute(selected.id);
@@ -835,8 +836,8 @@ function InlineInspectionWorkspace({
             Select an assignment to continue its inspection workflow
           </p>
         </div>
-        <div className="space-y-2 p-3 sm:p-4">
-          {assignments.slice(0, 4).map((item) => (
+        <div className="max-h-[390px] space-y-2 overflow-y-auto p-3 sm:p-4">
+          {orderedAssignments.map((item) => (
             <button
               key={item.id}
               type="button"
@@ -857,17 +858,14 @@ function InlineInspectionWorkspace({
                   {item.id} · {item.community}, {item.state}
                 </span>
               </span>
-              <span
-                className={`shrink-0 rounded-md border px-2 py-1 text-[8px] font-bold ${item.status === "Re-inspection" ? "border-red-200 bg-red-50 text-red-700" : "border-[#c8daef] bg-[#eef5fc] text-[#356ca5]"}`}
-              >
-                {item.status === "Re-inspection"
-                  ? "Re-inspection Required"
-                  : item.status === "Assigned"
-                    ? "Field Officer Assigned"
-                    : item.status}
-              </span>
+              <StatusPill status={item.status} />
             </button>
           ))}
+          {orderedAssignments.length > 6 && (
+            <p className="py-1 text-center text-[9px] font-semibold text-slate-400">
+              Six assignments visible · scroll to view more
+            </p>
+          )}
         </div>
       </section>
 
@@ -881,11 +879,7 @@ function InlineInspectionWorkspace({
               {selected.projectName} · {selected.id}
             </p>
           </div>
-          <span
-            className={`rounded-md border px-2.5 py-1 text-[9px] font-bold ${selected.status === "Re-inspection" ? "border-red-200 bg-red-50 text-red-700" : "border-[#c8daef] bg-[#eef5fc] text-[#356ca5]"}`}
-          >
-            {statusLabel}
-          </span>
+          <StatusPill status={selected.status} />
         </div>
         <div className="p-4 sm:p-5">
           <div
@@ -923,38 +917,38 @@ function InlineInspectionWorkspace({
                   the approved project geofence.
                 </p>
               </div>
-              {!routeReady ? (
+              <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
+                  disabled={routeReady}
                   onClick={beginRoute}
-                  className="rounded-md bg-[#08733f] px-4 py-2.5 text-[10px] font-bold text-white"
+                  className="rounded-md border border-[#8bcba0] bg-white px-3 py-2.5 text-[9px] font-bold text-[#08733f] disabled:opacity-50"
                 >
-                  Start navigation
+                  {routeReady ? "Navigation started" : "Start navigation"}
                 </button>
-              ) : (
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    disabled={locating}
-                    onClick={() => verify()}
-                    className="rounded-md bg-[#b27a12] px-4 py-2.5 text-[10px] font-bold text-white disabled:opacity-50"
-                  >
-                    {locating ? "Checking GPS…" : "Verify location"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => verify(true)}
-                    className="rounded-md border border-[#d9bd77] bg-white px-3 py-2.5 text-[9px] font-bold text-[#8b650e]"
-                  >
-                    Demo GPS
-                  </button>
-                </div>
-              )}
+                <button
+                  type="button"
+                  disabled={locating || !routeReady}
+                  onClick={() => verify()}
+                  className="rounded-md bg-[#b27a12] px-4 py-2.5 text-[10px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {locating ? "Checking GPS…" : "GPS verification"}
+                </button>
+                <button
+                  type="button"
+                  disabled={!routeReady}
+                  onClick={() => verify(true)}
+                  className="rounded-md border border-[#d9bd77] bg-white px-3 py-2.5 text-[9px] font-bold text-[#8b650e] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Demo GPS
+                </button>
+              </div>
             </div>
           )}
           {selected.arrival && (
             <div className="mt-3 rounded-lg border border-[#a8d8b7] bg-[#eff9f2] p-3 text-[10px] font-semibold text-[#08733f]">
-              Arrival verified at {selected.arrival.distance} m ·{" "}
+              GPS verification complete · Arrival verified at{" "}
+              {selected.arrival.distance} m ·{" "}
               {new Date(selected.arrival.at).toLocaleString()}
             </div>
           )}
@@ -1273,7 +1267,7 @@ function FieldWorkspace({
                 onClick={() => onOpen(item)}
                 className="rounded-md border border-[#8bcba0] px-3 py-2 text-[10px] font-bold text-[#08733f]"
               >
-                {["Submitted", "Approved"].includes(item.status)
+                {["Submitted", "Approved", "Verified"].includes(item.status)
                   ? "View locked report"
                   : item.status === "Re-inspection"
                     ? "Start re-inspection"
@@ -1311,19 +1305,22 @@ export default function FieldOfficerDashboard() {
           (stateFilter === "All Assigned States" ||
             assignment.state === stateFilter) &&
           (statusFilter === "All Statuses" ||
-            assignment.status === statusFilter),
+            getAssignmentDisplayStatus(assignment.status) === statusFilter),
       ),
     [mine, stateFilter, statusFilter],
   );
   const completed = mine.filter((item) => item.status === "Approved").length;
-  const drafts = mine.filter((item) => item.status === "Draft").length;
+  const drafts = mine.filter(
+    (item) => getAssignmentDisplayStatus(item.status) === "Draft",
+  ).length;
   const queued = mine.filter((item) => item.syncStatus === "queued").length;
   const due = mine.filter(
-    (item) => !["Approved", "Submitted"].includes(item.status),
+    (item) => !["Approved", "Submitted", "Verified"].includes(item.status),
   ).length;
   const next =
-    filtered.find((item) => !["Approved", "Submitted"].includes(item.status)) ??
-    filtered[0];
+    filtered.find(
+      (item) => !["Approved", "Submitted", "Verified"].includes(item.status),
+    ) ?? filtered[0];
   const openRoute = (assignment: InspectionAssignment) => {
     startRoute(assignment.id);
     window.open(
@@ -1403,15 +1400,7 @@ export default function FieldOfficerDashboard() {
                 className={fieldClass}
               >
                 <option>All Statuses</option>
-                {[
-                  "Assigned",
-                  "En route",
-                  "Arrived",
-                  "Draft",
-                  "Submitted",
-                  "Approved",
-                  "Re-inspection",
-                ].map((status) => (
+                {["Assigned", "Draft", "Approved", "Verified"].map((status) => (
                   <option key={status}>{status}</option>
                 ))}
               </select>
@@ -1530,7 +1519,9 @@ export default function FieldOfficerDashboard() {
                           onClick={() => setSelected(assignment)}
                           className="rounded-md border border-[#8bcba0] px-3 py-2 text-[10px] font-bold text-[#08733f]"
                         >
-                          {["Submitted", "Approved"].includes(assignment.status)
+                          {["Submitted", "Approved", "Verified"].includes(
+                            assignment.status,
+                          )
                             ? "View report"
                             : assignment.status === "Assigned"
                               ? "Open assignment"

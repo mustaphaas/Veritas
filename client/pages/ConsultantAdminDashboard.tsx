@@ -22,6 +22,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { projects, type Project } from "../lib/dashboard-data";
 import {
   fieldOfficers,
+  getAssignmentDisplayStatus,
   useInspectionWorkflow,
   type InspectionAssignment,
 } from "../lib/inspection-workflow";
@@ -108,19 +109,20 @@ function MetricCard({
 }
 
 function StatusPill({ status }: { status: InspectionAssignment["status"] }) {
+  const displayStatus = getAssignmentDisplayStatus(status);
   const style =
-    status === "Approved"
-      ? "border-[#b9dfc5] bg-[#eaf8ef] text-[#08733f]"
-      : status === "Re-inspection"
-        ? "border-red-200 bg-red-50 text-red-700"
-        : status === "Submitted"
+    displayStatus === "Verified"
+      ? "border-[#08733f] bg-[#08733f] text-white"
+      : displayStatus === "Approved"
+        ? "border-[#b9dfc5] bg-[#eaf8ef] text-[#08733f]"
+        : displayStatus === "Draft"
           ? "border-[#c8daef] bg-[#eef5fc] text-[#356ca5]"
           : "border-[#f0d88d] bg-[#fff8e5] text-[#956300]";
   return (
     <span
       className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${style}`}
     >
-      {status}
+      {displayStatus}
     </span>
   );
 }
@@ -529,8 +531,8 @@ function ConsultantWorkspace({
             const rows = assignments.filter(
               (item) => item.officer === officer.name,
             );
-            const approved = rows.filter(
-              (item) => item.status === "Approved",
+            const approved = rows.filter((item) =>
+              ["Approved", "Verified"].includes(item.status),
             ).length;
             return (
               <article key={officer.name} className="bg-white p-5">
@@ -585,7 +587,9 @@ function ConsultantWorkspace({
       return {
         contractor,
         total: rows.length,
-        approved: rows.filter((item) => item.status === "Approved").length,
+        approved: rows.filter((item) =>
+          ["Approved", "Verified"].includes(item.status),
+        ).length,
         submitted: rows.filter((item) => item.status === "Submitted").length,
       };
     });
@@ -655,12 +659,15 @@ function ConsultantWorkspace({
       ? assignments.filter((item) => item.status === "Submitted")
       : view === "Verification"
         ? assignments.filter((item) =>
-            ["Submitted", "Approved", "Re-inspection"].includes(item.status),
+            ["Submitted", "Approved", "Verified", "Re-inspection"].includes(
+              item.status,
+            ),
           )
         : view === "Reports"
           ? assignments.filter(
               (item) =>
-                item.report && ["Submitted", "Approved"].includes(item.status),
+                item.report &&
+                ["Submitted", "Approved", "Verified"].includes(item.status),
             )
           : view === "Notifications"
             ? assignments.filter((item) =>
@@ -761,9 +768,11 @@ export default function ConsultantAdminDashboard() {
     [assignments, programmeFilter, stateFilter, officerFilter],
   );
   const reviewQueue = filtered.filter((item) => item.status === "Submitted");
-  const approved = filtered.filter((item) => item.status === "Approved").length;
+  const approved = filtered.filter((item) =>
+    ["Approved", "Verified"].includes(item.status),
+  ).length;
   const pending = filtered.filter(
-    (item) => !["Approved", "Submitted"].includes(item.status),
+    (item) => !["Approved", "Submitted", "Verified"].includes(item.status),
   ).length;
   const approvalRate = filtered.length
     ? Math.round((approved / filtered.length) * 100)
@@ -774,7 +783,9 @@ export default function ConsultantAdminDashboard() {
       return {
         name,
         projects: rows.length,
-        approved: rows.filter((item) => item.status === "Approved").length,
+        approved: rows.filter((item) =>
+          ["Approved", "Verified"].includes(item.status),
+        ).length,
       };
     })
     .sort((a, b) => b.projects - a.projects)
@@ -784,9 +795,11 @@ export default function ConsultantAdminDashboard() {
     return {
       ...officer,
       assigned: rows.length,
-      completed: rows.filter((item) => item.status === "Approved").length,
+      completed: rows.filter((item) =>
+        ["Approved", "Verified"].includes(item.status),
+      ).length,
       active: rows.filter(
-        (item) => !["Approved", "Submitted"].includes(item.status),
+        (item) => !["Approved", "Submitted", "Verified"].includes(item.status),
       ).length,
     };
   });
