@@ -12,6 +12,7 @@ import ConsultantAdminDashboard from "./pages/ConsultantAdminDashboard";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import { AuthProvider, RequireRole } from "./lib/auth";
+import { InspectionWorkflowProvider } from "./lib/inspection-workflow";
 
 const queryClient = new QueryClient();
 
@@ -21,37 +22,39 @@ const App = () => (
       <Toaster />
       <Sonner />
       <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route
-              path="/"
-              element={
-                <RequireRole role="rea">
-                  <Index />
-                </RequireRole>
-              }
-            />
-            <Route
-              path="/field-officer"
-              element={
-                <RequireRole role="field">
-                  <FieldOfficerDashboard />
-                </RequireRole>
-              }
-            />
-            <Route
-              path="/consultant-admin"
-              element={
-                <RequireRole role="consultant">
-                  <ConsultantAdminDashboard />
-                </RequireRole>
-              }
-            />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
+        <InspectionWorkflowProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route
+                path="/"
+                element={
+                  <RequireRole role="rea">
+                    <Index />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/field-officer"
+                element={
+                  <RequireRole role="field">
+                    <FieldOfficerDashboard />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/consultant-admin"
+                element={
+                  <RequireRole role="consultant">
+                    <ConsultantAdminDashboard />
+                  </RequireRole>
+                }
+              />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </InspectionWorkflowProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>

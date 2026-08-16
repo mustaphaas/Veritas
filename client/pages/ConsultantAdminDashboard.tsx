@@ -1,44 +1,27 @@
 import { useMemo, useState } from "react";
 import {
-  Bar,
-  CartesianGrid,
-  ComposedChart,
-  Line,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import {
   BarChart3,
   CheckCircle2,
   ClipboardCheck,
   Clock3,
-  FileCheck2,
   FileText,
   FolderKanban,
   Home,
-  ListChecks,
   MapPin,
+  Plus,
   ShieldCheck,
   UserCheck,
   UsersRound,
+  X,
   Zap,
 } from "lucide-react";
 import RoleDashboardShell from "../components/RoleDashboardShell";
+import { projects, type Project } from "../lib/dashboard-data";
 import {
-  projects,
-  summarizePortfolio,
-  type Project,
-} from "../lib/dashboard-data";
-
-const consultantPortfolio = projects.filter((_, index) => index % 4 === 0);
-const fieldTeam = [
-  { name: "Amina Yusuf", zone: "North West", completed: 18, assigned: 21 },
-  { name: "Chinedu Okafor", zone: "South East", completed: 16, assigned: 20 },
-  { name: "Fatima Bello", zone: "North East", completed: 14, assigned: 19 },
-  { name: "Tunde Adebayo", zone: "South West", completed: 15, assigned: 22 },
-];
+  fieldOfficers,
+  useInspectionWorkflow,
+  type InspectionAssignment,
+} from "../lib/inspection-workflow";
 
 const navigation = [
   { label: "Overview", icon: Home },
@@ -49,6 +32,8 @@ const navigation = [
   { label: "Analytics", icon: BarChart3 },
   { label: "Reports", icon: FileText },
 ];
+const inputClass =
+  "mt-1.5 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-[#173b2a] outline-none focus:border-[#08733f]";
 
 function MetricCard({
   label,
@@ -91,359 +76,647 @@ function MetricCard({
   );
 }
 
-function ReviewStatus({ project }: { project: Project }) {
+function StatusPill({ status }: { status: InspectionAssignment["status"] }) {
+  const style =
+    status === "Approved"
+      ? "border-[#b9dfc5] bg-[#eaf8ef] text-[#08733f]"
+      : status === "Re-inspection"
+        ? "border-red-200 bg-red-50 text-red-700"
+        : status === "Submitted"
+          ? "border-[#c8daef] bg-[#eef5fc] text-[#356ca5]"
+          : "border-[#f0d88d] bg-[#fff8e5] text-[#956300]";
   return (
     <span
-      className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${project.status === "Pending" ? "border-[#f0d88d] bg-[#fff8e5] text-[#956300]" : "border-[#c8daef] bg-[#eef5fc] text-[#356ca5]"}`}
+      className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${style}`}
     >
-      {project.status === "Pending" ? "Awaiting review" : "Submitted"}
+      {status}
     </span>
   );
 }
 
+function AssignProjectModal({ onClose }: { onClose: () => void }) {
+  const { assignments, assignProject } = useInspectionWorkflow();
+  const available = projects.filter(
+    (project) => !assignments.some((item) => item.projectName === project.name),
+  );
+  const [projectName, setProjectName] = useState(available[0]?.name ?? "");
+  const [officer, setOfficer] = useState(fieldOfficers[0].name);
+  const defaultDue = new Date(Date.now() + 7 * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+  const [dueDate, setDueDate] = useState(defaultDue);
+  const selectedProject = available.find(
+    (project) => project.name === projectName,
+  );
+  const submit = () => {
+    if (!selectedProject || !officer || !dueDate) return;
+    assignProject(
+      selectedProject,
+      officer,
+      new Date(`${dueDate}T17:00:00`).toISOString(),
+    );
+    onClose();
+  };
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 sm:items-center sm:p-5">
+      <section className="w-full max-w-xl rounded-t-2xl bg-white p-5 shadow-2xl sm:rounded-xl sm:p-6">
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-[#173b2a]">Assign project</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Send project details and location to a field officer.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-md p-2 text-slate-500 hover:bg-slate-100"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="mt-5 space-y-4">
+          <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+            Project
+            <select
+              value={projectName}
+              onChange={(event) => setProjectName(event.target.value)}
+              className={inputClass}
+            >
+              {available.map((project) => (
+                <option key={project.name}>{project.name}</option>
+              ))}
+            </select>
+          </label>
+          {selectedProject && (
+            <div className="grid grid-cols-2 gap-3 rounded-lg bg-[#f5faf6] p-3 text-[10px]">
+              <span>
+                <b>Programme:</b> {selectedProject.programme}
+              </span>
+              <span>
+                <b>Component:</b> {selectedProject.component}
+              </span>
+              <span>
+                <b>State:</b> {selectedProject.state}
+              </span>
+              <span>
+                <b>Contractor:</b> {selectedProject.contractor}
+              </span>
+            </div>
+          )}
+          <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+            Field officer
+            <select
+              value={officer}
+              onChange={(event) => setOfficer(event.target.value)}
+              className={inputClass}
+            >
+              {fieldOfficers.map((item) => (
+                <option key={item.name} value={item.name}>
+                  {item.name} · {item.zone}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+            Inspection due date
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(event) => setDueDate(event.target.value)}
+              className={inputClass}
+            />
+          </label>
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="rounded-md border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-600"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={submit}
+            disabled={!selectedProject}
+            className="flex items-center gap-2 rounded-md bg-[#08733f] px-5 py-2.5 text-xs font-bold text-white disabled:opacity-40"
+          >
+            <Plus className="h-4 w-4" /> Assign project
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ReviewModal({
+  assignment,
+  onClose,
+}: {
+  assignment: InspectionAssignment;
+  onClose: () => void;
+}) {
+  const { reviewReport } = useInspectionWorkflow();
+  const [note, setNote] = useState(assignment.report?.reviewNote ?? "");
+  const report = assignment.report;
+  const decide = (decision: "Approved" | "Re-inspection") => {
+    if (decision === "Re-inspection" && !note.trim()) return;
+    reviewReport(assignment.id, decision, note);
+    onClose();
+  };
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 sm:items-center sm:p-5">
+      <section className="max-h-[94vh] w-full max-w-4xl overflow-y-auto rounded-t-2xl bg-[#f7f9f7] shadow-2xl sm:rounded-xl">
+        <header className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-200 bg-white px-5 py-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-bold text-[#173b2a]">
+                Quality assurance review
+              </h2>
+              <StatusPill status={assignment.status} />
+            </div>
+            <p className="mt-1 text-[10px] text-slate-500">
+              {assignment.id} · {assignment.projectName} · {assignment.officer}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-md p-2 text-slate-500 hover:bg-slate-100"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </header>
+        {report ? (
+          <div className="space-y-4 p-4 sm:p-6">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                ["Location", `${report.community}, ${report.state}`],
+                [
+                  "GPS",
+                  `${report.latitude.toFixed(5)}, ${report.longitude.toFixed(5)}`,
+                ],
+                ["Capacity", report.capacity],
+                ["Beneficiaries", report.beneficiaries],
+              ].map(([label, value]) => (
+                <div
+                  key={label}
+                  className="rounded-lg border border-slate-200 bg-white p-3"
+                >
+                  <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500">
+                    {label}
+                  </p>
+                  <p className="mt-1.5 text-xs font-semibold text-[#173b2a]">
+                    {value || "Not provided"}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <div className="grid gap-3 lg:grid-cols-2">
+              <div className="rounded-lg border border-slate-200 bg-white p-4">
+                <h3 className="text-xs font-bold text-[#173b2a]">
+                  Inspection findings
+                </h3>
+                <dl className="mt-3 space-y-3 text-xs">
+                  <div>
+                    <dt className="text-[9px] font-bold uppercase text-slate-500">
+                      Equipment
+                    </dt>
+                    <dd className="mt-1 text-slate-700">
+                      {report.equipmentInstalled}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[9px] font-bold uppercase text-slate-500">
+                      Observations
+                    </dt>
+                    <dd className="mt-1 text-slate-700">
+                      {report.observations}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[9px] font-bold uppercase text-slate-500">
+                      Defects
+                    </dt>
+                    <dd className="mt-1 text-slate-700">
+                      {report.defects || "None reported"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[9px] font-bold uppercase text-slate-500">
+                      Recommendations
+                    </dt>
+                    <dd className="mt-1 text-slate-700">
+                      {report.recommendations}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-white p-4">
+                <h3 className="text-xs font-bold text-[#173b2a]">
+                  Evidence & integrity checks
+                </h3>
+                <div className="mt-3 space-y-2">
+                  {[
+                    ["GPS inside geofence", Boolean(assignment.arrival)],
+                    [
+                      `${report.evidence.length} tagged evidence file(s)`,
+                      report.evidence.length > 0,
+                    ],
+                    ["Community signature", Boolean(report.communitySignature)],
+                    [
+                      "Contractor signature",
+                      Boolean(report.contractorSignature),
+                    ],
+                    ["Device & time audit trail", assignment.audit.length > 0],
+                  ].map(([label, ok]) => (
+                    <div
+                      key={String(label)}
+                      className="flex items-center justify-between rounded-md bg-slate-50 p-2.5 text-[10px] font-semibold text-slate-600"
+                    >
+                      <span>{String(label)}</span>
+                      {ok ? (
+                        <CheckCircle2 className="h-4 w-4 text-[#08733f]" />
+                      ) : (
+                        <X className="h-4 w-4 text-red-600" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-white p-4">
+              <h3 className="text-xs font-bold text-[#173b2a]">Audit trail</h3>
+              <div className="mt-3 space-y-2">
+                {assignment.audit.map((event) => (
+                  <div
+                    key={event.id}
+                    className="grid gap-1 text-[10px] sm:grid-cols-[135px_1fr_auto]"
+                  >
+                    <span className="text-slate-400">
+                      {new Date(event.at).toLocaleString()}
+                    </span>
+                    <span className="font-semibold text-slate-700">
+                      {event.action}
+                    </span>
+                    <span className="text-slate-400">
+                      {event.actor} · {event.deviceId}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-500">
+              QA note
+              <textarea
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                placeholder="Add approval note or describe what must be corrected…"
+                className="mt-1.5 min-h-24 w-full rounded-md border border-slate-200 bg-white p-3 text-xs font-normal normal-case text-[#173b2a] outline-none focus:border-[#08733f]"
+              />
+            </label>
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                onClick={() => decide("Re-inspection")}
+                disabled={!note.trim()}
+                className="rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-xs font-bold text-red-700 disabled:opacity-40"
+              >
+                Return for re-inspection
+              </button>
+              <button
+                onClick={() => decide("Approved")}
+                className="flex items-center gap-2 rounded-md bg-[#08733f] px-5 py-2.5 text-xs font-bold text-white"
+              >
+                <CheckCircle2 className="h-4 w-4" /> Approve report
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="p-10 text-center text-sm text-slate-500">
+            No report data has been submitted for this assignment.
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
 export default function ConsultantAdminDashboard() {
+  const { assignments } = useInspectionWorkflow();
   const [programmeFilter, setProgrammeFilter] = useState("All Programmes");
   const [stateFilter, setStateFilter] = useState("All States");
-  const [monthFilter, setMonthFilter] = useState("All Months");
-  const filteredPortfolio = useMemo(
+  const [officerFilter, setOfficerFilter] = useState("All Field Officers");
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [reviewing, setReviewing] = useState<InspectionAssignment | null>(null);
+  const [mapAssignment, setMapAssignment] =
+    useState<InspectionAssignment | null>(assignments[0] ?? null);
+  const filtered = useMemo(
     () =>
-      consultantPortfolio.filter(
-        (project) =>
+      assignments.filter(
+        (item) =>
           (programmeFilter === "All Programmes" ||
-            project.programme === programmeFilter) &&
-          (stateFilter === "All States" || project.state === stateFilter) &&
-          (monthFilter === "All Months" || project.month === monthFilter),
+            item.programme === programmeFilter) &&
+          (stateFilter === "All States" || item.state === stateFilter) &&
+          (officerFilter === "All Field Officers" ||
+            item.officer === officerFilter),
       ),
-    [programmeFilter, stateFilter, monthFilter],
+    [assignments, programmeFilter, stateFilter, officerFilter],
   );
-  const summary = summarizePortfolio(filteredPortfolio);
-  const reviewQueue = filteredPortfolio.filter((project) => !project.verified);
-  const programmeOptions = [
-    "All Programmes",
-    ...new Set(consultantPortfolio.map((project) => project.programme)),
-  ];
-  const stateOptions = [
-    "All States",
-    ...new Set(consultantPortfolio.map((project) => project.state)),
-  ];
-  const monthOptions = [
-    "All Months",
-    ...new Set(consultantPortfolio.map((project) => project.month)),
-  ];
-  const programmePerformance = [
-    ...new Set(filteredPortfolio.map((project) => project.programme)),
-  ].map((programme) => {
-    const matching = filteredPortfolio.filter(
-      (project) => project.programme === programme,
-    );
+  const reviewQueue = filtered.filter((item) => item.status === "Submitted");
+  const approved = filtered.filter((item) => item.status === "Approved").length;
+  const pending = filtered.filter(
+    (item) => !["Approved", "Submitted"].includes(item.status),
+  ).length;
+  const approvalRate = filtered.length
+    ? Math.round((approved / filtered.length) * 100)
+    : 0;
+  const contractors = [...new Set(filtered.map((item) => item.contractor))]
+    .map((name) => {
+      const rows = filtered.filter((item) => item.contractor === name);
+      return {
+        name,
+        projects: rows.length,
+        approved: rows.filter((item) => item.status === "Approved").length,
+      };
+    })
+    .sort((a, b) => b.projects - a.projects)
+    .slice(0, 4);
+  const team = fieldOfficers.map((officer) => {
+    const rows = assignments.filter((item) => item.officer === officer.name);
     return {
-      programme,
-      projects: matching.length,
-      verified: matching.filter((project) => project.verified).length,
+      ...officer,
+      assigned: rows.length,
+      completed: rows.filter((item) => item.status === "Approved").length,
+      active: rows.filter(
+        (item) => !["Approved", "Submitted"].includes(item.status),
+      ).length,
     };
   });
-  const trendData = [
-    ...new Set(filteredPortfolio.map((project) => project.month)),
-  ]
-    .sort((left, right) => Date.parse(`1 ${left}`) - Date.parse(`1 ${right}`))
-    .map((month) => {
-      const matching = filteredPortfolio.filter(
-        (project) => project.month === month,
-      );
-      const approved = matching.filter((project) => project.verified).length;
-      return {
-        month: month.slice(0, 3),
-        submitted: matching.length,
-        approved,
-        approvalRate: matching.length
-          ? Math.round((approved / matching.length) * 100)
-          : 0,
-      };
-    });
-
+  const mapTarget =
+    (mapAssignment &&
+      assignments.find((item) => item.id === mapAssignment.id)) ||
+    filtered[0];
+  const mapUrl = mapTarget
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${mapTarget.longitude - 0.045}%2C${mapTarget.latitude - 0.035}%2C${mapTarget.longitude + 0.045}%2C${mapTarget.latitude + 0.035}&layer=mapnik&marker=${mapTarget.latitude}%2C${mapTarget.longitude}`
+    : "";
   return (
     <RoleDashboardShell
       title="Consultant Admin Dashboard"
-      subtitle="Coordinate field teams, review submissions and monitor programme assurance."
+      subtitle="Assign field work, review inspection evidence and monitor programme assurance."
       roleName="Ibrahim Musa · Consultant Admin"
       initials="IM"
       navigation={navigation}
     >
       <section className="rounded-lg border border-[#d6e9da] bg-[#f7fcf8] p-3">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[repeat(4,minmax(0,1fr))_205px]">
-          {[
-            [
-              "Programme",
-              programmeFilter,
-              setProgrammeFilter,
-              programmeOptions,
-            ],
-            ["State", stateFilter, setStateFilter, stateOptions],
-            ["Month", monthFilter, setMonthFilter, monthOptions],
-          ].map(([label, value, setter, options]) => (
-            <label key={String(label)} className="flex flex-col gap-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
-                {String(label)}
-              </span>
-              <select
-                value={String(value)}
-                onChange={(event) =>
-                  (setter as (value: string) => void)(event.target.value)
-                }
-                className="h-10 rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-[#173b2a] outline-none focus:border-[#08733f]"
-              >
-                {(options as string[]).map((option) => (
-                  <option key={option}>{option}</option>
-                ))}
-              </select>
-            </label>
-          ))}
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
-              Field Officer
-            </span>
-            <select className="h-10 rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-[#173b2a] outline-none focus:border-[#08733f]">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[repeat(3,minmax(0,1fr))_205px]">
+          <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+            Programme
+            <select
+              value={programmeFilter}
+              onChange={(event) => setProgrammeFilter(event.target.value)}
+              className={inputClass}
+            >
+              <option>All Programmes</option>
+              {[...new Set(assignments.map((item) => item.programme))].map(
+                (item) => (
+                  <option key={item}>{item}</option>
+                ),
+              )}
+            </select>
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+            State
+            <select
+              value={stateFilter}
+              onChange={(event) => setStateFilter(event.target.value)}
+              className={inputClass}
+            >
+              <option>All States</option>
+              {[...new Set(assignments.map((item) => item.state))].map(
+                (item) => (
+                  <option key={item}>{item}</option>
+                ),
+              )}
+            </select>
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+            Field officer
+            <select
+              value={officerFilter}
+              onChange={(event) => setOfficerFilter(event.target.value)}
+              className={inputClass}
+            >
               <option>All Field Officers</option>
-              {fieldTeam.map((officer) => (
-                <option key={officer.name}>{officer.name}</option>
+              {fieldOfficers.map((item) => (
+                <option key={item.name}>{item.name}</option>
               ))}
             </select>
           </label>
-          <button className="mt-auto flex h-10 items-center justify-center gap-2 rounded-md bg-[#08733f] px-4 text-xs font-bold text-white hover:bg-[#065d32]">
-            <ClipboardCheck className="h-4 w-4" /> Review queue (
-            {reviewQueue.length})
+          <button
+            onClick={() => setAssignOpen(true)}
+            className="mt-auto flex h-10 items-center justify-center gap-2 rounded-md bg-[#08733f] px-4 text-xs font-bold text-white"
+          >
+            <Plus className="h-4 w-4" /> Assign project
           </button>
         </div>
       </section>
-
       <section className="mt-3 flex gap-3 overflow-x-auto pb-1">
         <MetricCard
-          label="Active Projects"
-          value={summary.projects}
+          label="Assigned Projects"
+          value={filtered.length}
           detail="Consultant-managed portfolio"
           icon={FolderKanban}
         />
         <MetricCard
           label="Field Officers"
-          value={fieldTeam.length}
-          detail="Across four operational zones"
+          value={fieldOfficers.length}
+          detail="Across operational zones"
           icon={UsersRound}
           tone="blue"
         />
         <MetricCard
-          label="Reports Submitted"
-          value={filteredPortfolio.length}
-          detail="Current filtered period"
-          icon={FileText}
-        />
-        <MetricCard
-          label="Awaiting Review"
+          label="Awaiting QA Review"
           value={reviewQueue.length}
-          detail="Requires consultant action"
+          detail="Submitted field reports"
           icon={Clock3}
           tone="amber"
         />
         <MetricCard
-          label="Approval Rate"
-          value={`${summary.verificationRate}%`}
-          detail={`${summary.verified} reports approved`}
+          label="Approved Reports"
+          value={approved}
+          detail="Ready for REA access"
           icon={CheckCircle2}
         />
+        <MetricCard
+          label="Approval Rate"
+          value={`${approvalRate}%`}
+          detail={`${pending} field activities in progress`}
+          icon={ShieldCheck}
+        />
       </section>
-
-      <div className="mt-3 grid items-start gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(350px,1fr)]">
+      <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.45fr)_minmax(380px,1fr)]">
         <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
             <div>
               <h2 className="text-sm font-bold text-[#173b2a]">
-                Verification Review Queue
+                Interactive Project Map
               </h2>
               <p className="mt-1 text-[10px] text-slate-500">
-                Field reports awaiting consultant assessment
+                Select an assignment to inspect its field location
               </p>
             </div>
-            <button className="text-[10px] font-bold text-[#08733f] hover:underline">
-              View full queue
-            </button>
+            {mapTarget && <StatusPill status={mapTarget.status} />}
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left">
-              <thead className="bg-slate-50 text-[9px] uppercase tracking-[0.1em] text-slate-500">
-                <tr>
-                  <th className="px-4 py-2.5">Project</th>
-                  <th className="px-3 py-2.5">Officer</th>
-                  <th className="px-3 py-2.5">Submitted</th>
-                  <th className="px-3 py-2.5">Status</th>
-                  <th className="px-4 py-2.5 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reviewQueue.slice(0, 7).map((project, index) => (
-                  <tr key={project.name} className="border-t border-slate-100">
-                    <td className="px-4 py-3">
-                      <p className="text-xs font-semibold text-[#173b2a]">
-                        {project.name}
-                      </p>
-                      <p className="mt-1 flex items-center gap-1 text-[10px] text-slate-500">
-                        <MapPin className="h-3 w-3" /> {project.state} ·{" "}
-                        {project.programme}
-                      </p>
-                    </td>
-                    <td className="px-3 py-3 text-xs text-slate-600">
-                      {fieldTeam[index % fieldTeam.length].name}
-                    </td>
-                    <td className="px-3 py-3 text-xs text-slate-600">
-                      {index === 0 ? "12 mins ago" : `${index + 1} hours ago`}
-                    </td>
-                    <td className="px-3 py-3">
-                      <ReviewStatus project={project} />
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button className="rounded-md border border-[#8bcba0] px-3 py-2 text-[10px] font-bold text-[#08733f] hover:bg-[#f0fbf3]">
-                        Review report
-                      </button>
-                    </td>
-                  </tr>
+          {mapTarget ? (
+            <div className="grid lg:grid-cols-[1fr_230px]">
+              <iframe
+                title="Consultant project map"
+                src={mapUrl}
+                className="h-[350px] w-full bg-slate-100"
+                loading="lazy"
+              />
+              <div className="max-h-[350px] overflow-y-auto border-l border-slate-100 p-3">
+                <p className="mb-2 text-[9px] font-bold uppercase tracking-wide text-slate-500">
+                  Filtered assignments
+                </p>
+                {filtered.slice(0, 12).map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => setMapAssignment(item)}
+                    className={`mb-2 w-full rounded-md border p-2.5 text-left ${mapTarget.id === item.id ? "border-[#8bcba0] bg-[#eff9f2]" : "border-slate-100 hover:bg-slate-50"}`}
+                  >
+                    <p className="truncate text-[10px] font-bold text-[#173b2a]">
+                      {item.projectName}
+                    </p>
+                    <p className="mt-1 flex items-center gap-1 text-[9px] text-slate-500">
+                      <MapPin className="h-3 w-3" /> {item.community},{" "}
+                      {item.state}
+                    </p>
+                  </button>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-10 text-center text-sm text-slate-500">
+              No assigned projects match these filters.
+            </div>
+          )}
         </section>
-
-        <aside className="rounded-lg border border-slate-200 bg-white">
+        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
+            <div>
+              <h2 className="text-sm font-bold text-[#173b2a]">
+                QA Review Queue
+              </h2>
+              <p className="mt-1 text-[10px] text-slate-500">
+                Approve or return submitted inspections
+              </p>
+            </div>
+            <span className="rounded-full bg-[#fff4d9] px-2.5 py-1 text-[10px] font-bold text-[#a66b00]">
+              {reviewQueue.length} pending
+            </span>
+          </div>
+          {reviewQueue.length ? (
+            <div className="divide-y divide-slate-100">
+              {reviewQueue.map((assignment) => (
+                <div key={assignment.id} className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-bold text-[#173b2a]">
+                        {assignment.projectName}
+                      </p>
+                      <p className="mt-1 text-[10px] text-slate-500">
+                        {assignment.officer} · {assignment.state}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setReviewing(assignment)}
+                      className="shrink-0 rounded-md border border-[#8bcba0] px-3 py-2 text-[10px] font-bold text-[#08733f]"
+                    >
+                      Review report
+                    </button>
+                  </div>
+                  <div className="mt-3 flex gap-3 text-[9px] text-slate-500">
+                    <span>
+                      {assignment.report?.evidence.length ?? 0} evidence files
+                    </span>
+                    <span>
+                      GPS {assignment.arrival ? "verified" : "missing"}
+                    </span>
+                    <span>{assignment.syncStatus}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-10 text-center">
+              <CheckCircle2 className="mx-auto h-8 w-8 text-[#119653]" />
+              <p className="mt-2 text-xs font-bold text-[#173b2a]">
+                Review queue is clear
+              </p>
+              <p className="mt-1 text-[10px] text-slate-500">
+                New field submissions will appear here.
+              </p>
+            </div>
+          )}
+        </section>
+      </div>
+      <div className="mt-3 grid gap-3 xl:grid-cols-2">
+        <section className="rounded-lg border border-slate-200 bg-white">
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
             <h2 className="text-sm font-bold text-[#173b2a]">
-              Field Team Performance
+              Field Officer Activity
             </h2>
             <UserCheck className="h-4 w-4 text-[#08733f]" />
           </div>
-          <div className="divide-y divide-slate-100 px-4">
-            {fieldTeam.map((officer) => {
-              const rate = Math.round(
-                (officer.completed / officer.assigned) * 100,
-              );
+          <div className="grid gap-px bg-slate-100 sm:grid-cols-2">
+            {team.map((officer) => {
+              const rate = officer.assigned
+                ? Math.round((officer.completed / officer.assigned) * 100)
+                : 0;
               return (
-                <div key={officer.name} className="py-3">
-                  <div className="flex items-center justify-between gap-3">
+                <div key={officer.name} className="bg-white p-4">
+                  <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs font-semibold text-[#173b2a]">
+                      <p className="text-xs font-bold text-[#173b2a]">
                         {officer.name}
                       </p>
-                      <p className="mt-0.5 text-[10px] text-slate-500">
-                        {officer.zone}
+                      <p className="mt-1 text-[9px] text-slate-500">
+                        {officer.zone} · {officer.device}
                       </p>
                     </div>
-                    <strong className="text-xs text-[#08733f]">{rate}%</strong>
+                    <strong className="text-sm text-[#08733f]">{rate}%</strong>
                   </div>
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
                     <div
-                      className="h-full rounded-full bg-[#119653]"
+                      className="h-full bg-[#119653]"
                       style={{ width: `${rate}%` }}
                     />
                   </div>
-                  <p className="mt-1.5 text-[9px] text-slate-500">
-                    {officer.completed} of {officer.assigned} assignments
-                    completed
+                  <p className="mt-2 text-[9px] text-slate-500">
+                    {officer.assigned} assigned · {officer.completed} approved ·{" "}
+                    {officer.active} active
                   </p>
                 </div>
               );
             })}
           </div>
-        </aside>
-      </div>
-
-      <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.5fr)_minmax(360px,1fr)]">
-        <section className="rounded-lg border border-slate-200 bg-white p-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-[#173b2a]">
-              Submission &amp; Approval Trend
-            </h2>
-            <span className="text-[10px] font-semibold text-slate-500">
-              Current portfolio
-            </span>
-          </div>
-          <div className="mt-4 h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart
-                data={trendData}
-                margin={{ top: 8, right: 0, left: -26, bottom: 0 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5ece7" />
-                <XAxis
-                  dataKey="month"
-                  tick={{ fontSize: 9, fill: "#64748b" }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  yAxisId="reports"
-                  allowDecimals={false}
-                  tick={{ fontSize: 9, fill: "#64748b" }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  yAxisId="rate"
-                  orientation="right"
-                  domain={[0, 100]}
-                  tickFormatter={(value) => `${value}%`}
-                  tick={{ fontSize: 9, fill: "#64748b" }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: 8,
-                    borderColor: "#dbe7de",
-                    fontSize: 11,
-                  }}
-                />
-                <Bar
-                  yAxisId="reports"
-                  dataKey="submitted"
-                  name="Submitted"
-                  fill="#cbd5e1"
-                  radius={[2, 2, 0, 0]}
-                />
-                <Bar
-                  yAxisId="reports"
-                  dataKey="approved"
-                  name="Approved"
-                  fill="#5bc18d"
-                  radius={[2, 2, 0, 0]}
-                />
-                <Line
-                  yAxisId="rate"
-                  dataKey="approvalRate"
-                  name="Approval rate"
-                  type="monotone"
-                  stroke="#08733f"
-                  strokeWidth={2}
-                  dot={{ r: 2.5 }}
-                />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </div>
         </section>
-
-        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+        <section className="rounded-lg border border-slate-200 bg-white">
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
             <h2 className="text-sm font-bold text-[#173b2a]">
-              Programme Assurance
+              Contractor Performance
             </h2>
-            <button className="text-[10px] font-bold text-[#08733f]">
-              View all
-            </button>
+            <span className="text-[10px] font-bold text-[#08733f]">
+              Live from inspections
+            </span>
           </div>
           <div className="divide-y divide-slate-100 px-4">
-            {programmePerformance.map((row, index) => {
-              const rate = row.projects
-                ? Math.round((row.verified / row.projects) * 100)
+            {contractors.map((contractor, index) => {
+              const rate = contractor.projects
+                ? Math.round((contractor.approved / contractor.projects) * 100)
                 : 0;
               return (
                 <div
-                  key={row.programme}
-                  className="grid grid-cols-[32px_1fr_auto] items-center gap-3 py-3"
+                  key={contractor.name}
+                  className="grid grid-cols-[34px_1fr_auto] items-center gap-3 py-3"
                 >
                   <div
                     className={`flex h-8 w-8 items-center justify-center rounded-md ${index === 3 ? "bg-[#fff4d9] text-[#d18a00]" : "bg-[#eaf8ef] text-[#0c8a49]"}`}
@@ -451,17 +724,15 @@ export default function ConsultantAdminDashboard() {
                     <Zap className="h-4 w-4" />
                   </div>
                   <div>
-                    <div className="flex justify-between gap-2 text-[10px]">
-                      <strong className="text-[#173b2a]">
-                        {row.programme}
-                      </strong>
+                    <div className="flex justify-between text-[10px]">
+                      <strong>{contractor.name}</strong>
                       <span className="text-slate-500">
-                        {row.projects} projects
+                        {contractor.projects} projects
                       </span>
                     </div>
                     <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100">
                       <div
-                        className="h-full rounded-full bg-[#08733f]"
+                        className="h-full bg-[#08733f]"
                         style={{ width: `${rate}%` }}
                       />
                     </div>
@@ -475,6 +746,17 @@ export default function ConsultantAdminDashboard() {
           </div>
         </section>
       </div>
+      {assignOpen && (
+        <AssignProjectModal onClose={() => setAssignOpen(false)} />
+      )}
+      {reviewing && (
+        <ReviewModal
+          assignment={
+            assignments.find((item) => item.id === reviewing.id) ?? reviewing
+          }
+          onClose={() => setReviewing(null)}
+        />
+      )}
     </RoleDashboardShell>
   );
 }
