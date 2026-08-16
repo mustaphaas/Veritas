@@ -18,6 +18,10 @@ export type AssignmentStatus =
   | "Approved"
   | "Re-inspection";
 
+export function isFieldReportLocked(status: AssignmentStatus) {
+  return status === "Submitted" || status === "Approved";
+}
+
 export type EvidenceItem = {
   id: string;
   name: string;
@@ -27,6 +31,7 @@ export type EvidenceItem = {
   longitude: number;
   projectId: string;
   inspector: string;
+  previewUrl?: string;
 };
 
 export type InspectionReport = {
@@ -313,7 +318,12 @@ export function InspectionWorkflowProvider({
   );
 
   useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(assignments));
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(assignments));
+    } catch {
+      // Large camera files can exceed the demo browser quota. They remain
+      // available in the current session and can still be reviewed.
+    }
   }, [assignments]);
 
   useEffect(() => {
@@ -383,20 +393,24 @@ export function InspectionWorkflowProvider({
 
   const startRoute = useCallback(
     (id: string) =>
-      update(id, (assignment) => ({
-        ...assignment,
-        status: "En route",
-        audit: [
-          ...assignment.audit,
-          {
-            id: uid("audit"),
-            at: new Date().toISOString(),
-            actor: assignment.officer,
-            action: "Navigation started",
-            deviceId: getDeviceId(),
-          },
-        ],
-      })),
+      update(id, (assignment) =>
+        isFieldReportLocked(assignment.status)
+          ? assignment
+          : {
+              ...assignment,
+              status: "En route",
+              audit: [
+                ...assignment.audit,
+                {
+                  id: uid("audit"),
+                  at: new Date().toISOString(),
+                  actor: assignment.officer,
+                  action: "Navigation started",
+                  deviceId: getDeviceId(),
+                },
+              ],
+            },
+      ),
     [update],
   );
 
@@ -404,6 +418,9 @@ export function InspectionWorkflowProvider({
     (id: string, latitude: number, longitude: number) => {
       const assignment = assignments.find((item) => item.id === id);
       if (!assignment) return { allowed: false, distance: 0 };
+      if (isFieldReportLocked(assignment.status)) {
+        return { allowed: false, distance: 0 };
+      }
       const distance = distanceMeters(
         { latitude, longitude },
         { latitude: assignment.latitude, longitude: assignment.longitude },
@@ -435,45 +452,55 @@ export function InspectionWorkflowProvider({
 
   const saveReport = useCallback(
     (id: string, report: InspectionReport) =>
-      update(id, (assignment) => ({
-        ...assignment,
-        report,
-        status: "Draft",
-        syncStatus: isOnline ? "synced" : "queued",
-        audit: [
-          ...assignment.audit,
-          {
-            id: uid("audit"),
-            at: new Date().toISOString(),
-            actor: assignment.officer,
-            action: "Inspection draft saved",
-            deviceId: getDeviceId(),
-          },
-        ],
-      })),
+      update(id, (assignment) => {
+        if (isFieldReportLocked(assignment.status)) {
+          return assignment;
+        }
+        return {
+          ...assignment,
+          report,
+          status: "Draft",
+          syncStatus: isOnline ? "synced" : "queued",
+          audit: [
+            ...assignment.audit,
+            {
+              id: uid("audit"),
+              at: new Date().toISOString(),
+              actor: assignment.officer,
+              action: "Inspection draft saved",
+              deviceId: getDeviceId(),
+            },
+          ],
+        };
+      }),
     [isOnline, update],
   );
 
   const submitReport = useCallback(
     (id: string, report: InspectionReport) =>
-      update(id, (assignment) => ({
-        ...assignment,
-        report: { ...report, submittedAt: new Date().toISOString() },
-        status: "Submitted",
-        syncStatus: isOnline ? "synced" : "queued",
-        audit: [
-          ...assignment.audit,
-          {
-            id: uid("audit"),
-            at: new Date().toISOString(),
-            actor: assignment.officer,
-            action: isOnline
-              ? "Inspection submitted for QA"
-              : "Submission queued offline",
-            deviceId: getDeviceId(),
-          },
-        ],
-      })),
+      update(id, (assignment) => {
+        if (isFieldReportLocked(assignment.status)) {
+          return assignment;
+        }
+        return {
+          ...assignment,
+          report: { ...report, submittedAt: new Date().toISOString() },
+          status: "Submitted",
+          syncStatus: isOnline ? "synced" : "queued",
+          audit: [
+            ...assignment.audit,
+            {
+              id: uid("audit"),
+              at: new Date().toISOString(),
+              actor: assignment.officer,
+              action: isOnline
+                ? "Inspection submitted for QA"
+                : "Submission queued offline",
+              deviceId: getDeviceId(),
+            },
+          ],
+        };
+      }),
     [isOnline, update],
   );
 
@@ -482,6 +509,7 @@ export function InspectionWorkflowProvider({
       update(id, (assignment) => ({
         ...assignment,
         status: decision,
+        arrival: decision === "Re-inspection" ? undefined : assignment.arrival,
         report: assignment.report
           ? { ...assignment.report, reviewNote: note }
           : assignment.report,

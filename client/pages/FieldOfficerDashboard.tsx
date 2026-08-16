@@ -30,6 +30,7 @@ import {
 import RoleDashboardShell from "../components/RoleDashboardShell";
 import {
   getDeviceId,
+  isFieldReportLocked,
   useInspectionWorkflow,
   type InspectionAssignment,
   type InspectionReport,
@@ -186,7 +187,8 @@ function InspectionModal({
 }) {
   const { isOnline, startRoute, verifyArrival, saveReport, submitReport } =
     useInspectionWorkflow();
-  const [step, setStep] = useState(assignment.arrival ? 2 : 1);
+  const locked = isFieldReportLocked(assignment.status);
+  const [step, setStep] = useState(locked || assignment.arrival ? 2 : 1);
   const [gpsMessage, setGpsMessage] = useState(
     assignment.arrival
       ? `Arrival verified at ${assignment.arrival.distance} m`
@@ -220,10 +222,11 @@ function InspectionModal({
       },
   );
   const canCollect =
-    Boolean(assignment.arrival) || gpsMessage.startsWith("Verified");
+    locked || Boolean(assignment.arrival) || gpsMessage.startsWith("Verified");
   const update = (key: keyof InspectionReport, value: string) =>
-    setReport((current) => ({ ...current, [key]: value }));
+    !locked && setReport((current) => ({ ...current, [key]: value }));
   const captureArrival = (demo = false) => {
+    if (locked) return;
     setGpsBusy(true);
     const apply = (latitude: number, longitude: number) => {
       const result = verifyArrival(assignment.id, latitude, longitude);
@@ -258,13 +261,28 @@ function InspectionModal({
       { enableHighAccuracy: true, timeout: 12000 },
     );
   };
-  const addEvidence = (
+  const addEvidence = async (
     event: ChangeEvent<HTMLInputElement>,
     type: "photo" | "video",
   ) => {
     const files = Array.from(event.target.files ?? []);
     if (!files.length) return;
     const capturedAt = new Date().toISOString();
+    const previews = await Promise.all(
+      files.map(
+        (file) =>
+          new Promise<string>((resolve) => {
+            if (file.size > 4_000_000) {
+              resolve(URL.createObjectURL(file));
+              return;
+            }
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result));
+            reader.onerror = () => resolve(URL.createObjectURL(file));
+            reader.readAsDataURL(file);
+          }),
+      ),
+    );
     setReport((current) => ({
       ...current,
       evidence: [
@@ -278,6 +296,7 @@ function InspectionModal({
           longitude: current.longitude,
           projectId: current.projectId,
           inspector: current.inspector,
+          previewUrl: previews[index],
         })),
       ],
     }));
@@ -330,6 +349,20 @@ function InspectionModal({
             ),
           )}
         </div>
+        {locked && (
+          <div className="border-b border-[#c8daef] bg-[#eef5fc] px-4 py-3 text-xs font-semibold text-[#356ca5] sm:px-6">
+            This report is locked because it has been submitted to Consultant
+            Admin. It can only be edited if it is returned for re-inspection.
+          </div>
+        )}
+        {assignment.status === "Re-inspection" &&
+          assignment.report?.reviewNote && (
+            <div className="border-b border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700 sm:px-6">
+              <strong>Re-inspection requested:</strong>{" "}
+              {assignment.report.reviewNote}. Verify your arrival again before
+              updating the report.
+            </div>
+          )}
         {step === 1 && (
           <div className="grid gap-4 p-4 sm:p-6 lg:grid-cols-[1.6fr_1fr]">
             <iframe
@@ -416,20 +449,21 @@ function InspectionModal({
               >
                 {String(label)}
                 <input
-                  required={!readOnly}
-                  readOnly={Boolean(readOnly)}
+                  required={!readOnly && !locked}
+                  readOnly={Boolean(readOnly) || locked}
                   value={String(report[key as keyof InspectionReport] ?? "")}
                   onChange={(event) =>
                     update(key as keyof InspectionReport, event.target.value)
                   }
-                  className={`${fieldClass} ${readOnly ? "bg-slate-50" : ""}`}
+                  className={`${fieldClass} ${readOnly || locked ? "bg-slate-50" : ""}`}
                 />
               </label>
             ))}
             <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500 lg:col-span-3">
               Observations
               <textarea
-                required
+                required={!locked}
+                readOnly={locked}
                 value={report.observations}
                 onChange={(event) => update("observations", event.target.value)}
                 className={areaClass}
@@ -438,6 +472,7 @@ function InspectionModal({
             <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500 lg:col-span-3">
               Defects
               <textarea
+                readOnly={locked}
                 value={report.defects}
                 onChange={(event) => update("defects", event.target.value)}
                 className={areaClass}
@@ -446,7 +481,8 @@ function InspectionModal({
             <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500 lg:col-span-3">
               Recommendations
               <textarea
-                required
+                required={!locked}
+                readOnly={locked}
                 value={report.recommendations}
                 onChange={(event) =>
                   update("recommendations", event.target.value)
@@ -455,13 +491,15 @@ function InspectionModal({
               />
             </label>
             <div className="flex justify-end gap-2 sm:col-span-2 lg:col-span-3">
-              <button
-                type="button"
-                onClick={() => saveReport(assignment.id, report)}
-                className="rounded-md border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-600"
-              >
-                Save offline draft
-              </button>
+              {!locked && (
+                <button
+                  type="button"
+                  onClick={() => saveReport(assignment.id, report)}
+                  className="rounded-md border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-600"
+                >
+                  Save offline draft
+                </button>
+              )}
               <button
                 type="submit"
                 className="rounded-md bg-[#08733f] px-5 py-2.5 text-xs font-bold text-white"
@@ -473,56 +511,58 @@ function InspectionModal({
         )}
         {step === 3 && (
           <div className="space-y-5 p-4 sm:p-6">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <label className="flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-[#8bcba0] bg-white text-center text-[#08733f]">
-                <Camera className="h-6 w-6" />
-                <span className="mt-2 text-[10px] font-bold">
-                  Capture photos
-                </span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  multiple
-                  className="hidden"
-                  onChange={(event) => addEvidence(event, "photo")}
-                />
-              </label>
-              <label className="flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-[#91abd0] bg-white text-center text-[#3974b6]">
-                <Video className="h-6 w-6" />
-                <span className="mt-2 text-[10px] font-bold">
-                  Capture optional video
-                </span>
-                <input
-                  type="file"
-                  accept="video/*"
-                  capture="environment"
-                  className="hidden"
-                  onChange={(event) => addEvidence(event, "video")}
-                />
-              </label>
-              <button
-                type="button"
-                onClick={() =>
-                  update(
-                    "assetCode",
-                    window.prompt(
-                      "Scan with a connected barcode reader or enter the asset code",
-                      report.assetCode,
-                    ) ?? report.assetCode,
-                  )
-                }
-                className="flex min-h-24 flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white text-[#173b2a]"
-              >
-                <QrCode className="h-6 w-6" />
-                <span className="mt-2 text-[10px] font-bold">
-                  Scan QR / barcode
-                </span>
-                <span className="mt-1 text-[9px] text-slate-500">
-                  {report.assetCode || "No code captured"}
-                </span>
-              </button>
-            </div>
+            {!locked && (
+              <div className="grid gap-3 sm:grid-cols-3">
+                <label className="flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-[#8bcba0] bg-white text-center text-[#08733f]">
+                  <Camera className="h-6 w-6" />
+                  <span className="mt-2 text-[10px] font-bold">
+                    Capture photos
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    multiple
+                    className="hidden"
+                    onChange={(event) => addEvidence(event, "photo")}
+                  />
+                </label>
+                <label className="flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-[#91abd0] bg-white text-center text-[#3974b6]">
+                  <Video className="h-6 w-6" />
+                  <span className="mt-2 text-[10px] font-bold">
+                    Capture optional video
+                  </span>
+                  <input
+                    type="file"
+                    accept="video/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(event) => addEvidence(event, "video")}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() =>
+                    update(
+                      "assetCode",
+                      window.prompt(
+                        "Scan with a connected barcode reader or enter the asset code",
+                        report.assetCode,
+                      ) ?? report.assetCode,
+                    )
+                  }
+                  className="flex min-h-24 flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white text-[#173b2a]"
+                >
+                  <QrCode className="h-6 w-6" />
+                  <span className="mt-2 text-[10px] font-bold">
+                    Scan QR / barcode
+                  </span>
+                  <span className="mt-1 text-[9px] text-slate-500">
+                    {report.assetCode || "No code captured"}
+                  </span>
+                </button>
+              </div>
+            )}
             {report.evidence.length > 0 && (
               <div className="rounded-lg border border-slate-200 bg-white p-3">
                 <p className="text-xs font-bold text-[#173b2a]">
@@ -532,72 +572,101 @@ function InspectionModal({
                   {report.evidence.map((item) => (
                     <div
                       key={item.id}
-                      className="rounded-md bg-slate-50 p-2 text-[10px]"
+                      className="overflow-hidden rounded-md bg-slate-50 text-[10px]"
                     >
-                      <strong>{item.name}</strong>
-                      <p className="mt-1 text-slate-500">
-                        Tagged: {item.projectId} · {item.latitude.toFixed(5)},{" "}
-                        {item.longitude.toFixed(5)} ·{" "}
-                        {new Date(item.capturedAt).toLocaleString()}
-                      </p>
+                      {item.previewUrl && item.type === "photo" && (
+                        <img
+                          src={item.previewUrl}
+                          alt={item.name}
+                          className="h-32 w-full object-cover"
+                        />
+                      )}
+                      {item.previewUrl && item.type === "video" && (
+                        <video
+                          src={item.previewUrl}
+                          controls
+                          className="h-32 w-full bg-slate-900 object-contain"
+                        />
+                      )}
+                      <div className="p-2">
+                        <strong>{item.name}</strong>
+                        <p className="mt-1 text-slate-500">
+                          Tagged: {item.projectId} · {item.latitude.toFixed(5)},{" "}
+                          {item.longitude.toFixed(5)} ·{" "}
+                          {new Date(item.capturedAt).toLocaleString()}
+                        </p>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
-            <div className="grid gap-4 lg:grid-cols-2">
-              <SignaturePad
-                label="Community representative signature"
-                value={report.communitySignature}
-                onChange={(value) =>
-                  setReport((current) => ({
-                    ...current,
-                    communitySignature: value,
-                  }))
-                }
-              />
-              <SignaturePad
-                label="Contractor representative signature"
-                value={report.contractorSignature}
-                onChange={(value) =>
-                  setReport((current) => ({
-                    ...current,
-                    contractorSignature: value,
-                  }))
-                }
-              />
-            </div>
+            {!locked ? (
+              <div className="grid gap-4 lg:grid-cols-2">
+                <SignaturePad
+                  label="Community representative signature"
+                  value={report.communitySignature}
+                  onChange={(value) =>
+                    setReport((current) => ({
+                      ...current,
+                      communitySignature: value,
+                    }))
+                  }
+                />
+                <SignaturePad
+                  label="Contractor representative signature"
+                  value={report.contractorSignature}
+                  onChange={(value) =>
+                    setReport((current) => ({
+                      ...current,
+                      contractorSignature: value,
+                    }))
+                  }
+                />
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border border-[#b9dfc5] bg-white p-3 text-xs font-semibold text-[#08733f]">
+                  Community representative signature captured
+                </div>
+                <div className="rounded-lg border border-[#b9dfc5] bg-white p-3 text-xs font-semibold text-[#08733f]">
+                  Contractor representative signature captured
+                </div>
+              </div>
+            )}
             <div className="rounded-lg border border-slate-200 bg-white p-3 text-[10px] text-slate-500">
               Submission includes automatic time stamp, GPS, device ID,
               inspector identity and complete audit history.{" "}
               {!isOnline &&
                 "It will be queued securely until connectivity returns."}
             </div>
-            <div className="flex flex-wrap justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => saveReport(assignment.id, report)}
-                className="rounded-md border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-600"
-              >
-                Save draft
-              </button>
-              <button
-                type="button"
-                disabled={
-                  !report.communitySignature ||
-                  !report.contractorSignature ||
-                  report.evidence.length === 0
-                }
-                onClick={() => {
-                  submitReport(assignment.id, report);
-                  onClose();
-                }}
-                className="flex items-center gap-2 rounded-md bg-[#08733f] px-5 py-2.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <UploadCloud className="h-4 w-4" />{" "}
-                {isOnline ? "Submit for QA review" : "Queue for submission"}
-              </button>
-            </div>
+            {!locked && (
+              <div className="flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => saveReport(assignment.id, report)}
+                  className="rounded-md border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-600"
+                >
+                  Save draft
+                </button>
+                <button
+                  type="button"
+                  disabled={
+                    !report.communitySignature ||
+                    !report.contractorSignature ||
+                    report.evidence.length === 0
+                  }
+                  onClick={() => {
+                    submitReport(assignment.id, report);
+                    onClose();
+                  }}
+                  className="flex items-center gap-2 rounded-md bg-[#08733f] px-5 py-2.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <UploadCloud className="h-4 w-4" />{" "}
+                  {isOnline ? "Submit for QA review" : "Queue for submission"}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </section>

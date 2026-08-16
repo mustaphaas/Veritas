@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   BarChart3,
+  Camera,
   CheckCircle2,
   ClipboardCheck,
   Clock3,
@@ -12,6 +13,7 @@ import {
   ShieldCheck,
   UserCheck,
   UsersRound,
+  Video,
   X,
   Zap,
 } from "lucide-react";
@@ -340,6 +342,75 @@ function ReviewModal({
                     </div>
                   ))}
                 </div>
+              </div>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-white p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs font-bold text-[#173b2a]">
+                    Photo &amp; video evidence
+                  </h3>
+                  <p className="mt-1 text-[9px] text-slate-500">
+                    Original field capture with automatic inspection stamps
+                  </p>
+                </div>
+                <span className="rounded-full bg-[#edf8f0] px-2.5 py-1 text-[9px] font-bold text-[#08733f]">
+                  {report.evidence.length} files
+                </span>
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {report.evidence.map((item) => (
+                  <article
+                    key={item.id}
+                    className="overflow-hidden rounded-lg border border-slate-200 bg-slate-950"
+                  >
+                    <div className="relative h-48">
+                      {item.previewUrl && item.type === "photo" ? (
+                        <img
+                          src={item.previewUrl}
+                          alt={item.name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : item.previewUrl && item.type === "video" ? (
+                        <video
+                          src={item.previewUrl}
+                          controls
+                          className="h-full w-full object-contain"
+                        />
+                      ) : (
+                        <div className="flex h-full flex-col items-center justify-center bg-slate-800 text-slate-300">
+                          {item.type === "photo" ? (
+                            <Camera className="h-8 w-8" />
+                          ) : (
+                            <Video className="h-8 w-8" />
+                          )}
+                          <span className="mt-2 text-[10px]">
+                            Captured {item.type}
+                          </span>
+                        </div>
+                      )}
+                      <div className="absolute inset-x-0 bottom-0 bg-slate-950/80 p-2 text-[8px] leading-4 text-white backdrop-blur-sm">
+                        <p className="font-bold">{item.projectId}</p>
+                        <p>
+                          GPS {item.latitude.toFixed(6)},{" "}
+                          {item.longitude.toFixed(6)}
+                        </p>
+                        <p>
+                          {new Date(item.capturedAt).toLocaleString()} ·{" "}
+                          {item.inspector}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between bg-white px-3 py-2 text-[9px]">
+                      <span className="max-w-[75%] truncate font-semibold text-[#173b2a]">
+                        {item.name}
+                      </span>
+                      <span className="uppercase text-slate-400">
+                        {item.type}
+                      </span>
+                    </div>
+                  </article>
+                ))}
               </div>
             </div>
             <div className="rounded-lg border border-slate-200 bg-white p-4">

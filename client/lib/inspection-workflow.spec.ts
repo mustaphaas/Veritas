@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { projects } from "./dashboard-data";
-import { createAssignment, distanceMeters } from "./inspection-workflow";
+import {
+  createAssignment,
+  distanceMeters,
+  isFieldReportLocked,
+} from "./inspection-workflow";
 
 describe("inspection workflow", () => {
   it("accepts a location inside the project geofence", () => {
@@ -33,5 +37,11 @@ describe("inspection workflow", () => {
     expect(assignment.status).toBe("Assigned");
     expect(assignment.geofenceRadius).toBe(250);
     expect(assignment.audit[0].action).toContain("Amina Yusuf");
+  });
+
+  it("locks submitted and approved reports but unlocks re-inspections", () => {
+    expect(isFieldReportLocked("Submitted")).toBe(true);
+    expect(isFieldReportLocked("Approved")).toBe(true);
+    expect(isFieldReportLocked("Re-inspection")).toBe(false);
   });
 });
