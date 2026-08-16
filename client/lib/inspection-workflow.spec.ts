@@ -7,6 +7,7 @@ import {
   createAssignment,
   distanceMeters,
   getAssignmentDisplayStatus,
+  getDeviceType,
   isFieldReportLocked,
   isArrivalFresh,
 } from "./inspection-workflow";
@@ -42,6 +43,7 @@ describe("inspection workflow", () => {
     expect(assignment.status).toBe("Assigned");
     expect(assignment.geofenceRadius).toBe(250);
     expect(assignment.audit[0].action).toContain("Amina Yusuf");
+    expect(assignment.audit[0].deviceType).toBe(getDeviceType());
   });
 
   it("locks submitted and approved reports but unlocks re-inspections", () => {

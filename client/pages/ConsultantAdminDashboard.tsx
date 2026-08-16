@@ -429,7 +429,7 @@ function ReviewModal({
                         </p>
                         <p>
                           {new Date(item.capturedAt).toLocaleString()} ·{" "}
-                          {item.inspector}
+                          {item.inspector} · {item.deviceType} ({item.deviceId})
                         </p>
                       </div>
                     </div>
@@ -460,7 +460,7 @@ function ReviewModal({
                       {event.action}
                     </span>
                     <span className="text-slate-400">
-                      {event.actor} · {event.deviceId}
+                      {event.actor} · {event.deviceType} · {event.deviceId}
                     </span>
                   </div>
                 ))}

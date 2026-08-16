@@ -34,6 +34,7 @@ import RoleDashboardShell from "../components/RoleDashboardShell";
 import {
   assignmentDisplayRank,
   getDeviceId,
+  getDeviceType,
   getAssignmentDisplayStatus,
   isFieldReportLocked,
   isArrivalFresh,
@@ -241,6 +242,8 @@ function InspectionModal({
         latitude: assignment.arrival?.latitude ?? assignment.latitude,
         longitude: assignment.arrival?.longitude ?? assignment.longitude,
         inspector: assignment.officer,
+        deviceId: getDeviceId(),
+        deviceType: getDeviceType(),
         equipmentInstalled: "",
         capacity: "",
         meterDetails: "",
@@ -330,6 +333,8 @@ function InspectionModal({
           longitude: current.longitude,
           projectId: current.projectId,
           inspector: current.inspector,
+          deviceId: current.deviceId,
+          deviceType: current.deviceType,
           previewUrl: previews[index],
         })),
       ],
@@ -429,6 +434,11 @@ function InspectionModal({
                     setRouteStarted(true);
                     setGpsMessage(
                       "Optional Google Map navigation enabled. GPS verification is available independently.",
+                    );
+                    window.open(
+                      `https://www.google.com/maps/dir/?api=1&destination=${assignment.latitude},${assignment.longitude}`,
+                      "_blank",
+                      "noopener,noreferrer",
                     );
                   }}
                   className="flex h-11 w-full items-center justify-center gap-2 rounded-md border border-[#8bcba0] bg-white text-xs font-bold text-[#08733f] disabled:opacity-50"
@@ -766,6 +776,11 @@ function InlineInspectionWorkspace({
     startRoute(selected.id);
     setLocationMessage(
       "Optional Google Map navigation enabled inside the app. GPS verification remains available independently.",
+    );
+    window.open(
+      `https://www.google.com/maps/dir/?api=1&destination=${selected.latitude},${selected.longitude}`,
+      "_blank",
+      "noopener,noreferrer",
     );
   };
 
@@ -1159,6 +1174,7 @@ function FieldWorkspace({
             ["Officer", "Amina Yusuf"],
             ["Operational zone", "North West"],
             ["Device ID", getDeviceId()],
+            ["Device type", getDeviceType()],
             [
               "GPS permission",
               navigator.geolocation ? "Available" : "Unavailable",

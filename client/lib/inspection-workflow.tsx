@@ -92,6 +92,8 @@ export type EvidenceItem = {
   longitude: number;
   projectId: string;
   inspector: string;
+  deviceId: string;
+  deviceType: string;
   previewUrl?: string;
 };
 
@@ -105,6 +107,8 @@ export type InspectionReport = {
   latitude: number;
   longitude: number;
   inspector: string;
+  deviceId: string;
+  deviceType: string;
   equipmentInstalled: string;
   capacity: string;
   meterDetails: string;
@@ -129,6 +133,7 @@ export type AuditEvent = {
   actor: string;
   action: string;
   deviceId: string;
+  deviceType: string;
 };
 
 export type InspectionAssignment = {
@@ -158,7 +163,7 @@ export type InspectionAssignment = {
   audit: AuditEvent[];
 };
 
-const STORAGE_KEY = "rea-inspection-workflow-v3";
+const STORAGE_KEY = "rea-inspection-workflow-v4";
 const DEVICE_KEY = "rea-field-device-id";
 
 const stateCentres: Record<string, [number, number]> = {
@@ -195,6 +200,19 @@ export function getDeviceId() {
     window.localStorage.setItem(DEVICE_KEY, value);
   }
   return value;
+}
+
+export function getDeviceType() {
+  if (typeof navigator === "undefined") return "Desktop computer";
+  const userAgent = navigator.userAgent.toLowerCase();
+  if (/ipad|tablet|playbook|silk/.test(userAgent)) return "Tablet";
+  if (/iphone|ipod|android.*mobile|windows phone|mobile/.test(userAgent)) {
+    return "Mobile phone";
+  }
+  if (/android/.test(userAgent) && navigator.maxTouchPoints > 1) {
+    return "Tablet";
+  }
+  return "Desktop computer";
 }
 
 export function distanceMeters(
@@ -254,6 +272,7 @@ export function createAssignment(
         actor: "Ibrahim Musa",
         action: `Assigned to ${officer}`,
         deviceId: getDeviceId(),
+        deviceType: getDeviceType(),
       },
     ],
   };
@@ -300,6 +319,8 @@ function seedAssignments() {
         latitude: assignment.latitude,
         longitude: assignment.longitude,
         inspector: assignment.officer,
+        deviceId: getDeviceId(),
+        deviceType: getDeviceType(),
         equipmentInstalled: "Solar modules, inverter and distribution board",
         capacity: `${project.kw} kW`,
         meterDetails: "Smart prepaid meter installed and commissioned",
@@ -323,6 +344,8 @@ function seedAssignments() {
             longitude: assignment.longitude,
             projectId: assignment.id,
             inspector: assignment.officer,
+            deviceId: getDeviceId(),
+            deviceType: getDeviceType(),
           },
         ],
         communitySignature: "demo-community-signature",
@@ -436,6 +459,7 @@ export function InspectionWorkflowProvider({
                   actor: "System",
                   action: "Offline data synchronized",
                   deviceId: getDeviceId(),
+                  deviceType: getDeviceType(),
                 },
               ],
             }
@@ -490,6 +514,7 @@ export function InspectionWorkflowProvider({
                   actor: assignment.officer,
                   action: "Navigation started",
                   deviceId: getDeviceId(),
+                  deviceType: getDeviceType(),
                 },
               ],
             },
@@ -524,6 +549,7 @@ export function InspectionWorkflowProvider({
               ? `Arrival verified within geofence (${distance} m)`
               : `Arrival blocked outside geofence (${distance} m)`,
             deviceId: getDeviceId(),
+            deviceType: getDeviceType(),
           },
         ],
       }));
@@ -551,6 +577,7 @@ export function InspectionWorkflowProvider({
               actor: assignment.officer,
               action: "Inspection draft saved",
               deviceId: getDeviceId(),
+              deviceType: getDeviceType(),
             },
           ],
         };
@@ -579,6 +606,7 @@ export function InspectionWorkflowProvider({
                 ? "Inspection submitted for QA"
                 : "Submission queued offline",
               deviceId: getDeviceId(),
+              deviceType: getDeviceType(),
             },
           ],
         };
@@ -614,6 +642,7 @@ export function InspectionWorkflowProvider({
                   ? "Report approved after QA"
                   : "Returned for re-inspection",
               deviceId: getDeviceId(),
+              deviceType: getDeviceType(),
             },
           ],
         };
