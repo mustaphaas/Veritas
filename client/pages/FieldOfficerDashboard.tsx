@@ -36,6 +36,7 @@ import {
   getDeviceId,
   getAssignmentDisplayStatus,
   isFieldReportLocked,
+  isArrivalFresh,
   useInspectionWorkflow,
   type InspectionAssignment,
   type InspectionReport,
@@ -217,7 +218,8 @@ function InspectionModal({
   const { isOnline, startRoute, verifyArrival, saveReport, submitReport } =
     useInspectionWorkflow();
   const locked = isFieldReportLocked(assignment.status);
-  const [step, setStep] = useState(locked || assignment.arrival ? 2 : 1);
+  const arrivalFresh = isArrivalFresh(assignment.arrival);
+  const [step, setStep] = useState(locked || arrivalFresh ? 2 : 1);
   const [gpsMessage, setGpsMessage] = useState(
     assignment.arrival
       ? `Arrival verified at ${assignment.arrival.distance} m`
@@ -225,7 +227,7 @@ function InspectionModal({
   );
   const [gpsBusy, setGpsBusy] = useState(false);
   const [routeStarted, setRouteStarted] = useState(
-    assignment.status === "En route",
+    Boolean(assignment.routeStartedAt),
   );
   const [report, setReport] = useState<InspectionReport>(
     () =>
@@ -254,15 +256,11 @@ function InspectionModal({
       },
   );
   const canCollect =
-    locked || Boolean(assignment.arrival) || gpsMessage.startsWith("Verified");
+    locked || arrivalFresh || gpsMessage.startsWith("Verified");
   const update = (key: keyof InspectionReport, value: string) =>
     !locked && setReport((current) => ({ ...current, [key]: value }));
   const captureArrival = (demo = false) => {
     if (locked) return;
-    if (!routeStarted) {
-      setGpsMessage("Start navigation before verifying arrival");
-      return;
-    }
     setGpsBusy(true);
     const apply = (latitude: number, longitude: number) => {
       const result = verifyArrival(assignment.id, latitude, longitude);
@@ -338,8 +336,7 @@ function InspectionModal({
     }));
     event.target.value = "";
   };
-  const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${assignment.longitude - 0.025}%2C${assignment.latitude - 0.02}%2C${assignment.longitude + 0.025}%2C${assignment.latitude + 0.02}&layer=mapnik&marker=${assignment.latitude}%2C${assignment.longitude}`;
-  const navUrl = `https://www.google.com/maps/dir/?api=1&destination=${assignment.latitude},${assignment.longitude}`;
+  const mapUrl = `https://www.google.com/maps?q=${assignment.latitude},${assignment.longitude}&z=16&output=embed`;
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 sm:items-center sm:p-5">
       <section className="max-h-[94vh] w-full max-w-5xl overflow-y-auto rounded-t-2xl bg-[#f7f9f7] shadow-2xl sm:rounded-xl">
@@ -424,25 +421,27 @@ function InspectionModal({
                 </p>
               </div>
               {!locked && (
-                <a
-                  href={navUrl}
-                  target="_blank"
-                  rel="noreferrer"
+                <button
+                  type="button"
+                  disabled={routeStarted}
                   onClick={() => {
                     startRoute(assignment.id);
                     setRouteStarted(true);
                     setGpsMessage(
-                      "Navigation started · verify arrival at the site",
+                      "Optional Google Map navigation enabled. GPS verification is available independently.",
                     );
                   }}
-                  className="flex h-11 items-center justify-center gap-2 rounded-md border border-[#8bcba0] bg-white text-xs font-bold text-[#08733f]"
+                  className="flex h-11 w-full items-center justify-center gap-2 rounded-md border border-[#8bcba0] bg-white text-xs font-bold text-[#08733f] disabled:opacity-50"
                 >
-                  <Navigation className="h-4 w-4" /> Navigate with GPS
-                </a>
+                  <Navigation className="h-4 w-4" />{" "}
+                  {routeStarted
+                    ? "Google Map navigation active"
+                    : "Optional: navigate in Google Map"}
+                </button>
               )}
               <button
                 type="button"
-                disabled={gpsBusy || locked || !routeStarted}
+                disabled={gpsBusy || locked}
                 onClick={() => captureArrival()}
                 className="flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#08733f] text-xs font-bold text-white disabled:opacity-60"
               >
@@ -451,7 +450,7 @@ function InspectionModal({
               </button>
               <button
                 type="button"
-                disabled={locked || !routeStarted}
+                disabled={locked}
                 onClick={() => captureArrival(true)}
                 className="w-full text-[10px] font-bold text-slate-500 underline disabled:cursor-not-allowed disabled:opacity-40"
               >
@@ -742,8 +741,9 @@ function InlineInspectionWorkspace({
     assignments.find((item) => item.id === selectedId) ?? actionable;
 
   if (!selected) return null;
-  const locked = !selected.arrival && !isFieldReportLocked(selected.status);
-  const routeReady = selected.status === "En route";
+  const locked =
+    !isArrivalFresh(selected.arrival) && !isFieldReportLocked(selected.status);
+  const routeReady = Boolean(selected.routeStartedAt);
   const completed = ["Submitted", "Approved", "Verified"].includes(
     selected.status,
   );
@@ -765,20 +765,11 @@ function InlineInspectionWorkspace({
   const beginRoute = () => {
     startRoute(selected.id);
     setLocationMessage(
-      "Navigation started. Verify your location when you arrive at the project site.",
-    );
-    window.open(
-      `https://www.google.com/maps/dir/?api=1&destination=${selected.latitude},${selected.longitude}`,
-      "_blank",
-      "noopener,noreferrer",
+      "Optional Google Map navigation enabled inside the app. GPS verification remains available independently.",
     );
   };
 
   const verify = (demo = false) => {
-    if (!routeReady) {
-      setLocationMessage("Start navigation before verifying arrival.");
-      return;
-    }
     setLocating(true);
     const apply = (latitude: number, longitude: number) => {
       const result = verifyArrival(selected.id, latitude, longitude);
@@ -824,6 +815,7 @@ function InlineInspectionWorkspace({
     ["Observed poles", selected.report?.poleCount ?? ""],
     ["Installed cable length", selected.report?.cableLength ?? ""],
   ];
+  const googleMapUrl = `https://www.google.com/maps?q=${selected.latitude},${selected.longitude}&z=16&output=embed`;
 
   return (
     <div className="mt-3 space-y-4">
@@ -882,24 +874,27 @@ function InlineInspectionWorkspace({
           <StatusPill status={selected.status} />
         </div>
         <div className="p-4 sm:p-5">
-          <div
-            className="relative flex h-52 items-center justify-center overflow-hidden rounded-xl border border-[#d7e9dc] bg-[#f6fbf7]"
-            style={{
-              backgroundImage:
-                "linear-gradient(#e7f1e9 1px, transparent 1px), linear-gradient(90deg, #e7f1e9 1px, transparent 1px)",
-              backgroundSize: "22px 22px",
-            }}
-          >
-            <div className="absolute h-32 w-32 rounded-full border border-dashed border-[#65aa7d] bg-[#dff4e6]/50" />
-            <div className="relative z-10 text-center">
-              <MapPin className="mx-auto h-7 w-7 text-[#16824a]" />
-              <strong className="mt-2 block text-xs text-[#173b2a]">
-                {selected.community}
-              </strong>
-              <span className="mt-1 block text-[9px] text-slate-500">
-                {selected.latitude.toFixed(3)}, {selected.longitude.toFixed(3)}{" "}
-                · {selected.geofenceRadius} m approved radius
-              </span>
+          <div className="relative h-64 overflow-hidden rounded-xl border border-[#d7e9dc] bg-[#f6fbf7]">
+            <iframe
+              title="In-app Google Map project navigation"
+              src={googleMapUrl}
+              className="h-full w-full"
+              loading="lazy"
+            />
+            <div className="pointer-events-none absolute inset-x-3 bottom-3 rounded-lg bg-white/95 p-2.5 shadow-md backdrop-blur-sm">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-[#16824a]" />
+                <div>
+                  <strong className="block text-[10px] text-[#173b2a]">
+                    {selected.community}
+                  </strong>
+                  <span className="text-[8px] text-slate-500">
+                    {selected.latitude.toFixed(5)},{" "}
+                    {selected.longitude.toFixed(5)} · {selected.geofenceRadius}{" "}
+                    m geofence
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -924,11 +919,13 @@ function InlineInspectionWorkspace({
                   onClick={beginRoute}
                   className="rounded-md border border-[#8bcba0] bg-white px-3 py-2.5 text-[9px] font-bold text-[#08733f] disabled:opacity-50"
                 >
-                  {routeReady ? "Navigation started" : "Start navigation"}
+                  {routeReady
+                    ? "Google Map navigation active"
+                    : "Optional: start navigation"}
                 </button>
                 <button
                   type="button"
-                  disabled={locating || !routeReady}
+                  disabled={locating}
                   onClick={() => verify()}
                   className="rounded-md bg-[#b27a12] px-4 py-2.5 text-[10px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
                 >
@@ -936,7 +933,7 @@ function InlineInspectionWorkspace({
                 </button>
                 <button
                   type="button"
-                  disabled={!routeReady}
+                  disabled={false}
                   onClick={() => verify(true)}
                   className="rounded-md border border-[#d9bd77] bg-white px-3 py-2.5 text-[9px] font-bold text-[#8b650e] disabled:cursor-not-allowed disabled:opacity-40"
                 >

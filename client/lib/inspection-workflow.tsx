@@ -44,15 +44,27 @@ export function isFieldReportLocked(status: AssignmentStatus) {
 }
 
 export function canStartRoute(status: AssignmentStatus) {
-  return status === "Assigned" || status === "Re-inspection";
+  return ["Assigned", "Draft", "Re-inspection"].includes(status);
 }
 
 export function canVerifyArrival(status: AssignmentStatus) {
-  return status === "En route";
+  return ["Assigned", "En route", "Draft", "Re-inspection"].includes(status);
+}
+
+export function isArrivalFresh(
+  arrival?: InspectionAssignment["arrival"],
+  now = Date.now(),
+) {
+  return Boolean(
+    arrival && now - new Date(arrival.at).getTime() <= 15 * 60 * 1000,
+  );
 }
 
 export function canEditReport(assignment: InspectionAssignment) {
-  return Boolean(assignment.arrival) && !isFieldReportLocked(assignment.status);
+  return (
+    isArrivalFresh(assignment.arrival) &&
+    !isFieldReportLocked(assignment.status)
+  );
 }
 
 export function canSubmitReport(
@@ -133,6 +145,7 @@ export type InspectionAssignment = {
   latitude: number;
   longitude: number;
   geofenceRadius: number;
+  routeStartedAt?: string;
   status: AssignmentStatus;
   arrival?: {
     latitude: number;
@@ -145,7 +158,7 @@ export type InspectionAssignment = {
   audit: AuditEvent[];
 };
 
-const STORAGE_KEY = "rea-inspection-workflow-v2";
+const STORAGE_KEY = "rea-inspection-workflow-v3";
 const DEVICE_KEY = "rea-field-device-id";
 
 const stateCentres: Record<string, [number, number]> = {
@@ -253,7 +266,7 @@ function seedAssignments() {
     ),
   );
   const today = new Date();
-  return preferred.slice(0, 12).map((project, index) => {
+  return preferred.slice(2, 14).map((project, index) => {
     const due = new Date(today);
     due.setDate(today.getDate() + (index % 7));
     const assignment = createAssignment(
@@ -262,11 +275,15 @@ function seedAssignments() {
       due.toISOString(),
       index,
     );
-    if (index === 0) assignment.status = "En route";
-    if (index === 1) assignment.status = "Draft";
-    if (index === 2 || index === 3 || index === 4) {
+    if (index === 1 || index === 2 || index === 3 || index === 4) {
       assignment.status =
-        index === 2 ? "Submitted" : index === 3 ? "Approved" : "Verified";
+        index === 1
+          ? "Draft"
+          : index === 2
+            ? "Submitted"
+            : index === 3
+              ? "Approved"
+              : "Verified";
       assignment.arrival = {
         latitude: assignment.latitude,
         longitude: assignment.longitude,
@@ -310,7 +327,7 @@ function seedAssignments() {
         ],
         communitySignature: "demo-community-signature",
         contractorSignature: "demo-contractor-signature",
-        submittedAt: new Date().toISOString(),
+        submittedAt: index === 1 ? undefined : new Date().toISOString(),
       };
     }
     return assignment;
@@ -375,6 +392,22 @@ export function InspectionWorkflowProvider({
       // available in the current session and can still be reviewed.
     }
   }, [assignments]);
+
+  useEffect(() => {
+    const synchronizeRoleTabs = (event: StorageEvent) => {
+      if (event.key !== STORAGE_KEY || !event.newValue) return;
+      try {
+        const incoming = JSON.parse(event.newValue) as InspectionAssignment[];
+        setAssignments((current) =>
+          JSON.stringify(current) === event.newValue ? current : incoming,
+        );
+      } catch {
+        // Ignore malformed external storage events.
+      }
+    };
+    window.addEventListener("storage", synchronizeRoleTabs);
+    return () => window.removeEventListener("storage", synchronizeRoleTabs);
+  }, []);
 
   useEffect(() => {
     const online = () => setIsOnline(true);
@@ -448,7 +481,7 @@ export function InspectionWorkflowProvider({
           ? assignment
           : {
               ...assignment,
-              status: "En route",
+              routeStartedAt: new Date().toISOString(),
               audit: [
                 ...assignment.audit,
                 {
@@ -478,7 +511,6 @@ export function InspectionWorkflowProvider({
       const allowed = distance <= assignment.geofenceRadius;
       update(id, (current) => ({
         ...current,
-        status: allowed ? "Arrived" : current.status,
         arrival: allowed
           ? { latitude, longitude, at: new Date().toISOString(), distance }
           : current.arrival,
@@ -564,6 +596,10 @@ export function InspectionWorkflowProvider({
           status: decision,
           arrival:
             decision === "Re-inspection" ? undefined : assignment.arrival,
+          routeStartedAt:
+            decision === "Re-inspection"
+              ? undefined
+              : assignment.routeStartedAt,
           report: assignment.report
             ? { ...assignment.report, reviewNote: note }
             : assignment.report,

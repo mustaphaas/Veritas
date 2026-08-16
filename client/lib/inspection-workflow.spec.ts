@@ -8,6 +8,7 @@ import {
   distanceMeters,
   getAssignmentDisplayStatus,
   isFieldReportLocked,
+  isArrivalFresh,
 } from "./inspection-workflow";
 
 describe("inspection workflow", () => {
@@ -61,9 +62,35 @@ describe("inspection workflow", () => {
   it("enforces the ordered field and consultant status transitions", () => {
     expect(canStartRoute("Assigned")).toBe(true);
     expect(canStartRoute("Submitted")).toBe(false);
-    expect(canVerifyArrival("Assigned")).toBe(false);
+    expect(canVerifyArrival("Assigned")).toBe(true);
     expect(canVerifyArrival("En route")).toBe(true);
     expect(canReviewReport("Draft")).toBe(false);
     expect(canReviewReport("Submitted")).toBe(true);
+  });
+
+  it("requires a recent GPS verification before a draft can be edited", () => {
+    const now = Date.parse("2026-08-17T12:00:00.000Z");
+    expect(
+      isArrivalFresh(
+        {
+          latitude: 9.08,
+          longitude: 7.4,
+          distance: 12,
+          at: "2026-08-17T11:50:00.000Z",
+        },
+        now,
+      ),
+    ).toBe(true);
+    expect(
+      isArrivalFresh(
+        {
+          latitude: 9.08,
+          longitude: 7.4,
+          distance: 12,
+          at: "2026-08-17T11:30:00.000Z",
+        },
+        now,
+      ),
+    ).toBe(false);
   });
 });
