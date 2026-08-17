@@ -1,11 +1,8 @@
 import { useMemo, useState } from "react";
 import {
-  BarChart3,
   Ban,
   Camera,
   CheckCircle2,
-  ClipboardCheck,
-  Clock3,
   FileText,
   FolderKanban,
   Home,
@@ -36,11 +33,6 @@ import {
 
 const navigation = [
   { label: "Overview", icon: Home, href: "/consultant-admin" },
-  {
-    label: "Review Queue",
-    icon: ClipboardCheck,
-    href: "/consultant-admin/reviews",
-  },
   { label: "Projects", icon: FolderKanban, href: "/consultant-admin/projects" },
   {
     label: "Field Officers",
@@ -52,17 +44,14 @@ const navigation = [
     icon: ShieldCheck,
     href: "/consultant-admin/verification",
   },
-  { label: "Analytics", icon: BarChart3, href: "/consultant-admin/analytics" },
   { label: "Reports", icon: FileText, href: "/consultant-admin/reports" },
 ];
 
 const consultantViewPaths: Record<string, string> = {
   Overview: "/consultant-admin",
-  "Review Queue": "/consultant-admin/reviews",
   Projects: "/consultant-admin/projects",
   "Field Officers": "/consultant-admin/officers",
   Verification: "/consultant-admin/verification",
-  Analytics: "/consultant-admin/analytics",
   Reports: "/consultant-admin/reports",
   Settings: "/consultant-admin/settings",
   Notifications: "/consultant-admin/notifications",
@@ -695,126 +684,85 @@ function ConsultantWorkspace({
             <UserPlus className="h-4 w-4" /> Create field officer
           </button>
         </div>
-        <div className="grid gap-px bg-slate-100 sm:grid-cols-2">
-          {fieldOfficers.map((officer) => {
-            const rows = assignments.filter(
-              (item) => item.officer === officer.name,
-            );
-            const approved = rows.filter((item) =>
-              ["Approved", "Verified"].includes(item.status),
-            ).length;
-            return (
-              <article key={officer.name} className="bg-white p-5">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm font-bold text-[#173b2a]">
-                      {officer.name}
-                    </p>
-                    <p className="mt-1 text-[10px] text-slate-500">
-                      {officer.zone} · {officer.device}
-                    </p>
-                  </div>
-                  <span
-                    className={`rounded-full px-2 py-1 text-[9px] font-bold ${officer.status === "Active" ? "bg-[#edf8f0] text-[#08733f]" : "bg-red-50 text-red-700"}`}
-                  >
-                    {officer.status}
-                  </span>
-                </div>
-                <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-                  <div className="rounded-md bg-slate-50 p-2">
-                    <b className="block text-lg text-[#173b2a]">
-                      {rows.length}
-                    </b>
-                    <span className="text-[8px] text-slate-500">Assigned</span>
-                  </div>
-                  <div className="rounded-md bg-slate-50 p-2">
-                    <b className="block text-lg text-[#08733f]">{approved}</b>
-                    <span className="text-[8px] text-slate-500">Approved</span>
-                  </div>
-                  <div className="rounded-md bg-slate-50 p-2">
-                    <b className="block text-lg text-amber-600">
-                      {
-                        rows.filter((item) => item.status === "Re-inspection")
-                          .length
-                      }
-                    </b>
-                    <span className="text-[8px] text-slate-500">
-                      Re-inspect
-                    </span>
-                  </div>
-                </div>
-                <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
-                  <div className="min-w-0 text-[9px] text-slate-500">
-                    <p className="truncate">{officer.email}</p>
-                    <p className="mt-1">{officer.phone || "No phone number"}</p>
-                  </div>
-                  {officer.status === "Active" ? (
-                    <button
-                      type="button"
-                      onClick={() => onOfficerStatus(officer.id, "Suspended")}
-                      className="flex shrink-0 items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[9px] font-bold text-red-700"
-                    >
-                      <Ban className="h-3.5 w-3.5" /> Suspend
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => onOfficerStatus(officer.id, "Active")}
-                      className="flex shrink-0 items-center gap-1.5 rounded-md border border-[#8bcba0] bg-[#eff9f2] px-3 py-2 text-[9px] font-bold text-[#08733f]"
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" /> Reactivate
-                    </button>
-                  )}
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      </section>
-    );
-  }
-  if (view === "Analytics") {
-    const byContractor = [
-      ...new Set(assignments.map((item) => item.contractor)),
-    ].map((contractor) => {
-      const rows = assignments.filter((item) => item.contractor === contractor);
-      return {
-        contractor,
-        total: rows.length,
-        approved: rows.filter((item) =>
-          ["Approved", "Verified"].includes(item.status),
-        ).length,
-        submitted: rows.filter((item) => item.status === "Submitted").length,
-      };
-    });
-    return (
-      <section className="rounded-lg border border-slate-200 bg-white p-5">
-        <h2 className="text-base font-bold text-[#173b2a]">
-          Inspection Analytics
-        </h2>
-        <div className="mt-5 space-y-4">
-          {byContractor.map((row) => {
-            const rate = row.total
-              ? Math.round((row.approved / row.total) * 100)
-              : 0;
-            return (
-              <div key={row.contractor}>
-                <div className="flex justify-between text-xs">
-                  <strong>{row.contractor}</strong>
-                  <span className="text-slate-500">
-                    {row.approved} approved · {row.submitted} awaiting QA ·{" "}
-                    {rate}%
-                  </span>
-                </div>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+        <div className="overflow-x-auto">
+          <div className="min-w-[980px]">
+            <div className="grid grid-cols-[minmax(210px,1.4fr)_145px_120px_90px_90px_100px_120px] items-center gap-4 bg-slate-50 px-5 py-3 text-[9px] font-bold uppercase tracking-wide text-slate-500">
+              <span>Field officer</span>
+              <span>Zone / device</span>
+              <span>Status</span>
+              <span className="text-center">Assigned</span>
+              <span className="text-center">Approved</span>
+              <span className="text-center">Re-inspect</span>
+              <span className="text-right">Action</span>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {fieldOfficers.map((officer) => {
+                const rows = assignments.filter(
+                  (item) => item.officer === officer.name,
+                );
+                const approved = rows.filter((item) =>
+                  ["Approved", "Verified"].includes(item.status),
+                ).length;
+                const reinspections = rows.filter(
+                  (item) => item.status === "Re-inspection",
+                ).length;
+                return (
                   <div
-                    className="h-full rounded-full bg-[#119653]"
-                    style={{ width: `${rate}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
+                    key={officer.id}
+                    className="grid grid-cols-[minmax(210px,1.4fr)_145px_120px_90px_90px_100px_120px] items-center gap-4 px-5 py-3.5 hover:bg-[#fbfefc]"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-bold text-[#173b2a]">
+                        {officer.name}
+                      </p>
+                      <p className="mt-1 truncate text-[9px] text-slate-500">
+                        {officer.email} · {officer.phone || "No phone"}
+                      </p>
+                    </div>
+                    <div className="text-[9px] text-slate-600">
+                      <p className="font-semibold">{officer.zone}</p>
+                      <p className="mt-1 text-slate-400">{officer.device}</p>
+                    </div>
+                    <span
+                      className={`w-fit rounded-full px-2.5 py-1 text-[9px] font-bold ${officer.status === "Active" ? "bg-[#edf8f0] text-[#08733f]" : "bg-red-50 text-red-700"}`}
+                    >
+                      {officer.status}
+                    </span>
+                    <strong className="text-center text-xs text-[#173b2a]">
+                      {rows.length}
+                    </strong>
+                    <strong className="text-center text-xs text-[#08733f]">
+                      {approved}
+                    </strong>
+                    <strong className="text-center text-xs text-amber-600">
+                      {reinspections}
+                    </strong>
+                    <div className="flex justify-end">
+                      {officer.status === "Active" ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onOfficerStatus(officer.id, "Suspended")
+                          }
+                          className="flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[9px] font-bold text-red-700"
+                        >
+                          <Ban className="h-3.5 w-3.5" /> Suspend
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => onOfficerStatus(officer.id, "Active")}
+                          className="flex items-center gap-1.5 rounded-md border border-[#8bcba0] bg-[#eff9f2] px-3 py-2 text-[9px] font-bold text-[#08733f]"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" /> Reactivate
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </section>
     );
@@ -849,25 +797,23 @@ function ConsultantWorkspace({
     );
   }
   const rows =
-    view === "Review Queue"
-      ? assignments.filter((item) => item.status === "Submitted")
-      : view === "Verification"
-        ? assignments.filter((item) =>
-            ["Submitted", "Approved", "Verified", "Re-inspection"].includes(
-              item.status,
-            ),
+    view === "Verification"
+      ? assignments.filter((item) =>
+          ["Submitted", "Approved", "Verified", "Re-inspection"].includes(
+            item.status,
+          ),
+        )
+      : view === "Reports"
+        ? assignments.filter(
+            (item) =>
+              item.report &&
+              ["Submitted", "Approved", "Verified"].includes(item.status),
           )
-        : view === "Reports"
-          ? assignments.filter(
-              (item) =>
-                item.report &&
-                ["Submitted", "Approved", "Verified"].includes(item.status),
+        : view === "Notifications"
+          ? assignments.filter((item) =>
+              ["Submitted", "Re-inspection"].includes(item.status),
             )
-          : view === "Notifications"
-            ? assignments.filter((item) =>
-                ["Submitted", "Re-inspection"].includes(item.status),
-              )
-            : assignments;
+          : assignments;
   return (
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
       <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
@@ -963,7 +909,6 @@ export default function ConsultantAdminDashboard() {
       ),
     [assignments, programmeFilter, stateFilter, officerFilter],
   );
-  const reviewQueue = filtered.filter((item) => item.status === "Submitted");
   const approved = filtered.filter((item) =>
     ["Approved", "Verified"].includes(item.status),
   ).length;
@@ -1102,13 +1047,6 @@ export default function ConsultantAdminDashboard() {
             tone="blue"
           />
           <MetricCard
-            label="Awaiting QA Review"
-            value={reviewQueue.length}
-            detail="Submitted field reports"
-            icon={Clock3}
-            tone="amber"
-          />
-          <MetricCard
             label="Approved Reports"
             value={approved}
             detail="Ready for REA access"
@@ -1121,7 +1059,7 @@ export default function ConsultantAdminDashboard() {
             icon={ShieldCheck}
           />
         </section>
-        <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.45fr)_minmax(380px,1fr)]">
+        <div className="mt-3">
           <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
             <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
               <div>
@@ -1169,64 +1107,6 @@ export default function ConsultantAdminDashboard() {
               </div>
             )}
           </section>
-          <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
-              <div>
-                <h2 className="text-sm font-bold text-[#173b2a]">
-                  QA Review Queue
-                </h2>
-                <p className="mt-1 text-[10px] text-slate-500">
-                  Approve or return submitted inspections
-                </p>
-              </div>
-              <span className="rounded-full bg-[#fff4d9] px-2.5 py-1 text-[10px] font-bold text-[#a66b00]">
-                {reviewQueue.length} pending
-              </span>
-            </div>
-            {reviewQueue.length ? (
-              <div className="divide-y divide-slate-100">
-                {reviewQueue.map((assignment) => (
-                  <div key={assignment.id} className="p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-bold text-[#173b2a]">
-                          {assignment.projectName}
-                        </p>
-                        <p className="mt-1 text-[10px] text-slate-500">
-                          {assignment.officer} · {assignment.state}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => setReviewing(assignment)}
-                        className="shrink-0 rounded-md border border-[#8bcba0] px-3 py-2 text-[10px] font-bold text-[#08733f]"
-                      >
-                        Review report
-                      </button>
-                    </div>
-                    <div className="mt-3 flex gap-3 text-[9px] text-slate-500">
-                      <span>
-                        {assignment.report?.evidence.length ?? 0} evidence files
-                      </span>
-                      <span>
-                        GPS {assignment.arrival ? "verified" : "missing"}
-                      </span>
-                      <span>{assignment.syncStatus}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="p-10 text-center">
-                <CheckCircle2 className="mx-auto h-8 w-8 text-[#119653]" />
-                <p className="mt-2 text-xs font-bold text-[#173b2a]">
-                  Review queue is clear
-                </p>
-                <p className="mt-1 text-[10px] text-slate-500">
-                  New field submissions will appear here.
-                </p>
-              </div>
-            )}
-          </section>
         </div>
         <div className="mt-3 grid gap-3 xl:grid-cols-2">
           <section className="rounded-lg border border-slate-200 bg-white">
@@ -1236,36 +1116,34 @@ export default function ConsultantAdminDashboard() {
               </h2>
               <UserCheck className="h-4 w-4 text-[#08733f]" />
             </div>
-            <div className="grid gap-px bg-slate-100 sm:grid-cols-2">
+            <div className="divide-y divide-slate-100">
               {team.map((officer) => {
                 const rate = officer.assigned
                   ? Math.round((officer.completed / officer.assigned) * 100)
                   : 0;
                 return (
-                  <div key={officer.name} className="bg-white p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
+                  <div
+                    key={officer.name}
+                    className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 bg-white px-4 py-3"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
                         <p className="text-xs font-bold text-[#173b2a]">
                           {officer.name}
                         </p>
-                        <p className="mt-1 text-[9px] text-slate-500">
-                          {officer.zone} · {officer.device}
-                        </p>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[8px] font-bold ${officer.status === "Active" ? "bg-[#edf8f0] text-[#08733f]" : "bg-red-50 text-red-700"}`}
+                        >
+                          {officer.status}
+                        </span>
                       </div>
-                      <strong className="text-sm text-[#08733f]">
-                        {rate}%
-                      </strong>
+                      <p className="mt-1 truncate text-[9px] text-slate-500">
+                        {officer.zone} · {officer.device} · {officer.assigned}{" "}
+                        assigned · {officer.completed} approved ·{" "}
+                        {officer.active} active
+                      </p>
                     </div>
-                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                      <div
-                        className="h-full bg-[#119653]"
-                        style={{ width: `${rate}%` }}
-                      />
-                    </div>
-                    <p className="mt-2 text-[9px] text-slate-500">
-                      {officer.assigned} assigned · {officer.completed} approved
-                      · {officer.active} active
-                    </p>
+                    <strong className="text-sm text-[#08733f]">{rate}%</strong>
                   </div>
                 );
               })}
