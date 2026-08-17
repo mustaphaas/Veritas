@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { projects } from "./dashboard-data";
+import { validateComponentFormValues } from "./component-inspection-form";
 import {
   canReviewReport,
   canStartRoute,
@@ -48,22 +49,47 @@ describe("inspection workflow", () => {
     expect(assignment.audit[0].deviceType).toBe(getDeviceType());
   });
 
-  it("provides one assigned test form for each requested programme and component", () => {
+  it("provides every lifecycle form for the requested programmes and components", () => {
     const assignments = createComponentTestAssignments();
-    expect(
-      assignments.map((assignment) => [
-        assignment.programme,
-        assignment.component,
-        assignment.status,
-      ]),
-    ).toEqual([
-      ["NEP", "Mini Grid", "Assigned"],
-      ["DARES", "Grid Extension", "Assigned"],
-      ["AMP", "SAS", "Assigned"],
-    ]);
+    expect([
+      ...new Set(assignments.map((assignment) => assignment.programme)),
+    ]).toEqual(["NEP", "DARES", "AMP"]);
+    expect([
+      ...new Set(assignments.map((assignment) => assignment.component)),
+    ]).toEqual(["Mini Grid", "Grid Extension", "SAS"]);
+    for (const component of ["Mini Grid", "Grid Extension", "SAS"] as const) {
+      expect(
+        assignments
+          .filter((assignment) => assignment.component === component)
+          .map((assignment) => assignment.status),
+      ).toEqual(["Assigned", "Draft", "Submitted", "Approved", "Verified"]);
+    }
     expect(new Set(assignments.map((assignment) => assignment.id)).size).toBe(
-      3,
+      15,
     );
+  });
+
+  it("keeps draft, submitted, approved and REA-verified demos on the new form", () => {
+    const reports = createComponentTestAssignments().filter(
+      (assignment) => assignment.report,
+    );
+    expect(reports).toHaveLength(12);
+    reports.forEach((assignment) => {
+      expect(assignment.report?.assignedComponent).toBe(assignment.component);
+      expect(
+        validateComponentFormValues(
+          assignment.report!.assignedComponent,
+          assignment.report!.componentValues,
+        ),
+      ).toBe(true);
+      expect(assignment.report?.evidence).toHaveLength(2);
+      expect(assignment.report?.evidence[0].previewUrl).toContain(
+        "transformer.svg",
+      );
+      expect(assignment.report?.evidence[1].previewUrl).toContain(
+        "inverter.svg",
+      );
+    });
   });
 
   it("locks submitted and approved reports but unlocks re-inspections", () => {

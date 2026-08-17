@@ -1,5 +1,10 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
+import {
+  defaultFieldOfficers,
+  FIELD_OFFICERS_STORAGE_KEY,
+  type FieldOfficerAccount,
+} from "./inspection-workflow";
 
 export type DemoRole = "rea" | "field" | "consultant";
 
@@ -55,11 +60,46 @@ const SESSION_KEY = "rea-demo-session";
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function authenticateDemoAccount(email: string, password: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+  let managedOfficers = defaultFieldOfficers;
+  if (typeof window !== "undefined") {
+    try {
+      const stored = window.localStorage.getItem(FIELD_OFFICERS_STORAGE_KEY);
+      if (stored) managedOfficers = JSON.parse(stored) as FieldOfficerAccount[];
+    } catch {
+      managedOfficers = defaultFieldOfficers;
+    }
+  }
+  const managedOfficer = managedOfficers.find(
+    (candidate) => candidate.email.toLowerCase() === normalizedEmail,
+  );
+  if (managedOfficer) {
+    if (
+      managedOfficer.status !== "Active" ||
+      managedOfficer.password !== password
+    ) {
+      return null;
+    }
+    return {
+      role: "field" as const,
+      roleLabel: "Field Officer",
+      name: managedOfficer.name,
+      initials: managedOfficer.name
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase())
+        .join(""),
+      email: managedOfficer.email,
+      password: managedOfficer.password,
+      path: "/field-officer",
+    };
+  }
   return (
     demoAccounts.find(
       (candidate) =>
-        candidate.email.toLowerCase() === email.trim().toLowerCase() &&
-        candidate.password === password,
+        candidate.email.toLowerCase() === normalizedEmail &&
+        candidate.password === password &&
+        candidate.role !== "field",
     ) ?? null
   );
 }

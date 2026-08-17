@@ -10,6 +10,7 @@ import {
 import { projects, type Project } from "./dashboard-data";
 import {
   createComponentFormValues,
+  getComponentFieldDefinitions,
   isSupportedAssignmentComponent,
   normalizeAssignmentComponent,
   sanitizeComponentFormValues,
@@ -197,11 +198,65 @@ const stateCentres: Record<string, [number, number]> = {
   Enugu: [6.4584, 7.5464],
 };
 
-export const fieldOfficers = [
-  { name: "Amina Yusuf", zone: "North West", device: "REA-AY-1042" },
-  { name: "Chinedu Okafor", zone: "South East", device: "REA-CO-1178" },
-  { name: "Fatima Bello", zone: "North East", device: "REA-FB-1094" },
-  { name: "Tunde Adebayo", zone: "South West", device: "REA-TA-1210" },
+export type FieldOfficerAccount = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  zone: string;
+  device: string;
+  password: string;
+  status: "Active" | "Suspended";
+  createdAt: string;
+};
+
+export const FIELD_OFFICERS_STORAGE_KEY = "rea-field-officers-v1";
+
+export const defaultFieldOfficers: FieldOfficerAccount[] = [
+  {
+    id: "officer-amina-yusuf",
+    name: "Amina Yusuf",
+    email: "field.officer@demo.ng",
+    phone: "08030001001",
+    zone: "North West",
+    device: "REA-AY-1042",
+    password: "Field2024!",
+    status: "Active",
+    createdAt: "2026-01-05T09:00:00.000Z",
+  },
+  {
+    id: "officer-chinedu-okafor",
+    name: "Chinedu Okafor",
+    email: "chinedu.okafor@demo.ng",
+    phone: "08030001002",
+    zone: "South East",
+    device: "REA-CO-1178",
+    password: "Field2024!",
+    status: "Active",
+    createdAt: "2026-01-06T09:00:00.000Z",
+  },
+  {
+    id: "officer-fatima-bello",
+    name: "Fatima Bello",
+    email: "fatima.bello@demo.ng",
+    phone: "08030001003",
+    zone: "North East",
+    device: "REA-FB-1094",
+    password: "Field2024!",
+    status: "Active",
+    createdAt: "2026-01-07T09:00:00.000Z",
+  },
+  {
+    id: "officer-tunde-adebayo",
+    name: "Tunde Adebayo",
+    email: "tunde.adebayo@demo.ng",
+    phone: "08030001004",
+    zone: "South West",
+    device: "REA-TA-1210",
+    password: "Field2024!",
+    status: "Active",
+    createdAt: "2026-01-08T09:00:00.000Z",
+  },
 ];
 
 function uid(prefix: string) {
@@ -295,11 +350,206 @@ export function createAssignment(
   };
 }
 
+function createDemoComponentValues(
+  assignment: InspectionAssignment,
+  project: Project,
+  status: AssignmentStatus,
+  seed: number,
+) {
+  if (!isSupportedAssignmentComponent(assignment.component)) return {};
+  const values = createComponentFormValues(assignment.component, assignment);
+  const completed = ["Submitted", "Approved", "Verified"].includes(status);
+  for (const field of getComponentFieldDefinitions(assignment.component)) {
+    if (values[field.key]) continue;
+    if (field.kind === "select") {
+      values[field.key] =
+        field.key === "status"
+          ? completed
+            ? "Completed"
+            : "Ongoing"
+          : (field.options?.[seed % (field.options?.length || 1)] ?? "");
+    } else if (field.kind === "integer") {
+      values[field.key] = String(2 + ((seed * 7 + field.key.length) % 24));
+    } else if (field.kind === "decimal") {
+      values[field.key] = String(
+        Number((12.5 + ((seed * 19 + field.key.length) % 380)).toFixed(2)),
+      );
+    } else if (field.kind === "phone") {
+      values[field.key] = `0803${String(1000000 + seed).padStart(7, "0")}`;
+    } else {
+      values[field.key] = "Demo field record";
+    }
+  }
+  values.startDateYear = "2025";
+  values.startDateMonth = "March";
+  values.completionDateYear = completed ? "2026" : "2027";
+  values.completionDateMonth = completed ? "July" : "December";
+  values.publicInstitutionHospitals = String(1 + (seed % 3));
+  values.publicInstitutionSchools = String(2 + (seed % 5));
+  values.publicInstitutionPublicFacilities = String(1 + (seed % 4));
+  if (assignment.component === "Grid Extension") {
+    values.communitiesElectrifiedByGridExtension = String(3 + (seed % 6));
+    values.transformersKva200 = "2";
+    values.transformersKva300 = "1";
+    values.transformersKva500 = "1";
+    values.transformersKva7500 = "0";
+    values.transformersKva15000 = "0";
+    values.totalTransformerCapacityKva = "1200";
+    values.kmOfNetworkBuilt = "18.6";
+    values.numberOfPoles = "84";
+    values.totalProjectCostNaira = "485000000";
+  }
+  if (assignment.component === "Mini Grid") {
+    values.typeOfMiniGrid = seed % 2 ? "Interconnected" : "Isolated";
+    values.totalNumberOfConnections = String(project.households);
+    values.residentialConnections = String(
+      Math.round(project.households * 0.78),
+    );
+    values.commercialPueConnections = String(
+      project.households - Math.round(project.households * 0.78),
+    );
+    values.tariff = "185.5";
+    values.totalProjectCostDollar = "425000";
+    values.totalProjectCostNaira = "637500000";
+    values.grantPerConnection = "580";
+    values.numberOfMiniGrid = "1";
+    values.installedPvKwp = String(project.kw);
+    values.inverterCapacityKw = String(Math.round(project.kw * 0.82));
+    values.batteryCapacityKwh = String(Math.round(project.kw * 3.4));
+  }
+  if (assignment.component === "SAS") {
+    values.customerName = ["Aisha Musa", "Emeka Obi", "Bola Adeyemi"][seed % 3];
+    values.genderOfCustomer = seed % 2 ? "Female" : "Male";
+    values.customerPhoneNumber = `0803${String(1000000 + seed).padStart(7, "0")}`;
+    values.typeOfConnection = seed % 2 ? "Residential" : "Commercial / PUE";
+    values.totalProjectCostNaira = "1850000";
+    values.grantPerConnection = "95000";
+    values.numberOfSasUnits = String(project.households);
+    values.installedPvKwp = String(project.kw);
+    values.batteryCapacityH = "8";
+  }
+  return values;
+}
+
+function attachDemoReport(
+  assignment: InspectionAssignment,
+  project: Project,
+  status: Exclude<
+    AssignmentStatus,
+    "Assigned" | "En route" | "Arrived" | "Re-inspection"
+  >,
+  seed: number,
+) {
+  if (!isSupportedAssignmentComponent(assignment.component)) return assignment;
+  const now = new Date(Date.now() - seed * 3_600_000).toISOString();
+  assignment.status = status;
+  assignment.arrival = {
+    latitude: assignment.latitude,
+    longitude: assignment.longitude,
+    at: now,
+    distance: 0,
+  };
+  assignment.report = {
+    assignmentId: assignment.id,
+    assignedComponent: assignment.component,
+    componentValues: createDemoComponentValues(
+      assignment,
+      project,
+      status,
+      seed,
+    ),
+    projectId: assignment.id,
+    contractor: assignment.contractor,
+    state: assignment.state,
+    lga: assignment.lga,
+    community: assignment.community,
+    inspectedAt: now,
+    latitude: assignment.latitude,
+    longitude: assignment.longitude,
+    inspector: assignment.officer,
+    deviceId: getDeviceId(),
+    deviceType: getDeviceType(),
+    assetCode: `${assignment.id}-ASSET-01`,
+    evidence: [
+      {
+        id: uid("transformer"),
+        name: "transformer-installation-demo.svg",
+        type: "photo",
+        capturedAt: now,
+        latitude: assignment.latitude,
+        longitude: assignment.longitude,
+        projectId: assignment.id,
+        inspector: assignment.officer,
+        deviceId: getDeviceId(),
+        deviceType: getDeviceType(),
+        previewUrl: "/demo-evidence/transformer.svg",
+      },
+      {
+        id: uid("inverter"),
+        name: "inverter-installation-demo.svg",
+        type: "photo",
+        capturedAt: now,
+        latitude: assignment.latitude,
+        longitude: assignment.longitude,
+        projectId: assignment.id,
+        inspector: assignment.officer,
+        deviceId: getDeviceId(),
+        deviceType: getDeviceType(),
+        previewUrl: "/demo-evidence/inverter.svg",
+      },
+    ],
+    communitySignature: "demo-community-signature",
+    contractorSignature: "demo-contractor-signature",
+    submittedAt: status === "Draft" ? undefined : now,
+    reviewNote:
+      status === "Approved"
+        ? "Approved by Consultant Admin after QA review."
+        : status === "Verified"
+          ? "Verified by REA after consultant approval."
+          : undefined,
+  };
+  if (
+    status === "Submitted" ||
+    status === "Approved" ||
+    status === "Verified"
+  ) {
+    assignment.audit.push({
+      id: uid("audit"),
+      at: now,
+      actor: assignment.officer,
+      action: "Inspection submitted for QA",
+      deviceId: getDeviceId(),
+      deviceType: getDeviceType(),
+    });
+  }
+  if (status === "Approved" || status === "Verified") {
+    assignment.audit.push({
+      id: uid("audit"),
+      at: now,
+      actor: "Ibrahim Musa",
+      action: "Report approved after QA",
+      deviceId: getDeviceId(),
+      deviceType: getDeviceType(),
+    });
+  }
+  if (status === "Verified") {
+    assignment.audit.push({
+      id: uid("audit"),
+      at: now,
+      actor: "REA Administrator",
+      action: "Report verified by REA",
+      deviceId: getDeviceId(),
+      deviceType: getDeviceType(),
+    });
+  }
+  return assignment;
+}
+
 export function createComponentTestAssignments() {
   const today = new Date();
   const fixtures: Array<{
     project: Project;
-    index: number;
+    baseIndex: number;
     lga: string;
     community: string;
   }> = [
@@ -319,7 +569,7 @@ export function createComponentTestAssignments() {
         x: 0,
         y: 0,
       },
-      index: 900,
+      baseIndex: 900,
       lga: "Kano Municipal",
       community: "Kofar Ruwa",
     },
@@ -339,7 +589,7 @@ export function createComponentTestAssignments() {
         x: 0,
         y: 0,
       },
-      index: 901,
+      baseIndex: 910,
       lga: "Kaduna North",
       community: "Kawo",
     },
@@ -359,27 +609,50 @@ export function createComponentTestAssignments() {
         x: 0,
         y: 0,
       },
-      index: 902,
+      baseIndex: 920,
       lga: "Katsina",
       community: "Kofar Sauri",
     },
   ];
-  return fixtures.map(({ project, index, lga, community }, fixtureIndex) => {
-    const due = new Date(today);
-    due.setDate(today.getDate() + fixtureIndex + 1);
-    const assignment = createAssignment(
-      project,
-      "Amina Yusuf",
-      due.toISOString(),
-      index,
-    );
-    assignment.lga = lga;
-    assignment.community = community;
-    const [latitude, longitude] = stateCentres[project.state];
-    assignment.latitude = latitude + fixtureIndex * 0.0012;
-    assignment.longitude = longitude + fixtureIndex * 0.001;
-    return assignment;
-  });
+  const lifecycleStatuses = [
+    "Assigned",
+    "Draft",
+    "Submitted",
+    "Approved",
+    "Verified",
+  ] as const;
+  return fixtures.flatMap(
+    ({ project: baseProject, baseIndex, lga, community }, fixtureIndex) =>
+      lifecycleStatuses.map((status, statusIndex) => {
+        const project = {
+          ...baseProject,
+          name: `${baseProject.name} — ${status}`,
+          status,
+          verified: status === "Verified",
+        };
+        const due = new Date(today);
+        due.setDate(today.getDate() + fixtureIndex + statusIndex + 1);
+        const assignment = createAssignment(
+          project,
+          "Amina Yusuf",
+          due.toISOString(),
+          baseIndex + statusIndex,
+        );
+        assignment.lga = lga;
+        assignment.community = community;
+        const [latitude, longitude] = stateCentres[project.state];
+        assignment.latitude = latitude + fixtureIndex * 0.0012;
+        assignment.longitude = longitude + fixtureIndex * 0.001;
+        return status === "Assigned"
+          ? assignment
+          : attachDemoReport(
+              assignment,
+              project,
+              status,
+              baseIndex + statusIndex,
+            );
+      }),
+  );
 }
 
 function ensureComponentTestAssignments(assignments: InspectionAssignment[]) {
@@ -387,26 +660,49 @@ function ensureComponentTestAssignments(assignments: InspectionAssignment[]) {
   const fixtureNames = new Set(
     fixtures.map((assignment) => assignment.projectName),
   );
+  const legacyFixtureNames = new Set([
+    "NEP Kano Mini Grid Test",
+    "DARES Kaduna Grid Extension Test",
+    "AMP Katsina SAS Test",
+  ]);
   const existingFixtures = new Map(
     assignments
       .filter((assignment) => fixtureNames.has(assignment.projectName))
       .map((assignment) => [assignment.projectName, assignment]),
   );
+  assignments
+    .filter((assignment) => legacyFixtureNames.has(assignment.projectName))
+    .forEach((assignment) => {
+      const nextName = `${assignment.projectName} — Assigned`;
+      if (!existingFixtures.has(nextName)) {
+        existingFixtures.set(nextName, {
+          ...assignment,
+          projectName: nextName,
+        });
+      }
+    });
   return [
     ...fixtures.map(
       (fixture) => existingFixtures.get(fixture.projectName) ?? fixture,
     ),
     ...assignments.filter(
-      (assignment) => !fixtureNames.has(assignment.projectName),
+      (assignment) =>
+        !fixtureNames.has(assignment.projectName) &&
+        !legacyFixtureNames.has(assignment.projectName),
     ),
   ];
 }
 
 function seedAssignments() {
-  const preferred = projects.filter((project) =>
-    ["Kano", "Kaduna", "Katsina", "Sokoto", "Zamfara", "Jigawa"].includes(
-      project.state,
-    ),
+  const preferred = projects.filter(
+    (project) =>
+      ["Kano", "Kaduna", "Katsina", "Sokoto", "Zamfara", "Jigawa"].includes(
+        project.state,
+      ) &&
+      ["NEP", "AMP", "DARES"].includes(project.programme) &&
+      isSupportedAssignmentComponent(
+        normalizeAssignmentComponent(project.component),
+      ),
   );
   const today = new Date();
   const seeded = preferred.slice(2, 14).map((project, index) => {
@@ -419,7 +715,7 @@ function seedAssignments() {
       index,
     );
     if (index === 1 || index === 2 || index === 3 || index === 4) {
-      assignment.status =
+      const status =
         index === 1
           ? "Draft"
           : index === 2
@@ -427,79 +723,7 @@ function seedAssignments() {
             : index === 3
               ? "Approved"
               : "Verified";
-      assignment.arrival = {
-        latitude: assignment.latitude,
-        longitude: assignment.longitude,
-        at: new Date().toISOString(),
-        distance: 0,
-      };
-      if (!isSupportedAssignmentComponent(assignment.component)) {
-        return assignment;
-      }
-      const componentValues = createComponentFormValues(
-        assignment.component,
-        assignment,
-      );
-      componentValues.status = "Ongoing";
-      if (assignment.component === "Grid Extension") {
-        componentValues.totalTransformerCapacityKva = "500";
-        componentValues.numberOfPoles = "18";
-        componentValues.kmOfNetworkBuilt = "2.4";
-      }
-      if (assignment.component === "Mini Grid") {
-        componentValues.installedPvKwp = String(project.kw);
-        componentValues.totalNumberOfConnections = String(project.households);
-      }
-      if (assignment.component === "SAS") {
-        componentValues.numberOfSasUnits = String(project.households);
-        componentValues.installedPvKwp = String(project.kw);
-      }
-      assignment.report = {
-        assignmentId: assignment.id,
-        assignedComponent: assignment.component,
-        componentValues,
-        projectId: assignment.id,
-        contractor: assignment.contractor,
-        state: assignment.state,
-        lga: assignment.lga,
-        community: assignment.community,
-        inspectedAt: new Date().toISOString(),
-        latitude: assignment.latitude,
-        longitude: assignment.longitude,
-        inspector: assignment.officer,
-        deviceId: getDeviceId(),
-        deviceType: getDeviceType(),
-        equipmentInstalled: "Solar modules, inverter and distribution board",
-        capacity: `${project.kw} kW`,
-        meterDetails: "Smart prepaid meter installed and commissioned",
-        transformerDetails: "500 kVA distribution transformer",
-        poleCount: "18",
-        cableLength: "2.4 km",
-        beneficiaries: String(project.households),
-        observations:
-          "Installation is operational and major equipment matches the approved schedule.",
-        defects: "Minor cable labelling and warning signage outstanding.",
-        recommendations:
-          "Complete cable labels and safety signage before final handover.",
-        assetCode: `${assignment.id}-ASSET-01`,
-        evidence: [
-          {
-            id: uid("evidence"),
-            name: "site-overview.jpg",
-            type: "photo",
-            capturedAt: new Date().toISOString(),
-            latitude: assignment.latitude,
-            longitude: assignment.longitude,
-            projectId: assignment.id,
-            inspector: assignment.officer,
-            deviceId: getDeviceId(),
-            deviceType: getDeviceType(),
-          },
-        ],
-        communitySignature: "demo-community-signature",
-        contractorSignature: "demo-contractor-signature",
-        submittedAt: index === 1 ? undefined : new Date().toISOString(),
-      };
+      return attachDemoReport(assignment, project, status, index + 30);
     }
     return assignment;
   });
@@ -508,12 +732,23 @@ function seedAssignments() {
 
 type WorkflowContextValue = {
   assignments: InspectionAssignment[];
+  fieldOfficers: FieldOfficerAccount[];
   isOnline: boolean;
   assignProject: (
     project: Project,
     officer: string,
     dueDate: string,
-  ) => InspectionAssignment;
+  ) => InspectionAssignment | null;
+  createFieldOfficer: (
+    account: Pick<
+      FieldOfficerAccount,
+      "name" | "email" | "phone" | "zone" | "device" | "password"
+    >,
+  ) => { ok: boolean; message: string };
+  setFieldOfficerStatus: (
+    id: string,
+    status: FieldOfficerAccount["status"],
+  ) => void;
   startRoute: (id: string) => void;
   verifyArrival: (
     id: string,
@@ -532,6 +767,18 @@ type WorkflowContextValue = {
 };
 
 const WorkflowContext = createContext<WorkflowContextValue | null>(null);
+
+function loadFieldOfficers() {
+  if (typeof window === "undefined") return defaultFieldOfficers;
+  try {
+    const stored = window.localStorage.getItem(FIELD_OFFICERS_STORAGE_KEY);
+    return stored
+      ? (JSON.parse(stored) as FieldOfficerAccount[])
+      : defaultFieldOfficers;
+  } catch {
+    return defaultFieldOfficers;
+  }
+}
 
 function loadAssignments() {
   if (typeof window === "undefined") return seedAssignments();
@@ -567,7 +814,41 @@ export function migrateStoredAssignment(
     existing.assignedComponent === component &&
     existing.componentValues
   ) {
-    return assignment;
+    if (validateComponentFormValues(component, existing.componentValues)) {
+      return assignment;
+    }
+    const defaults = createDemoComponentValues(
+      assignment,
+      {
+        name: assignment.projectName,
+        state: assignment.state,
+        programme: assignment.programme,
+        component,
+        contractor: assignment.contractor,
+        month: "August 2026",
+        status: assignment.status,
+        tone: "progress",
+        kw: Number(existing.capacity?.match(/\d+(?:\.\d+)?/)?.[0] ?? 100),
+        households: Number(existing.beneficiaries ?? 100),
+        verified: assignment.status === "Verified",
+        x: 0,
+        y: 0,
+      },
+      assignment.status,
+      7,
+    );
+    return {
+      ...assignment,
+      report: {
+        ...existing,
+        componentValues: Object.fromEntries(
+          Object.entries(defaults).map(([key, value]) => [
+            key,
+            existing.componentValues?.[key] || value,
+          ]),
+        ),
+      },
+    };
   }
   const componentValues = createComponentFormValues(component, assignment);
   componentValues.status =
@@ -611,6 +892,8 @@ export function InspectionWorkflowProvider({
 }) {
   const [assignments, setAssignments] =
     useState<InspectionAssignment[]>(loadAssignments);
+  const [fieldOfficers, setFieldOfficers] =
+    useState<FieldOfficerAccount[]>(loadFieldOfficers);
   const [isOnline, setIsOnline] = useState(() =>
     typeof navigator === "undefined" ? true : navigator.onLine,
   );
@@ -625,13 +908,28 @@ export function InspectionWorkflowProvider({
   }, [assignments]);
 
   useEffect(() => {
+    window.localStorage.setItem(
+      FIELD_OFFICERS_STORAGE_KEY,
+      JSON.stringify(fieldOfficers),
+    );
+  }, [fieldOfficers]);
+
+  useEffect(() => {
     const synchronizeRoleTabs = (event: StorageEvent) => {
-      if (event.key !== STORAGE_KEY || !event.newValue) return;
+      if (!event.newValue) return;
       try {
-        const incoming = JSON.parse(event.newValue) as InspectionAssignment[];
-        setAssignments((current) =>
-          JSON.stringify(current) === event.newValue ? current : incoming,
-        );
+        if (event.key === STORAGE_KEY) {
+          const incoming = JSON.parse(event.newValue) as InspectionAssignment[];
+          setAssignments((current) =>
+            JSON.stringify(current) === event.newValue ? current : incoming,
+          );
+        }
+        if (event.key === FIELD_OFFICERS_STORAGE_KEY) {
+          const incoming = JSON.parse(event.newValue) as FieldOfficerAccount[];
+          setFieldOfficers((current) =>
+            JSON.stringify(current) === event.newValue ? current : incoming,
+          );
+        }
       } catch {
         // Ignore malformed external storage events.
       }
@@ -691,6 +989,13 @@ export function InspectionWorkflowProvider({
 
   const assignProject = useCallback(
     (project: Project, officer: string, dueDate: string) => {
+      if (
+        !fieldOfficers.some(
+          (account) => account.name === officer && account.status === "Active",
+        )
+      ) {
+        return null;
+      }
       const assignment = createAssignment(
         project,
         officer,
@@ -703,7 +1008,60 @@ export function InspectionWorkflowProvider({
       ]);
       return assignment;
     },
-    [assignments.length],
+    [assignments.length, fieldOfficers],
+  );
+
+  const createFieldOfficer = useCallback(
+    (
+      account: Pick<
+        FieldOfficerAccount,
+        "name" | "email" | "phone" | "zone" | "device" | "password"
+      >,
+    ) => {
+      const name = account.name.trim();
+      const email = account.email.trim().toLowerCase();
+      if (!name || !email || !account.zone || !account.password) {
+        return { ok: false, message: "Complete all required officer fields." };
+      }
+      if (
+        fieldOfficers.some(
+          (officer) =>
+            officer.email.toLowerCase() === email ||
+            officer.name.toLowerCase() === name.toLowerCase(),
+        )
+      ) {
+        return {
+          ok: false,
+          message: "A field officer with this name or email already exists.",
+        };
+      }
+      setFieldOfficers((current) => [
+        {
+          ...account,
+          id: uid("officer"),
+          name,
+          email,
+          phone: account.phone.trim(),
+          zone: account.zone.trim(),
+          device: account.device.trim(),
+          status: "Active",
+          createdAt: new Date().toISOString(),
+        },
+        ...current,
+      ]);
+      return { ok: true, message: "Field officer created." };
+    },
+    [fieldOfficers],
+  );
+
+  const setFieldOfficerStatus = useCallback(
+    (id: string, status: FieldOfficerAccount["status"]) =>
+      setFieldOfficers((current) =>
+        current.map((officer) =>
+          officer.id === id ? { ...officer, status } : officer,
+        ),
+      ),
+    [],
   );
 
   const startRoute = useCallback(
@@ -897,8 +1255,11 @@ export function InspectionWorkflowProvider({
   const value = useMemo(
     () => ({
       assignments,
+      fieldOfficers,
       isOnline,
       assignProject,
+      createFieldOfficer,
+      setFieldOfficerStatus,
       startRoute,
       verifyArrival,
       saveReport,
@@ -909,8 +1270,11 @@ export function InspectionWorkflowProvider({
     }),
     [
       assignments,
+      fieldOfficers,
       isOnline,
       assignProject,
+      createFieldOfficer,
+      setFieldOfficerStatus,
       startRoute,
       verifyArrival,
       saveReport,

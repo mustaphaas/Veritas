@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" role="img" aria-labelledby="title desc">
+  <title id="title">Demo solar inverter installation</title>
+  <desc id="desc">Illustrated field evidence showing a solar inverter and electrical cabinets.</desc>
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ece9df"/><stop offset="1" stop-color="#c8c3b5"/></linearGradient>
+    <linearGradient id="case" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fafcf9"/><stop offset="1" stop-color="#cdd3cc"/></linearGradient>
+  </defs>
+  <rect width="960" height="640" fill="url(#wall)"/>
+  <path d="M0 520h960v120H0z" fill="#555a54"/><path d="M0 520h960" stroke="#272b28" stroke-width="10"/>
+  <g transform="translate(250 78)">
+    <rect x="0" y="0" width="355" height="420" rx="18" fill="url(#case)" stroke="#5c655e" stroke-width="8"/>
+    <rect x="42" y="52" width="271" height="172" rx="12" fill="#e4e9e3" stroke="#758078" stroke-width="5"/>
+    <rect x="80" y="88" width="195" height="68" rx="8" fill="#16271f"/>
+    <path d="M104 132l31-21 29 12 34-31 43 24" fill="none" stroke="#45d079" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="177" cy="190" r="13" fill="#35a862"/><circle cx="216" cy="190" r="13" fill="#f1b72b"/>
+    <g fill="#657069"><rect x="45" y="267" width="265" height="12" rx="6"/><rect x="45" y="300" width="265" height="12" rx="6"/><rect x="45" y="333" width="265" height="12" rx="6"/></g>
+    <text x="177" y="388" text-anchor="middle" font-family="Arial" font-size="20" font-weight="700" fill="#08733f">SOLAR INVERTER</text>
+  </g>
+  <g transform="translate(650 170)">
+    <rect width="180" height="328" rx="12" fill="#b8c0ba" stroke="#4b544e" stroke-width="7"/>
+    <rect x="25" y="35" width="130" height="76" rx="6" fill="#e8ece8"/><circle cx="90" cy="73" r="20" fill="#1b2b23"/><path d="M90 73l12-11" stroke="#55cc7d" stroke-width="5"/>
+    <g fill="#707a73"><rect x="25" y="150" width="130" height="15"/><rect x="25" y="190" width="130" height="15"/><rect x="25" y="230" width="130" height="15"/></g>
+  </g>
+  <g stroke="#242b27" stroke-width="14" fill="none"><path d="M428 500v72M738 498v74"/><path d="M428 572h310"/></g>
+  <rect x="24" y="24" width="270" height="62" rx="10" fill="#073d25" opacity=".9"/>
+  <text x="48" y="52" font-family="Arial" font-size="17" font-weight="700" fill="white">DEMO FIELD EVIDENCE</text>
+  <text x="48" y="74" font-family="Arial" font-size="13" fill="#c5eed4">Solar inverter installation</text>
+  <text x="936" y="616" text-anchor="end" font-family="Arial" font-size="13" fill="white">Illustration for workflow testing</text>
+</svg>

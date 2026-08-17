@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import RoleDashboardShell from "../components/RoleDashboardShell";
+import { useAuth } from "../lib/auth";
 import {
   COMPONENT_FORM_SECTIONS,
   createComponentFormValues,
@@ -1397,12 +1398,14 @@ function FieldWorkspace({
   view,
   assignments,
   isOnline,
+  officerName,
   onOpen,
   onSync,
 }: {
   view: string;
   assignments: InspectionAssignment[];
   isOnline: boolean;
+  officerName: string;
   onOpen: (assignment: InspectionAssignment) => void;
   onSync: () => void;
 }) {
@@ -1431,7 +1434,7 @@ function FieldWorkspace({
         </h2>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {[
-            ["Officer", "Amina Yusuf"],
+            ["Officer", officerName],
             ["Operational zone", "North West"],
             ["Device ID", getDeviceId()],
             ["Device type", getDeviceType()],
@@ -1561,8 +1564,13 @@ function FieldWorkspace({
 }
 
 export default function FieldOfficerDashboard() {
-  const { assignments, isOnline, startRoute, syncNow } =
+  const { session } = useAuth();
+  const { assignments, fieldOfficers, isOnline, startRoute, syncNow } =
     useInspectionWorkflow();
+  const officerName = session?.name ?? "Amina Yusuf";
+  const officerAccount = fieldOfficers.find(
+    (officer) => officer.name === officerName,
+  );
   const [stateFilter, setStateFilter] = useState("All Assigned States");
   const [statusFilter, setStatusFilter] = useState("All Statuses");
   const [selected, setSelected] = useState<InspectionAssignment | null>(null);
@@ -1570,7 +1578,7 @@ export default function FieldOfficerDashboard() {
   const navigate = useNavigate();
   const activeView = fieldPathViews[location.pathname] ?? "Overview";
   const mine = assignments.filter(
-    (assignment) => assignment.officer === "Amina Yusuf",
+    (assignment) => assignment.officer === officerName,
   );
   const filtered = useMemo(
     () =>
@@ -1607,273 +1615,293 @@ export default function FieldOfficerDashboard() {
     <RoleDashboardShell
       title="Field Officer Dashboard"
       subtitle="Navigate, verify arrival and complete secure field inspections."
-      roleName="Amina Yusuf · Field Officer"
-      initials="AY"
+      roleName={`${officerName} · Field Officer`}
+      initials={session?.initials ?? "FO"}
       navigation={navigation}
       activeNavigation={activeView}
       onNavigationChange={(label) =>
         navigate(fieldViewPaths[label] ?? "/field-officer")
       }
     >
-      {activeView !== "Overview" && (
-        <FieldWorkspace
-          view={activeView}
-          assignments={mine}
-          isOnline={isOnline}
-          onOpen={setSelected}
-          onSync={syncNow}
-        />
-      )}
-      <div className={activeView === "Overview" ? "" : "hidden"}>
-        <section
-          className={`mb-3 flex items-center justify-between rounded-lg border px-4 py-2.5 ${isOnline ? "border-[#b9dfc5] bg-[#eff9f2] text-[#08733f]" : "border-[#f0d88d] bg-[#fff8e5] text-[#956300]"}`}
-        >
-          <span className="flex items-center gap-2 text-xs font-bold">
-            {isOnline ? (
-              <Wifi className="h-4 w-4" />
-            ) : (
-              <WifiOff className="h-4 w-4" />
-            )}
-            {isOnline
-              ? "Online · field data sync is active"
-              : "Offline · drafts and evidence will remain on this device"}
-          </span>
-          <button
-            type="button"
-            onClick={syncNow}
-            disabled={!isOnline || queued === 0}
-            className="rounded-md border border-current px-3 py-1.5 text-[10px] font-bold disabled:opacity-40"
-          >
-            Sync now {queued ? `(${queued})` : ""}
-          </button>
+      {officerAccount?.status === "Suspended" ? (
+        <section className="rounded-xl border border-red-300 bg-red-50 p-6 text-center">
+          <ShieldCheck className="mx-auto h-9 w-9 text-red-600" />
+          <h2 className="mt-3 text-base font-bold text-red-800">
+            Field officer account suspended
+          </h2>
+          <p className="mt-2 text-xs text-red-700">
+            Inspection access and new assignments are blocked. Contact your
+            Consultant Admin to reactivate this account.
+          </p>
         </section>
-        <section className="rounded-lg border border-[#d6e9da] bg-[#f7fcf8] p-3">
-          <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-[1fr_1fr_1fr_205px]">
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
-                Assigned state
-              </span>
-              <select
-                value={stateFilter}
-                onChange={(event) => setStateFilter(event.target.value)}
-                className={fieldClass}
-              >
-                <option>All Assigned States</option>
-                {[...new Set(mine.map((item) => item.state))].map((state) => (
-                  <option key={state}>{state}</option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
-                Assignment status
-              </span>
-              <select
-                value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value)}
-                className={fieldClass}
-              >
-                <option>All Statuses</option>
-                {["Assigned", "Draft", "Approved", "Verified"].map((status) => (
-                  <option key={status}>{status}</option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
-                Schedule
-              </span>
-              <select className={fieldClass}>
-                <option>This Week</option>
-                <option>Next Week</option>
-                <option>This Month</option>
-              </select>
-            </label>
-            <button
-              type="button"
-              disabled={!next}
-              onClick={() => next && openRoute(next)}
-              className="mt-auto flex h-10 items-center justify-center gap-2 rounded-md bg-[#08733f] px-4 text-xs font-bold text-white disabled:opacity-50"
+      ) : (
+        <>
+          {activeView !== "Overview" && (
+            <FieldWorkspace
+              view={activeView}
+              assignments={mine}
+              isOnline={isOnline}
+              officerName={officerName}
+              onOpen={setSelected}
+              onSync={syncNow}
+            />
+          )}
+          <div className={activeView === "Overview" ? "" : "hidden"}>
+            <section
+              className={`mb-3 flex items-center justify-between rounded-lg border px-4 py-2.5 ${isOnline ? "border-[#b9dfc5] bg-[#eff9f2] text-[#08733f]" : "border-[#f0d88d] bg-[#fff8e5] text-[#956300]"}`}
             >
-              <Navigation className="h-4 w-4" /> Open next route
-            </button>
-          </div>
-        </section>
-        <section className="mt-3 flex gap-3 overflow-x-auto pb-1">
-          <MetricCard
-            label="Assigned Projects"
-            value={mine.length}
-            detail="Received from Consultant Admin"
-            icon={FolderKanban}
-          />
-          <MetricCard
-            label="Inspections Due"
-            value={due}
-            detail="Visits requiring action"
-            icon={Clock3}
-            tone="amber"
-          />
-          <MetricCard
-            label="Approved"
-            value={completed}
-            detail="Reports passed consultant QA"
-            icon={CheckCircle2}
-          />
-          <MetricCard
-            label="Draft Reports"
-            value={drafts}
-            detail="Saved on this device"
-            icon={FileEdit}
-            tone="blue"
-          />
-          <MetricCard
-            label="Sync Pending"
-            value={queued}
-            detail="Automatically uploads online"
-            icon={WifiOff}
-            tone="amber"
-          />
-        </section>
-        <InlineInspectionWorkspace
-          assignments={filtered}
-          onOpen={setSelected}
-        />
-        <div className="hidden">
-          <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
-              <div>
-                <h2 className="text-sm font-bold text-[#173b2a]">
-                  My Project Assignments
-                </h2>
-                <p className="mt-1 text-[10px] text-slate-500">
-                  Project details, due dates and inspection status
-                </p>
-              </div>
-              <span className="rounded-full bg-[#edf8f0] px-2.5 py-1 text-[10px] font-bold text-[#08733f]">
-                {filtered.length} projects
+              <span className="flex items-center gap-2 text-xs font-bold">
+                {isOnline ? (
+                  <Wifi className="h-4 w-4" />
+                ) : (
+                  <WifiOff className="h-4 w-4" />
+                )}
+                {isOnline
+                  ? "Online · field data sync is active"
+                  : "Offline · drafts and evidence will remain on this device"}
               </span>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-left">
-                <thead className="bg-slate-50 text-[9px] uppercase tracking-[0.1em] text-slate-500">
-                  <tr>
-                    <th className="px-4 py-2.5">Project</th>
-                    <th className="px-3 py-2.5">Location</th>
-                    <th className="px-3 py-2.5">Due</th>
-                    <th className="px-3 py-2.5">Status</th>
-                    <th className="px-4 py-2.5 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((assignment) => (
-                    <tr
-                      key={assignment.id}
-                      className="border-t border-slate-100"
-                    >
-                      <td className="px-4 py-3">
-                        <p className="text-xs font-semibold text-[#173b2a]">
-                          {assignment.projectName}
-                        </p>
-                        <p className="mt-1 text-[10px] text-slate-500">
-                          {assignment.id} · {assignment.contractor}
-                        </p>
-                      </td>
-                      <td className="px-3 py-3 text-xs text-slate-600">
-                        {assignment.community}, {assignment.state}
-                      </td>
-                      <td className="px-3 py-3 text-xs text-slate-600">
-                        {new Date(assignment.dueDate).toLocaleDateString()}
-                      </td>
-                      <td className="px-3 py-3">
-                        <StatusPill status={assignment.status} />
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => setSelected(assignment)}
-                          className="rounded-md border border-[#8bcba0] px-3 py-2 text-[10px] font-bold text-[#08733f]"
+              <button
+                type="button"
+                onClick={syncNow}
+                disabled={!isOnline || queued === 0}
+                className="rounded-md border border-current px-3 py-1.5 text-[10px] font-bold disabled:opacity-40"
+              >
+                Sync now {queued ? `(${queued})` : ""}
+              </button>
+            </section>
+            <section className="rounded-lg border border-[#d6e9da] bg-[#f7fcf8] p-3">
+              <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-[1fr_1fr_1fr_205px]">
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                    Assigned state
+                  </span>
+                  <select
+                    value={stateFilter}
+                    onChange={(event) => setStateFilter(event.target.value)}
+                    className={fieldClass}
+                  >
+                    <option>All Assigned States</option>
+                    {[...new Set(mine.map((item) => item.state))].map(
+                      (state) => (
+                        <option key={state}>{state}</option>
+                      ),
+                    )}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                    Assignment status
+                  </span>
+                  <select
+                    value={statusFilter}
+                    onChange={(event) => setStatusFilter(event.target.value)}
+                    className={fieldClass}
+                  >
+                    <option>All Statuses</option>
+                    {["Assigned", "Draft", "Approved", "Verified"].map(
+                      (status) => (
+                        <option key={status}>{status}</option>
+                      ),
+                    )}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                    Schedule
+                  </span>
+                  <select className={fieldClass}>
+                    <option>This Week</option>
+                    <option>Next Week</option>
+                    <option>This Month</option>
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  disabled={!next}
+                  onClick={() => next && openRoute(next)}
+                  className="mt-auto flex h-10 items-center justify-center gap-2 rounded-md bg-[#08733f] px-4 text-xs font-bold text-white disabled:opacity-50"
+                >
+                  <Navigation className="h-4 w-4" /> Open next route
+                </button>
+              </div>
+            </section>
+            <section className="mt-3 flex gap-3 overflow-x-auto pb-1">
+              <MetricCard
+                label="Assigned Projects"
+                value={mine.length}
+                detail="Received from Consultant Admin"
+                icon={FolderKanban}
+              />
+              <MetricCard
+                label="Inspections Due"
+                value={due}
+                detail="Visits requiring action"
+                icon={Clock3}
+                tone="amber"
+              />
+              <MetricCard
+                label="Approved"
+                value={completed}
+                detail="Reports passed consultant QA"
+                icon={CheckCircle2}
+              />
+              <MetricCard
+                label="Draft Reports"
+                value={drafts}
+                detail="Saved on this device"
+                icon={FileEdit}
+                tone="blue"
+              />
+              <MetricCard
+                label="Sync Pending"
+                value={queued}
+                detail="Automatically uploads online"
+                icon={WifiOff}
+                tone="amber"
+              />
+            </section>
+            <InlineInspectionWorkspace
+              assignments={filtered}
+              onOpen={setSelected}
+            />
+            <div className="hidden">
+              <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
+                  <div>
+                    <h2 className="text-sm font-bold text-[#173b2a]">
+                      My Project Assignments
+                    </h2>
+                    <p className="mt-1 text-[10px] text-slate-500">
+                      Project details, due dates and inspection status
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-[#edf8f0] px-2.5 py-1 text-[10px] font-bold text-[#08733f]">
+                    {filtered.length} projects
+                  </span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[760px] text-left">
+                    <thead className="bg-slate-50 text-[9px] uppercase tracking-[0.1em] text-slate-500">
+                      <tr>
+                        <th className="px-4 py-2.5">Project</th>
+                        <th className="px-3 py-2.5">Location</th>
+                        <th className="px-3 py-2.5">Due</th>
+                        <th className="px-3 py-2.5">Status</th>
+                        <th className="px-4 py-2.5 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map((assignment) => (
+                        <tr
+                          key={assignment.id}
+                          className="border-t border-slate-100"
                         >
-                          {["Submitted", "Approved", "Verified"].includes(
-                            assignment.status,
-                          )
-                            ? "View report"
-                            : assignment.status === "Assigned"
-                              ? "Open assignment"
-                              : "Continue inspection"}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                          <td className="px-4 py-3">
+                            <p className="text-xs font-semibold text-[#173b2a]">
+                              {assignment.projectName}
+                            </p>
+                            <p className="mt-1 text-[10px] text-slate-500">
+                              {assignment.id} · {assignment.contractor}
+                            </p>
+                          </td>
+                          <td className="px-3 py-3 text-xs text-slate-600">
+                            {assignment.community}, {assignment.state}
+                          </td>
+                          <td className="px-3 py-3 text-xs text-slate-600">
+                            {new Date(assignment.dueDate).toLocaleDateString()}
+                          </td>
+                          <td className="px-3 py-3">
+                            <StatusPill status={assignment.status} />
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => setSelected(assignment)}
+                              className="rounded-md border border-[#8bcba0] px-3 py-2 text-[10px] font-bold text-[#08733f]"
+                            >
+                              {["Submitted", "Approved", "Verified"].includes(
+                                assignment.status,
+                              )
+                                ? "View report"
+                                : assignment.status === "Assigned"
+                                  ? "Open assignment"
+                                  : "Continue inspection"}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+              <aside className="space-y-3">
+                <section className="rounded-lg border border-slate-200 bg-white p-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-sm font-bold text-[#173b2a]">
+                      Field Workflow
+                    </h2>
+                    <Signal className="h-4 w-4 text-[#119653]" />
+                  </div>
+                  <div className="mt-4 space-y-2">
+                    {[
+                      [Route, "Navigate to site"],
+                      [ShieldCheck, "GPS & geofence arrival"],
+                      [ClipboardCheck, "ODK-style data form"],
+                      [Camera, "Tagged photos & video"],
+                      [UploadCloud, "Submit for consultant QA"],
+                    ].map(([Icon, label], index) => (
+                      <div
+                        key={String(label)}
+                        className="flex items-center gap-3 rounded-md bg-[#f7faf8] p-2.5"
+                      >
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#e6f6eb] text-[10px] font-bold text-[#08733f]">
+                          {index + 1}
+                        </span>
+                        <Icon className="h-4 w-4 text-[#08733f]" />
+                        <span className="text-[10px] font-semibold text-[#173b2a]">
+                          {String(label)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+                <section className="rounded-lg border border-slate-200 bg-white p-4">
+                  <h2 className="text-sm font-bold text-[#173b2a]">
+                    Anti-fraud protection
+                  </h2>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-[9px] font-semibold text-slate-600">
+                    {[
+                      "GPS verification",
+                      "Geofencing",
+                      "Automatic timestamps",
+                      "In-app camera",
+                      `Device ${getDeviceId()}`,
+                      "Digital signatures",
+                      "Audit trail",
+                      "Offline-ready storage",
+                    ].map((item) => (
+                      <div
+                        key={item}
+                        className="flex items-center gap-1.5 rounded-md bg-slate-50 p-2"
+                      >
+                        <CheckCircle2 className="h-3 w-3 text-[#08733f]" />
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              </aside>
             </div>
-          </section>
-          <aside className="space-y-3">
-            <section className="rounded-lg border border-slate-200 bg-white p-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-bold text-[#173b2a]">
-                  Field Workflow
-                </h2>
-                <Signal className="h-4 w-4 text-[#119653]" />
-              </div>
-              <div className="mt-4 space-y-2">
-                {[
-                  [Route, "Navigate to site"],
-                  [ShieldCheck, "GPS & geofence arrival"],
-                  [ClipboardCheck, "ODK-style data form"],
-                  [Camera, "Tagged photos & video"],
-                  [UploadCloud, "Submit for consultant QA"],
-                ].map(([Icon, label], index) => (
-                  <div
-                    key={String(label)}
-                    className="flex items-center gap-3 rounded-md bg-[#f7faf8] p-2.5"
-                  >
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#e6f6eb] text-[10px] font-bold text-[#08733f]">
-                      {index + 1}
-                    </span>
-                    <Icon className="h-4 w-4 text-[#08733f]" />
-                    <span className="text-[10px] font-semibold text-[#173b2a]">
-                      {String(label)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </section>
-            <section className="rounded-lg border border-slate-200 bg-white p-4">
-              <h2 className="text-sm font-bold text-[#173b2a]">
-                Anti-fraud protection
-              </h2>
-              <div className="mt-3 grid grid-cols-2 gap-2 text-[9px] font-semibold text-slate-600">
-                {[
-                  "GPS verification",
-                  "Geofencing",
-                  "Automatic timestamps",
-                  "In-app camera",
-                  `Device ${getDeviceId()}`,
-                  "Digital signatures",
-                  "Audit trail",
-                  "Offline-ready storage",
-                ].map((item) => (
-                  <div
-                    key={item}
-                    className="flex items-center gap-1.5 rounded-md bg-slate-50 p-2"
-                  >
-                    <CheckCircle2 className="h-3 w-3 text-[#08733f]" />
-                    {item}
-                  </div>
-                ))}
-              </div>
-            </section>
-          </aside>
-        </div>
-      </div>
-      {selected && (
-        <InspectionModal
-          assignment={
-            assignments.find((item) => item.id === selected.id) ?? selected
-          }
-          onClose={() => setSelected(null)}
-        />
+          </div>
+          {selected && (
+            <InspectionModal
+              assignment={
+                assignments.find((item) => item.id === selected.id) ?? selected
+              }
+              onClose={() => setSelected(null)}
+            />
+          )}
+        </>
       )}
     </RoleDashboardShell>
   );

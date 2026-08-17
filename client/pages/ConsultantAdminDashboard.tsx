@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   BarChart3,
+  Ban,
   Camera,
   CheckCircle2,
   ClipboardCheck,
@@ -10,8 +11,10 @@ import {
   Home,
   MapPin,
   Plus,
+  RotateCcw,
   ShieldCheck,
   UserCheck,
+  UserPlus,
   UsersRound,
   Video,
   X,
@@ -25,9 +28,9 @@ import {
   isSupportedAssignmentComponent,
 } from "../lib/component-inspection-form";
 import {
-  fieldOfficers,
   getAssignmentDisplayStatus,
   useInspectionWorkflow,
+  type FieldOfficerAccount,
   type InspectionAssignment,
 } from "../lib/inspection-workflow";
 
@@ -132,12 +135,15 @@ function StatusPill({ status }: { status: InspectionAssignment["status"] }) {
 }
 
 function AssignProjectModal({ onClose }: { onClose: () => void }) {
-  const { assignments, assignProject } = useInspectionWorkflow();
+  const { assignments, fieldOfficers, assignProject } = useInspectionWorkflow();
+  const activeOfficers = fieldOfficers.filter(
+    (officer) => officer.status === "Active",
+  );
   const available = projects.filter(
     (project) => !assignments.some((item) => item.projectName === project.name),
   );
   const [projectName, setProjectName] = useState(available[0]?.name ?? "");
-  const [officer, setOfficer] = useState(fieldOfficers[0].name);
+  const [officer, setOfficer] = useState(activeOfficers[0]?.name ?? "");
   const defaultDue = new Date(Date.now() + 7 * 86_400_000)
     .toISOString()
     .slice(0, 10);
@@ -207,7 +213,7 @@ function AssignProjectModal({ onClose }: { onClose: () => void }) {
               onChange={(event) => setOfficer(event.target.value)}
               className={inputClass}
             >
-              {fieldOfficers.map((item) => (
+              {activeOfficers.map((item) => (
                 <option key={item.name} value={item.name}>
                   {item.name} · {item.zone}
                 </option>
@@ -233,10 +239,150 @@ function AssignProjectModal({ onClose }: { onClose: () => void }) {
           </button>
           <button
             onClick={submit}
-            disabled={!selectedProject}
+            disabled={!selectedProject || !officer}
             className="flex items-center gap-2 rounded-md bg-[#08733f] px-5 py-2.5 text-xs font-bold text-white disabled:opacity-40"
           >
             <Plus className="h-4 w-4" /> Assign project
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function CreateFieldOfficerModal({ onClose }: { onClose: () => void }) {
+  const { createFieldOfficer } = useInspectionWorkflow();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [zone, setZone] = useState("North West");
+  const [device, setDevice] = useState(
+    () => `REA-FO-${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
+  );
+  const [password, setPassword] = useState("Field2024!");
+  const [error, setError] = useState("");
+  const submit = () => {
+    const result = createFieldOfficer({
+      name,
+      email,
+      phone,
+      zone,
+      device,
+      password,
+    });
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
+    onClose();
+  };
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/45 sm:items-center sm:p-5">
+      <section className="max-h-[94vh] w-full max-w-xl overflow-y-auto rounded-t-2xl bg-white p-5 shadow-2xl sm:rounded-xl sm:p-6">
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-[#173b2a]">
+              Create field officer
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Create an active officer account that can receive assignments.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-2 text-slate-500 hover:bg-slate-100"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500 sm:col-span-2">
+            Full name
+            <input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              className={inputClass}
+              placeholder="e.g. Hauwa Mohammed"
+            />
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+            Email address
+            <input
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              className={inputClass}
+              placeholder="officer@consultant.ng"
+            />
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+            Phone number
+            <input
+              type="tel"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+              className={inputClass}
+              placeholder="08000000000"
+            />
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+            Operational zone
+            <select
+              value={zone}
+              onChange={(event) => setZone(event.target.value)}
+              className={inputClass}
+            >
+              {[
+                "North West",
+                "North East",
+                "North Central",
+                "South West",
+                "South East",
+                "South South",
+              ].map((option) => (
+                <option key={option}>{option}</option>
+              ))}
+            </select>
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+            Device ID
+            <input
+              value={device}
+              onChange={(event) => setDevice(event.target.value)}
+              className={inputClass}
+            />
+          </label>
+          <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500 sm:col-span-2">
+            Temporary password
+            <input
+              type="text"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className={inputClass}
+            />
+          </label>
+        </div>
+        {error && (
+          <p className="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-700">
+            {error}
+          </p>
+        )}
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-600"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!name.trim() || !email.trim() || !password}
+            className="flex items-center gap-2 rounded-md bg-[#08733f] px-5 py-2.5 text-xs font-bold text-white disabled:opacity-40"
+          >
+            <UserPlus className="h-4 w-4" /> Create officer
           </button>
         </div>
       </section>
@@ -513,24 +659,41 @@ function ReviewModal({
 function ConsultantWorkspace({
   view,
   assignments,
+  fieldOfficers,
   onAssign,
+  onCreateOfficer,
+  onOfficerStatus,
   onReview,
   onMap,
 }: {
   view: string;
   assignments: InspectionAssignment[];
+  fieldOfficers: FieldOfficerAccount[];
   onAssign: () => void;
+  onCreateOfficer: () => void;
+  onOfficerStatus: (id: string, status: FieldOfficerAccount["status"]) => void;
   onReview: (assignment: InspectionAssignment) => void;
   onMap: (assignment: InspectionAssignment) => void;
 }) {
   if (view === "Field Officers") {
     return (
       <section className="rounded-lg border border-slate-200 bg-white">
-        <div className="border-b border-slate-100 px-5 py-4">
-          <h2 className="text-base font-bold text-[#173b2a]">Field Officers</h2>
-          <p className="mt-1 text-[10px] text-slate-500">
-            Live workload and inspection outcomes
-          </p>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+          <div>
+            <h2 className="text-base font-bold text-[#173b2a]">
+              Field Officers
+            </h2>
+            <p className="mt-1 text-[10px] text-slate-500">
+              Create accounts, control access and monitor workloads
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onCreateOfficer}
+            className="flex items-center gap-2 rounded-md bg-[#08733f] px-4 py-2.5 text-[10px] font-bold text-white"
+          >
+            <UserPlus className="h-4 w-4" /> Create field officer
+          </button>
         </div>
         <div className="grid gap-px bg-slate-100 sm:grid-cols-2">
           {fieldOfficers.map((officer) => {
@@ -551,8 +714,10 @@ function ConsultantWorkspace({
                       {officer.zone} · {officer.device}
                     </p>
                   </div>
-                  <span className="rounded-full bg-[#edf8f0] px-2 py-1 text-[9px] font-bold text-[#08733f]">
-                    Active
+                  <span
+                    className={`rounded-full px-2 py-1 text-[9px] font-bold ${officer.status === "Active" ? "bg-[#edf8f0] text-[#08733f]" : "bg-red-50 text-red-700"}`}
+                  >
+                    {officer.status}
                   </span>
                 </div>
                 <div className="mt-4 grid grid-cols-3 gap-2 text-center">
@@ -577,6 +742,29 @@ function ConsultantWorkspace({
                       Re-inspect
                     </span>
                   </div>
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
+                  <div className="min-w-0 text-[9px] text-slate-500">
+                    <p className="truncate">{officer.email}</p>
+                    <p className="mt-1">{officer.phone || "No phone number"}</p>
+                  </div>
+                  {officer.status === "Active" ? (
+                    <button
+                      type="button"
+                      onClick={() => onOfficerStatus(officer.id, "Suspended")}
+                      className="flex shrink-0 items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[9px] font-bold text-red-700"
+                    >
+                      <Ban className="h-3.5 w-3.5" /> Suspend
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onOfficerStatus(officer.id, "Active")}
+                      className="flex shrink-0 items-center gap-1.5 rounded-md border border-[#8bcba0] bg-[#eff9f2] px-3 py-2 text-[9px] font-bold text-[#08733f]"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" /> Reactivate
+                    </button>
+                  )}
                 </div>
               </article>
             );
@@ -750,11 +938,13 @@ function ConsultantWorkspace({
 }
 
 export default function ConsultantAdminDashboard() {
-  const { assignments } = useInspectionWorkflow();
+  const { assignments, fieldOfficers, setFieldOfficerStatus } =
+    useInspectionWorkflow();
   const [programmeFilter, setProgrammeFilter] = useState("All Programmes");
   const [stateFilter, setStateFilter] = useState("All States");
   const [officerFilter, setOfficerFilter] = useState("All Field Officers");
   const [assignOpen, setAssignOpen] = useState(false);
+  const [createOfficerOpen, setCreateOfficerOpen] = useState(false);
   const [reviewing, setReviewing] = useState<InspectionAssignment | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
@@ -832,7 +1022,10 @@ export default function ConsultantAdminDashboard() {
         <ConsultantWorkspace
           view={activeView}
           assignments={filtered}
+          fieldOfficers={fieldOfficers}
           onAssign={() => setAssignOpen(true)}
+          onCreateOfficer={() => setCreateOfficerOpen(true)}
+          onOfficerStatus={setFieldOfficerStatus}
           onReview={setReviewing}
           onMap={(assignment) => {
             setMapAssignment(assignment);
@@ -1130,6 +1323,9 @@ export default function ConsultantAdminDashboard() {
       </div>
       {assignOpen && (
         <AssignProjectModal onClose={() => setAssignOpen(false)} />
+      )}
+      {createOfficerOpen && (
+        <CreateFieldOfficerModal onClose={() => setCreateOfficerOpen(false)} />
       )}
       {reviewing && (
         <ReviewModal

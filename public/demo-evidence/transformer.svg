@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" role="img" aria-labelledby="title desc">
+  <title id="title">Demo transformer installation</title>
+  <desc id="desc">Illustrated field evidence showing a distribution transformer and poles.</desc>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#a8d8ef"/><stop offset="1" stop-color="#eef6ed"/></linearGradient>
+    <linearGradient id="tank" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#c6cbc3"/><stop offset=".5" stop-color="#727d72"/><stop offset="1" stop-color="#424b43"/></linearGradient>
+  </defs>
+  <rect width="960" height="640" fill="url(#sky)"/>
+  <path d="M0 470 Q180 420 350 466 T690 452 T960 456 V640 H0Z" fill="#5f8f4d"/>
+  <path d="M0 520 Q210 475 430 526 T960 505 V640 H0Z" fill="#3f6d3a" opacity=".8"/>
+  <g stroke="#373c3a" stroke-width="14"><path d="M180 126v440M780 105v465"/></g>
+  <g stroke="#242b29" stroke-width="5"><path d="M92 172h780M120 218h720"/><path d="M180 172l600 46M180 218l600-46" opacity=".5"/></g>
+  <g transform="translate(315 230)">
+    <rect x="0" y="84" width="330" height="196" rx="24" fill="url(#tank)" stroke="#343d36" stroke-width="8"/>
+    <rect x="34" y="120" width="262" height="118" rx="12" fill="#8b968a" opacity=".65"/>
+    <g fill="#494f4b"><path d="M38 82V35h38v47M108 82V24h38v58M178 82V30h38v52M248 82V18h38v64"/></g>
+    <g fill="#d7d9ce" stroke="#555c57" stroke-width="4"><circle cx="57" cy="32" r="19"/><circle cx="127" cy="21" r="19"/><circle cx="197" cy="27" r="19"/><circle cx="267" cy="15" r="19"/></g>
+    <rect x="95" y="152" width="140" height="62" rx="5" fill="#e7e4ca" stroke="#464d48" stroke-width="4"/>
+    <text x="165" y="179" text-anchor="middle" font-family="Arial" font-size="18" font-weight="700" fill="#28322c">500 kVA</text>
+    <text x="165" y="202" text-anchor="middle" font-family="Arial" font-size="12" fill="#46514a">REA DEMO ASSET</text>
+    <path d="M45 280v74M285 280v74" stroke="#343d36" stroke-width="18"/>
+    <path d="M12 354h306" stroke="#313732" stroke-width="16"/>
+  </g>
+  <rect x="24" y="24" width="270" height="62" rx="10" fill="#073d25" opacity=".9"/>
+  <text x="48" y="52" font-family="Arial" font-size="17" font-weight="700" fill="white">DEMO FIELD EVIDENCE</text>
+  <text x="48" y="74" font-family="Arial" font-size="13" fill="#c5eed4">Distribution transformer</text>
+  <text x="936" y="616" text-anchor="end" font-family="Arial" font-size="13" fill="white">Illustration for workflow testing</text>
+</svg>
