@@ -5,6 +5,7 @@ import {
   canStartRoute,
   canVerifyArrival,
   createAssignment,
+  createComponentTestAssignments,
   distanceMeters,
   getAssignmentDisplayStatus,
   getDeviceType,
@@ -45,6 +46,24 @@ describe("inspection workflow", () => {
     expect(assignment.geofenceRadius).toBe(250);
     expect(assignment.audit[0].action).toContain("Amina Yusuf");
     expect(assignment.audit[0].deviceType).toBe(getDeviceType());
+  });
+
+  it("provides one assigned test form for each requested programme and component", () => {
+    const assignments = createComponentTestAssignments();
+    expect(
+      assignments.map((assignment) => [
+        assignment.programme,
+        assignment.component,
+        assignment.status,
+      ]),
+    ).toEqual([
+      ["NEP", "Mini Grid", "Assigned"],
+      ["DARES", "Grid Extension", "Assigned"],
+      ["AMP", "SAS", "Assigned"],
+    ]);
+    expect(new Set(assignments.map((assignment) => assignment.id)).size).toBe(
+      3,
+    );
   });
 
   it("locks submitted and approved reports but unlocks re-inspections", () => {

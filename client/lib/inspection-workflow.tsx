@@ -295,6 +295,113 @@ export function createAssignment(
   };
 }
 
+export function createComponentTestAssignments() {
+  const today = new Date();
+  const fixtures: Array<{
+    project: Project;
+    index: number;
+    lga: string;
+    community: string;
+  }> = [
+    {
+      project: {
+        name: "NEP Kano Mini Grid Test",
+        state: "Kano",
+        programme: "NEP",
+        component: "Mini Grid",
+        contractor: "SunVolt Nigeria",
+        month: "August 2026",
+        status: "Assigned",
+        tone: "progress",
+        kw: 250,
+        households: 730,
+        verified: false,
+        x: 0,
+        y: 0,
+      },
+      index: 900,
+      lga: "Kano Municipal",
+      community: "Kofar Ruwa",
+    },
+    {
+      project: {
+        name: "DARES Kaduna Grid Extension Test",
+        state: "Kaduna",
+        programme: "DARES",
+        component: "Grid Extension",
+        contractor: "NorthGrid EPC",
+        month: "August 2026",
+        status: "Assigned",
+        tone: "progress",
+        kw: 500,
+        households: 1_200,
+        verified: false,
+        x: 0,
+        y: 0,
+      },
+      index: 901,
+      lga: "Kaduna North",
+      community: "Kawo",
+    },
+    {
+      project: {
+        name: "AMP Katsina SAS Test",
+        state: "Katsina",
+        programme: "AMP",
+        component: "SAS",
+        contractor: "Apex Power Works",
+        month: "August 2026",
+        status: "Assigned",
+        tone: "progress",
+        kw: 85,
+        households: 320,
+        verified: false,
+        x: 0,
+        y: 0,
+      },
+      index: 902,
+      lga: "Katsina",
+      community: "Kofar Sauri",
+    },
+  ];
+  return fixtures.map(({ project, index, lga, community }, fixtureIndex) => {
+    const due = new Date(today);
+    due.setDate(today.getDate() + fixtureIndex + 1);
+    const assignment = createAssignment(
+      project,
+      "Amina Yusuf",
+      due.toISOString(),
+      index,
+    );
+    assignment.lga = lga;
+    assignment.community = community;
+    const [latitude, longitude] = stateCentres[project.state];
+    assignment.latitude = latitude + fixtureIndex * 0.0012;
+    assignment.longitude = longitude + fixtureIndex * 0.001;
+    return assignment;
+  });
+}
+
+function ensureComponentTestAssignments(assignments: InspectionAssignment[]) {
+  const fixtures = createComponentTestAssignments();
+  const fixtureNames = new Set(
+    fixtures.map((assignment) => assignment.projectName),
+  );
+  const existingFixtures = new Map(
+    assignments
+      .filter((assignment) => fixtureNames.has(assignment.projectName))
+      .map((assignment) => [assignment.projectName, assignment]),
+  );
+  return [
+    ...fixtures.map(
+      (fixture) => existingFixtures.get(fixture.projectName) ?? fixture,
+    ),
+    ...assignments.filter(
+      (assignment) => !fixtureNames.has(assignment.projectName),
+    ),
+  ];
+}
+
 function seedAssignments() {
   const preferred = projects.filter((project) =>
     ["Kano", "Kaduna", "Katsina", "Sokoto", "Zamfara", "Jigawa"].includes(
@@ -302,7 +409,7 @@ function seedAssignments() {
     ),
   );
   const today = new Date();
-  return preferred.slice(2, 14).map((project, index) => {
+  const seeded = preferred.slice(2, 14).map((project, index) => {
     const due = new Date(today);
     due.setDate(today.getDate() + (index % 7));
     const assignment = createAssignment(
@@ -396,6 +503,7 @@ function seedAssignments() {
     }
     return assignment;
   });
+  return ensureComponentTestAssignments(seeded);
 }
 
 type WorkflowContextValue = {
@@ -430,8 +538,10 @@ function loadAssignments() {
   try {
     const stored = window.localStorage.getItem(STORAGE_KEY);
     return stored
-      ? (JSON.parse(stored) as InspectionAssignment[]).map(
-          migrateStoredAssignment,
+      ? ensureComponentTestAssignments(
+          (JSON.parse(stored) as InspectionAssignment[]).map(
+            migrateStoredAssignment,
+          ),
         )
       : seedAssignments();
   } catch {

@@ -545,8 +545,9 @@ function InspectionModal({
               )}
             </div>
             <p className="mt-1 text-[10px] text-slate-500">
-              {assignment.id} · {assignment.state}, {assignment.lga} · Device{" "}
-              {getDeviceId()}
+              {assignment.id} · {assignment.programme} · {assignment.component}
+              {" · "}
+              {assignment.state}, {assignment.lga} · Device {getDeviceId()}
             </p>
           </div>
           <button
@@ -1103,7 +1104,8 @@ function InlineInspectionWorkspace({
                   {item.projectName}
                 </strong>
                 <span className="mt-1 block truncate text-[9px] text-slate-500">
-                  {item.id} · {item.community}, {item.state}
+                  {item.programme} · {item.component} · {item.id} ·{" "}
+                  {item.community}, {item.state}
                 </span>
               </span>
               <StatusPill status={item.status} />
@@ -1528,7 +1530,8 @@ function FieldWorkspace({
                 {item.projectName}
               </p>
               <p className="mt-1 text-[10px] text-slate-500">
-                {item.id} · {item.community}, {item.state} · Due{" "}
+                {item.programme} · {item.component} · {item.id} ·{" "}
+                {item.community}, {item.state} · Due{" "}
                 {new Date(item.dueDate).toLocaleDateString()}
               </p>
             </div>
