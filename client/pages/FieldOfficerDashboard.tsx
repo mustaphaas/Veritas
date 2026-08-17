@@ -32,6 +32,15 @@ import {
 import { useLocation, useNavigate } from "react-router-dom";
 import RoleDashboardShell from "../components/RoleDashboardShell";
 import {
+  COMPONENT_FORM_SECTIONS,
+  createComponentFormValues,
+  isSupportedAssignmentComponent,
+  validateComponentFormValues,
+  type ComponentFieldDefinition,
+  type ComponentFormValues,
+  type SupportedAssignmentComponent,
+} from "../lib/component-inspection-form";
+import {
   assignmentDisplayRank,
   getDeviceId,
   getDeviceType,
@@ -76,8 +85,162 @@ const fieldPathViews: Record<string, string> = Object.fromEntries(
 );
 const fieldClass =
   "mt-1.5 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-[#173b2a] outline-none focus:border-[#08733f]";
-const areaClass =
-  "mt-1.5 min-h-20 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-[#173b2a] outline-none focus:border-[#08733f]";
+const assignmentError =
+  "This assignment does not have a valid component. Please contact your supervisor.";
+
+function componentInputAttributes(field: ComponentFieldDefinition) {
+  if (field.kind === "integer") {
+    return { type: "number", min: 0, step: 1, inputMode: "numeric" as const };
+  }
+  if (field.kind === "decimal") {
+    return {
+      type: "number",
+      min: 0,
+      step: "any",
+      inputMode: "decimal" as const,
+    };
+  }
+  if (field.kind === "coordinate") {
+    const latitude = field.label === "Latitude";
+    return {
+      type: "number",
+      min: latitude ? -90 : -180,
+      max: latitude ? 90 : 180,
+      step: "any",
+      inputMode: "decimal" as const,
+    };
+  }
+  if (field.kind === "phone") {
+    return { type: "tel", inputMode: "tel" as const, pattern: "[0-9+() -]+" };
+  }
+  return { type: "text" };
+}
+
+function ComponentField({
+  field,
+  value,
+  locked,
+  onChange,
+}: {
+  field: ComponentFieldDefinition;
+  value: string;
+  locked: boolean;
+  onChange: (value: string) => void;
+}) {
+  const readOnly = Boolean(field.assignmentKey) || locked;
+  const labelClass =
+    "text-[10px] font-bold uppercase tracking-wide text-slate-500";
+  if (field.kind === "select") {
+    return (
+      <label className={labelClass}>
+        {field.label}
+        <select
+          required={!locked}
+          disabled={locked}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className={`${fieldClass} ${locked ? "bg-slate-50" : ""}`}
+        >
+          <option value="">Select {field.label}</option>
+          {field.options?.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
+  return (
+    <label className={labelClass}>
+      {field.label}
+      <input
+        {...componentInputAttributes(field)}
+        required={!locked}
+        readOnly={readOnly}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className={`${fieldClass} ${readOnly ? "bg-slate-50" : ""}`}
+      />
+    </label>
+  );
+}
+
+function ComponentDataForm({
+  component,
+  values,
+  locked,
+  onChange,
+}: {
+  component: SupportedAssignmentComponent;
+  values: ComponentFormValues;
+  locked: boolean;
+  onChange: (key: string, value: string) => void;
+}) {
+  return (
+    <div className="space-y-4 sm:col-span-2 lg:col-span-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#b9dfc5] bg-[#eff9f2] px-4 py-3">
+        <div>
+          <p className="text-[9px] font-bold uppercase tracking-wide text-[#4d745d]">
+            Assigned component
+          </p>
+          <p className="mt-1 text-sm font-bold text-[#08733f]">{component}</p>
+        </div>
+        <span className="rounded-full bg-white px-3 py-1 text-[9px] font-bold text-[#08733f] shadow-sm">
+          Set by Consultant Admin
+        </span>
+      </div>
+      {COMPONENT_FORM_SECTIONS[component].map((section, sectionIndex) => (
+        <section
+          key={section.title}
+          className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5"
+        >
+          <div className="mb-4 flex items-center gap-3">
+            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#eff9f2] text-[9px] font-bold text-[#08733f]">
+              {String(sectionIndex + 1).padStart(2, "0")}
+            </span>
+            <h3 className="text-xs font-bold text-[#173b2a]">
+              {section.title}
+            </h3>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {section.items.map((item) =>
+              item.type === "group" ? (
+                <fieldset
+                  key={item.label}
+                  className="rounded-lg border border-slate-200 bg-[#fafcfb] p-3 sm:col-span-2 lg:col-span-3"
+                >
+                  <legend className="px-1 text-[10px] font-bold uppercase tracking-wide text-[#365442]">
+                    {item.label}
+                  </legend>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {item.fields.map((field) => (
+                      <ComponentField
+                        key={field.key}
+                        field={field}
+                        value={values[field.key] ?? ""}
+                        locked={locked}
+                        onChange={(value) => onChange(field.key, value)}
+                      />
+                    ))}
+                  </div>
+                </fieldset>
+              ) : (
+                <ComponentField
+                  key={item.key}
+                  field={item}
+                  value={values[item.key] ?? ""}
+                  locked={locked}
+                  onChange={(value) => onChange(item.key, value)}
+                />
+              ),
+            )}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
 
 function MetricCard({
   label,
@@ -220,7 +383,15 @@ function InspectionModal({
     useInspectionWorkflow();
   const locked = isFieldReportLocked(assignment.status);
   const arrivalFresh = isArrivalFresh(assignment.arrival);
-  const [step, setStep] = useState(locked || arrivalFresh ? 2 : 1);
+  const validComponent = isSupportedAssignmentComponent(assignment.component)
+    ? assignment.component
+    : null;
+  const existingReportMatchesAssignment = Boolean(
+    validComponent &&
+    assignment.report?.assignmentId === assignment.id &&
+    assignment.report?.assignedComponent === validComponent,
+  );
+  const [step, setStep] = useState(locked ? 4 : arrivalFresh ? 2 : 1);
   const [gpsMessage, setGpsMessage] = useState(
     assignment.arrival
       ? `Arrival verified at ${assignment.arrival.distance} m`
@@ -230,38 +401,53 @@ function InspectionModal({
   const [routeStarted, setRouteStarted] = useState(
     Boolean(assignment.routeStartedAt),
   );
-  const [report, setReport] = useState<InspectionReport>(
-    () =>
-      assignment.report ?? {
-        projectId: assignment.id,
-        contractor: assignment.contractor,
-        state: assignment.state,
-        lga: assignment.lga,
-        community: assignment.community,
-        inspectedAt: new Date().toISOString(),
-        latitude: assignment.arrival?.latitude ?? assignment.latitude,
-        longitude: assignment.arrival?.longitude ?? assignment.longitude,
-        inspector: assignment.officer,
-        deviceId: getDeviceId(),
-        deviceType: getDeviceType(),
-        equipmentInstalled: "",
-        capacity: "",
-        meterDetails: "",
-        transformerDetails: "",
-        poleCount: "",
-        cableLength: "",
-        beneficiaries: "",
-        observations: "",
-        defects: "",
-        recommendations: "",
-        assetCode: "",
-        evidence: [],
-      },
-  );
+  const [report, setReport] = useState<InspectionReport>(() => {
+    if (existingReportMatchesAssignment && assignment.report) {
+      return assignment.report;
+    }
+    const component = validComponent ?? "Mini Grid";
+    return {
+      assignmentId: assignment.id,
+      assignedComponent: component,
+      componentValues: validComponent
+        ? createComponentFormValues(validComponent, assignment)
+        : {},
+      projectId: assignment.id,
+      contractor: assignment.contractor,
+      state: assignment.state,
+      lga: assignment.lga,
+      community: assignment.community,
+      inspectedAt: new Date().toISOString(),
+      latitude: assignment.arrival?.latitude ?? assignment.latitude,
+      longitude: assignment.arrival?.longitude ?? assignment.longitude,
+      inspector: assignment.officer,
+      deviceId: getDeviceId(),
+      deviceType: getDeviceType(),
+      equipmentInstalled: "",
+      capacity: "",
+      meterDetails: "",
+      transformerDetails: "",
+      poleCount: "",
+      cableLength: "",
+      beneficiaries: "",
+      observations: "",
+      defects: "",
+      recommendations: "",
+      assetCode: "",
+      evidence: [],
+    };
+  });
   const canCollect =
-    locked || arrivalFresh || gpsMessage.startsWith("Verified");
+    Boolean(validComponent) &&
+    (locked || arrivalFresh || gpsMessage.startsWith("Verified"));
   const update = (key: keyof InspectionReport, value: string) =>
     !locked && setReport((current) => ({ ...current, [key]: value }));
+  const updateComponentValue = (key: string, value: string) =>
+    !locked &&
+    setReport((current) => ({
+      ...current,
+      componentValues: { ...current.componentValues, [key]: value },
+    }));
   const captureArrival = (demo = false) => {
     if (locked) return;
     setGpsBusy(true);
@@ -371,21 +557,25 @@ function InspectionModal({
             <X className="h-5 w-5" />
           </button>
         </header>
-        <div className="grid grid-cols-3 border-b border-slate-200 bg-white px-4 sm:px-6">
-          {["Location & arrival", "Inspection form", "Evidence & submit"].map(
-            (label, index) => (
-              <button
-                key={label}
-                type="button"
-                onClick={() =>
-                  (index === 0 || canCollect) && setStep(index + 1)
-                }
-                className={`border-b-2 px-2 py-3 text-[10px] font-bold sm:text-xs ${step === index + 1 ? "border-[#08733f] text-[#08733f]" : "border-transparent text-slate-400"}`}
-              >
-                {index + 1}. {label}
-              </button>
-            ),
-          )}
+        <div className="grid grid-cols-4 border-b border-slate-200 bg-white px-4 sm:px-6">
+          {[
+            "Location & arrival",
+            "Component form",
+            "Evidence",
+            "Review & submit",
+          ].map((label, index) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() =>
+                (index === 0 || (canCollect && validComponent)) &&
+                setStep(index + 1)
+              }
+              className={`border-b-2 px-2 py-3 text-[10px] font-bold sm:text-xs ${step === index + 1 ? "border-[#08733f] text-[#08733f]" : "border-transparent text-slate-400"}`}
+            >
+              {index + 1}. {label}
+            </button>
+          ))}
         </div>
         {locked && (
           <div className="border-b border-[#c8daef] bg-[#eef5fc] px-4 py-3 text-xs font-semibold text-[#356ca5] sm:px-6">
@@ -401,6 +591,11 @@ function InspectionModal({
               updating the report.
             </div>
           )}
+        {!validComponent && step !== 1 && (
+          <div className="m-4 rounded-lg border border-red-300 bg-red-50 p-4 text-sm font-bold text-red-700 sm:m-6">
+            {assignmentError}
+          </div>
+        )}
         {step === 1 && (
           <div className="grid gap-4 p-4 sm:p-6 lg:grid-cols-[1.6fr_1fr]">
             <iframe
@@ -474,7 +669,7 @@ function InspectionModal({
             </div>
           </div>
         )}
-        {step === 2 && (
+        {step === 2 && validComponent && (
           <form
             className="grid gap-4 p-4 sm:grid-cols-2 sm:p-6 lg:grid-cols-3"
             onSubmit={(event) => {
@@ -482,68 +677,12 @@ function InspectionModal({
               setStep(3);
             }}
           >
-            {[
-              ["Project ID", "projectId", true],
-              ["Contractor", "contractor", true],
-              ["State", "state", true],
-              ["LGA", "lga"],
-              ["Community", "community"],
-              ["Inspector", "inspector", true],
-              ["Equipment installed", "equipmentInstalled"],
-              ["Capacity (kW/kVA)", "capacity"],
-              ["Meter details", "meterDetails"],
-              ["Transformer details", "transformerDetails"],
-              ["Pole count", "poleCount"],
-              ["Cable length", "cableLength"],
-              ["Number of beneficiaries", "beneficiaries"],
-            ].map(([label, key, readOnly]) => (
-              <label
-                key={String(key)}
-                className="text-[10px] font-bold uppercase tracking-wide text-slate-500"
-              >
-                {String(label)}
-                <input
-                  required={!readOnly && !locked}
-                  readOnly={Boolean(readOnly) || locked}
-                  value={String(report[key as keyof InspectionReport] ?? "")}
-                  onChange={(event) =>
-                    update(key as keyof InspectionReport, event.target.value)
-                  }
-                  className={`${fieldClass} ${readOnly || locked ? "bg-slate-50" : ""}`}
-                />
-              </label>
-            ))}
-            <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500 lg:col-span-3">
-              Observations
-              <textarea
-                required={!locked}
-                readOnly={locked}
-                value={report.observations}
-                onChange={(event) => update("observations", event.target.value)}
-                className={areaClass}
-              />
-            </label>
-            <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500 lg:col-span-3">
-              Defects
-              <textarea
-                readOnly={locked}
-                value={report.defects}
-                onChange={(event) => update("defects", event.target.value)}
-                className={areaClass}
-              />
-            </label>
-            <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500 lg:col-span-3">
-              Recommendations
-              <textarea
-                required={!locked}
-                readOnly={locked}
-                value={report.recommendations}
-                onChange={(event) =>
-                  update("recommendations", event.target.value)
-                }
-                className={areaClass}
-              />
-            </label>
+            <ComponentDataForm
+              component={validComponent}
+              values={report.componentValues}
+              locked={locked}
+              onChange={updateComponentValue}
+            />
             <div className="flex justify-end gap-2 sm:col-span-2 lg:col-span-3">
               {!locked && (
                 <button
@@ -706,6 +845,114 @@ function InspectionModal({
                 <button
                   type="button"
                   disabled={
+                    !validateComponentFormValues(
+                      validComponent,
+                      report.componentValues,
+                    ) ||
+                    !report.communitySignature ||
+                    !report.contractorSignature ||
+                    report.evidence.length === 0
+                  }
+                  onClick={() => setStep(4)}
+                  className="flex items-center gap-2 rounded-md bg-[#08733f] px-5 py-2.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Review inspection →
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+        {step === 4 && validComponent && (
+          <div className="space-y-5 p-4 sm:p-6">
+            <div className="rounded-lg border border-[#b9dfc5] bg-[#eff9f2] p-4">
+              <p className="text-[9px] font-bold uppercase tracking-wide text-[#4d745d]">
+                Final review
+              </p>
+              <h3 className="mt-1 text-sm font-bold text-[#173b2a]">
+                {validComponent} inspection
+              </h3>
+              <p className="mt-1 text-[10px] text-slate-500">
+                Confirm the component values and evidence before final
+                submission.
+              </p>
+            </div>
+            {COMPONENT_FORM_SECTIONS[validComponent].map((section) => (
+              <section
+                key={section.title}
+                className="rounded-xl border border-slate-200 bg-white p-4"
+              >
+                <h4 className="text-xs font-bold text-[#173b2a]">
+                  {section.title}
+                </h4>
+                <dl className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {section.items
+                    .flatMap((item) =>
+                      item.type === "group" ? item.fields : [item],
+                    )
+                    .map((field) => (
+                      <div
+                        key={field.key}
+                        className="rounded-md bg-slate-50 p-3"
+                      >
+                        <dt className="text-[9px] font-bold uppercase tracking-wide text-slate-500">
+                          {field.label}
+                        </dt>
+                        <dd className="mt-1 text-xs font-semibold text-[#173b2a]">
+                          {report.componentValues[field.key] || "Not provided"}
+                        </dd>
+                      </div>
+                    ))}
+                </dl>
+              </section>
+            ))}
+            <div className="grid gap-3 sm:grid-cols-3">
+              {[
+                ["Evidence files", String(report.evidence.length)],
+                [
+                  "Community representative signature",
+                  report.communitySignature ? "Captured" : "Missing",
+                ],
+                [
+                  "Contractor representative signature",
+                  report.contractorSignature ? "Captured" : "Missing",
+                ],
+              ].map(([label, value]) => (
+                <div
+                  key={label}
+                  className="rounded-lg border border-slate-200 bg-white p-3"
+                >
+                  <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500">
+                    {label}
+                  </p>
+                  <p className="mt-1.5 text-xs font-bold text-[#173b2a]">
+                    {value}
+                  </p>
+                </div>
+              ))}
+            </div>
+            {!locked && (
+              <div className="flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStep(2)}
+                  className="rounded-md border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-600"
+                >
+                  Edit component form
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStep(3)}
+                  className="rounded-md border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-600"
+                >
+                  Edit evidence
+                </button>
+                <button
+                  type="button"
+                  disabled={
+                    !validateComponentFormValues(
+                      validComponent,
+                      report.componentValues,
+                    ) ||
                     !report.communitySignature ||
                     !report.contractorSignature ||
                     report.evidence.length === 0
@@ -716,7 +963,7 @@ function InspectionModal({
                   }}
                   className="flex items-center gap-2 rounded-md bg-[#08733f] px-5 py-2.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  <UploadCloud className="h-4 w-4" />{" "}
+                  <UploadCloud className="h-4 w-4" />
                   {isOnline ? "Submit for QA review" : "Queue for submission"}
                 </button>
               </div>
@@ -813,23 +1060,17 @@ function InlineInspectionWorkspace({
     );
   };
 
-  const previewFields = [
-    ["Inspection type", selected.component],
-    [
-      "Equipment installed",
-      selected.report?.equipmentInstalled ??
-        "e.g. PV modules, inverters, batteries",
-    ],
-    ["Verified capacity (kW)", selected.report?.capacity ?? ""],
-    ["Beneficiaries confirmed", selected.report?.beneficiaries ?? ""],
-    ["Meter number", selected.report?.meterDetails ?? "MTR-…"],
-    [
-      "Transformer serial number",
-      selected.report?.transformerDetails ?? "TR-…",
-    ],
-    ["Observed poles", selected.report?.poleCount ?? ""],
-    ["Installed cable length", selected.report?.cableLength ?? ""],
-  ];
+  const selectedComponent = isSupportedAssignmentComponent(selected.component)
+    ? selected.component
+    : null;
+  const previewValues =
+    selectedComponent &&
+    selected.report?.assignmentId === selected.id &&
+    selected.report.assignedComponent === selectedComponent
+      ? selected.report.componentValues
+      : selectedComponent
+        ? createComponentFormValues(selectedComponent, selected)
+        : {};
   const googleMapUrl = `https://www.google.com/maps?q=${selected.latitude},${selected.longitude}&z=16&output=embed`;
 
   return (
@@ -1066,60 +1307,74 @@ function InlineInspectionWorkspace({
           <div
             className={`space-y-4 ${locked ? "pointer-events-none opacity-35" : ""}`}
           >
-            {[
-              "Inspection and asset details",
-              "Meter and transformer",
-              "Infrastructure verification",
-            ].map((title, sectionIndex) => (
-              <div
-                key={title}
-                className="rounded-lg border border-slate-100 p-4"
-              >
-                <div className="flex gap-3">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#eff9f2] text-[9px] font-bold text-[#08733f]">
-                    0{sectionIndex + 1}
-                  </span>
+            {selectedComponent ? (
+              <>
+                <div className="flex items-center justify-between rounded-lg border border-[#b9dfc5] bg-[#eff9f2] p-3">
                   <div>
-                    <h3 className="text-xs font-bold text-[#173b2a]">
-                      {title}
-                    </h3>
-                    <p className="mt-1 text-[9px] text-slate-400">
-                      {sectionIndex === 0
-                        ? "Record the physical equipment and verified capacity."
-                        : sectionIndex === 1
-                          ? "Use the serial numbers visible on installed equipment."
-                          : "Compare observed infrastructure against the approved scope."}
+                    <p className="text-[8px] font-bold uppercase tracking-wide text-[#4d745d]">
+                      Assigned component
+                    </p>
+                    <p className="mt-1 text-xs font-bold text-[#08733f]">
+                      {selectedComponent}
                     </p>
                   </div>
+                  <span className="text-[9px] font-semibold text-[#4d745d]">
+                    Read-only assignment
+                  </span>
                 </div>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  {previewFields
-                    .slice(
-                      sectionIndex === 0 ? 0 : sectionIndex === 1 ? 4 : 6,
-                      sectionIndex === 0 ? 4 : sectionIndex === 1 ? 6 : 8,
-                    )
-                    .map(([label, value]) => (
-                      <label
-                        key={label}
-                        className="text-[9px] font-semibold text-slate-500"
-                      >
-                        {label}
-                        <input
-                          readOnly
-                          value={value}
-                          placeholder="Enter verified value"
-                          className="mt-1.5 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-[#173b2a]"
-                        />
-                      </label>
-                    ))}
-                </div>
+                {COMPONENT_FORM_SECTIONS[selectedComponent].map(
+                  (section, sectionIndex) => (
+                    <div
+                      key={section.title}
+                      className="rounded-lg border border-slate-100 p-4"
+                    >
+                      <div className="flex gap-3">
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#eff9f2] text-[9px] font-bold text-[#08733f]">
+                          0{sectionIndex + 1}
+                        </span>
+                        <div>
+                          <h3 className="text-xs font-bold text-[#173b2a]">
+                            {section.title}
+                          </h3>
+                          <p className="mt-1 text-[9px] text-slate-400">
+                            Fields are determined by the selected assignment.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {section.items
+                          .flatMap((item) =>
+                            item.type === "group" ? item.fields : [item],
+                          )
+                          .map((field) => (
+                            <label
+                              key={field.key}
+                              className="text-[9px] font-semibold text-slate-500"
+                            >
+                              {field.label}
+                              <input
+                                readOnly
+                                value={previewValues[field.key] ?? ""}
+                                placeholder="Enter verified value"
+                                className="mt-1.5 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-xs text-[#173b2a]"
+                              />
+                            </label>
+                          ))}
+                      </div>
+                    </div>
+                  ),
+                )}
+              </>
+            ) : (
+              <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-xs font-bold text-red-700">
+                {assignmentError}
               </div>
-            ))}
+            )}
           </div>
           <div className="mt-4 flex justify-end">
             <button
               type="button"
-              disabled={locked}
+              disabled={locked || !selectedComponent}
               onClick={() => onOpen(selected)}
               className="rounded-md bg-[#08733f] px-5 py-2.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
             >

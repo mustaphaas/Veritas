@@ -21,6 +21,10 @@ import RoleDashboardShell from "../components/RoleDashboardShell";
 import { useLocation, useNavigate } from "react-router-dom";
 import { projects, type Project } from "../lib/dashboard-data";
 import {
+  COMPONENT_FORM_SECTIONS,
+  isSupportedAssignmentComponent,
+} from "../lib/component-inspection-form";
+import {
   fieldOfficers,
   getAssignmentDisplayStatus,
   useInspectionWorkflow,
@@ -282,13 +286,13 @@ function ReviewModal({
           <div className="space-y-4 p-4 sm:p-6">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {[
-                ["Location", `${report.community}, ${report.state}`],
+                ["Assignment ID", report.assignmentId || assignment.id],
+                ["Assigned component", report.assignedComponent],
+                ["Location", `${assignment.community}, ${assignment.state}`],
                 [
                   "GPS",
                   `${report.latitude.toFixed(5)}, ${report.longitude.toFixed(5)}`,
                 ],
-                ["Capacity", report.capacity],
-                ["Beneficiaries", report.beneficiaries],
               ].map(([label, value]) => (
                 <div
                   key={label}
@@ -303,46 +307,48 @@ function ReviewModal({
                 </div>
               ))}
             </div>
-            <div className="grid gap-3 lg:grid-cols-2">
-              <div className="rounded-lg border border-slate-200 bg-white p-4">
-                <h3 className="text-xs font-bold text-[#173b2a]">
-                  Inspection findings
-                </h3>
-                <dl className="mt-3 space-y-3 text-xs">
-                  <div>
-                    <dt className="text-[9px] font-bold uppercase text-slate-500">
-                      Equipment
-                    </dt>
-                    <dd className="mt-1 text-slate-700">
-                      {report.equipmentInstalled}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-[9px] font-bold uppercase text-slate-500">
-                      Observations
-                    </dt>
-                    <dd className="mt-1 text-slate-700">
-                      {report.observations}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-[9px] font-bold uppercase text-slate-500">
-                      Defects
-                    </dt>
-                    <dd className="mt-1 text-slate-700">
-                      {report.defects || "None reported"}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-[9px] font-bold uppercase text-slate-500">
-                      Recommendations
-                    </dt>
-                    <dd className="mt-1 text-slate-700">
-                      {report.recommendations}
-                    </dd>
-                  </div>
-                </dl>
+            {isSupportedAssignmentComponent(report.assignedComponent) ? (
+              <div className="space-y-3">
+                {COMPONENT_FORM_SECTIONS[report.assignedComponent].map(
+                  (section) => (
+                    <section
+                      key={section.title}
+                      className="rounded-lg border border-slate-200 bg-white p-4"
+                    >
+                      <h3 className="text-xs font-bold text-[#173b2a]">
+                        {section.title}
+                      </h3>
+                      <dl className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {section.items
+                          .flatMap((item) =>
+                            item.type === "group" ? item.fields : [item],
+                          )
+                          .map((field) => (
+                            <div
+                              key={field.key}
+                              className="rounded-md bg-slate-50 p-3"
+                            >
+                              <dt className="text-[9px] font-bold uppercase tracking-wide text-slate-500">
+                                {field.label}
+                              </dt>
+                              <dd className="mt-1 text-xs font-semibold text-[#173b2a]">
+                                {report.componentValues?.[field.key] ||
+                                  "Not provided"}
+                              </dd>
+                            </div>
+                          ))}
+                      </dl>
+                    </section>
+                  ),
+                )}
               </div>
+            ) : (
+              <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-xs font-bold text-red-700">
+                This assignment does not have a valid component. Please contact
+                your supervisor.
+              </div>
+            )}
+            <div className="grid gap-3 lg:grid-cols-2">
               <div className="rounded-lg border border-slate-200 bg-white p-4">
                 <h3 className="text-xs font-bold text-[#173b2a]">
                   Evidence & integrity checks

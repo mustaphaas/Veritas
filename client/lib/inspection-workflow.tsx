@@ -8,6 +8,15 @@ import {
   type ReactNode,
 } from "react";
 import { projects, type Project } from "./dashboard-data";
+import {
+  createComponentFormValues,
+  isSupportedAssignmentComponent,
+  normalizeAssignmentComponent,
+  sanitizeComponentFormValues,
+  validateComponentFormValues,
+  type ComponentFormValues,
+  type SupportedAssignmentComponent,
+} from "./component-inspection-form";
 
 export type AssignmentStatus =
   | "Assigned"
@@ -73,6 +82,10 @@ export function canSubmitReport(
 ) {
   return (
     canEditReport(assignment) &&
+    isSupportedAssignmentComponent(assignment.component) &&
+    report.assignmentId === assignment.id &&
+    report.assignedComponent === assignment.component &&
+    validateComponentFormValues(assignment.component, report.componentValues) &&
     report.evidence.length > 0 &&
     Boolean(report.communitySignature) &&
     Boolean(report.contractorSignature)
@@ -98,6 +111,9 @@ export type EvidenceItem = {
 };
 
 export type InspectionReport = {
+  assignmentId: string;
+  assignedComponent: SupportedAssignmentComponent;
+  componentValues: ComponentFormValues;
   projectId: string;
   contractor: string;
   state: string;
@@ -109,16 +125,16 @@ export type InspectionReport = {
   inspector: string;
   deviceId: string;
   deviceType: string;
-  equipmentInstalled: string;
-  capacity: string;
-  meterDetails: string;
-  transformerDetails: string;
-  poleCount: string;
-  cableLength: string;
-  beneficiaries: string;
-  observations: string;
-  defects: string;
-  recommendations: string;
+  equipmentInstalled?: string;
+  capacity?: string;
+  meterDetails?: string;
+  transformerDetails?: string;
+  poleCount?: string;
+  cableLength?: string;
+  beneficiaries?: string;
+  observations?: string;
+  defects?: string;
+  recommendations?: string;
   assetCode: string;
   evidence: EvidenceItem[];
   communitySignature?: string;
@@ -249,11 +265,12 @@ export function createAssignment(
     project,
     projects.indexOf(project) >= 0 ? projects.indexOf(project) : index,
   );
+  const component = normalizeAssignmentComponent(project.component);
   return {
     id,
     projectName: project.name,
     programme: project.programme,
-    component: project.component,
+    component,
     contractor: project.contractor,
     state: project.state,
     lga: `${project.state} Central`,
@@ -309,7 +326,31 @@ function seedAssignments() {
         at: new Date().toISOString(),
         distance: 0,
       };
+      if (!isSupportedAssignmentComponent(assignment.component)) {
+        return assignment;
+      }
+      const componentValues = createComponentFormValues(
+        assignment.component,
+        assignment,
+      );
+      componentValues.status = "Ongoing";
+      if (assignment.component === "Grid Extension") {
+        componentValues.totalTransformerCapacityKva = "500";
+        componentValues.numberOfPoles = "18";
+        componentValues.kmOfNetworkBuilt = "2.4";
+      }
+      if (assignment.component === "Mini Grid") {
+        componentValues.installedPvKwp = String(project.kw);
+        componentValues.totalNumberOfConnections = String(project.households);
+      }
+      if (assignment.component === "SAS") {
+        componentValues.numberOfSasUnits = String(project.households);
+        componentValues.installedPvKwp = String(project.kw);
+      }
       assignment.report = {
+        assignmentId: assignment.id,
+        assignedComponent: assignment.component,
+        componentValues,
         projectId: assignment.id,
         contractor: assignment.contractor,
         state: assignment.state,
@@ -561,12 +602,26 @@ export function InspectionWorkflowProvider({
   const saveReport = useCallback(
     (id: string, report: InspectionReport) =>
       update(id, (assignment) => {
-        if (!canEditReport(assignment)) {
+        if (
+          !canEditReport(assignment) ||
+          !isSupportedAssignmentComponent(assignment.component) ||
+          report.assignmentId !== assignment.id ||
+          report.assignedComponent !== assignment.component
+        ) {
           return assignment;
         }
+        const safeReport = {
+          ...report,
+          assignmentId: assignment.id,
+          assignedComponent: assignment.component,
+          componentValues: sanitizeComponentFormValues(
+            assignment.component,
+            report.componentValues,
+          ),
+        };
         return {
           ...assignment,
-          report,
+          report: safeReport,
           status: "Draft",
           syncStatus: isOnline ? "synced" : "queued",
           audit: [
@@ -591,9 +646,22 @@ export function InspectionWorkflowProvider({
         if (!canSubmitReport(assignment, report)) {
           return assignment;
         }
+        if (!isSupportedAssignmentComponent(assignment.component)) {
+          return assignment;
+        }
+        const safeReport = {
+          ...report,
+          assignmentId: assignment.id,
+          assignedComponent: assignment.component,
+          componentValues: sanitizeComponentFormValues(
+            assignment.component,
+            report.componentValues,
+          ),
+          submittedAt: new Date().toISOString(),
+        };
         return {
           ...assignment,
-          report: { ...report, submittedAt: new Date().toISOString() },
+          report: safeReport,
           status: "Submitted",
           syncStatus: isOnline ? "synced" : "queued",
           audit: [
