@@ -430,11 +430,68 @@ function loadAssignments() {
   try {
     const stored = window.localStorage.getItem(STORAGE_KEY);
     return stored
-      ? (JSON.parse(stored) as InspectionAssignment[])
+      ? (JSON.parse(stored) as InspectionAssignment[]).map(
+          migrateStoredAssignment,
+        )
       : seedAssignments();
   } catch {
     return seedAssignments();
   }
+}
+
+export function migrateStoredAssignment(
+  storedAssignment: InspectionAssignment,
+): InspectionAssignment {
+  const component = normalizeAssignmentComponent(storedAssignment.component);
+  const assignment = { ...storedAssignment, component };
+  if (!assignment.report || !isSupportedAssignmentComponent(component)) {
+    return assignment;
+  }
+  const existing = assignment.report as InspectionReport & {
+    assignmentId?: string;
+    assignedComponent?: string;
+    componentValues?: ComponentFormValues;
+  };
+  if (
+    existing.assignmentId === assignment.id &&
+    existing.assignedComponent === component &&
+    existing.componentValues
+  ) {
+    return assignment;
+  }
+  const componentValues = createComponentFormValues(component, assignment);
+  componentValues.status =
+    assignment.status === "Verified" || assignment.status === "Approved"
+      ? "Completed"
+      : "Ongoing";
+  const numberFromLegacy = (value?: string) =>
+    value?.match(/\d+(?:\.\d+)?/)?.[0] ?? "";
+  if (component === "Grid Extension") {
+    componentValues.numberOfPoles = numberFromLegacy(existing.poleCount);
+    componentValues.kmOfNetworkBuilt = numberFromLegacy(existing.cableLength);
+    componentValues.totalTransformerCapacityKva = numberFromLegacy(
+      existing.transformerDetails,
+    );
+  }
+  if (component === "Mini Grid") {
+    componentValues.installedPvKwp = numberFromLegacy(existing.capacity);
+    componentValues.totalNumberOfConnections = numberFromLegacy(
+      existing.beneficiaries,
+    );
+  }
+  if (component === "SAS") {
+    componentValues.installedPvKwp = numberFromLegacy(existing.capacity);
+    componentValues.numberOfSasUnits = numberFromLegacy(existing.beneficiaries);
+  }
+  return {
+    ...assignment,
+    report: {
+      ...existing,
+      assignmentId: assignment.id,
+      assignedComponent: component,
+      componentValues,
+    },
+  };
 }
 
 export function InspectionWorkflowProvider({

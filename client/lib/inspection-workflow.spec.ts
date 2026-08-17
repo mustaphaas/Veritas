@@ -10,6 +10,7 @@ import {
   getDeviceType,
   isFieldReportLocked,
   isArrivalFresh,
+  migrateStoredAssignment,
 } from "./inspection-workflow";
 
 describe("inspection workflow", () => {
@@ -94,5 +95,53 @@ describe("inspection workflow", () => {
         now,
       ),
     ).toBe(false);
+  });
+
+  it("migrates legacy reports without losing evidence", () => {
+    const project = projects.find((item) => item.component === "Mini Grid")!;
+    const assignment = createAssignment(
+      project,
+      "Amina Yusuf",
+      "2026-08-24T17:00:00.000Z",
+    );
+    assignment.report = {
+      projectId: assignment.id,
+      contractor: assignment.contractor,
+      state: assignment.state,
+      lga: assignment.lga,
+      community: assignment.community,
+      inspectedAt: "2026-08-17T12:00:00.000Z",
+      latitude: assignment.latitude,
+      longitude: assignment.longitude,
+      inspector: assignment.officer,
+      deviceId: "REA-LEGACY",
+      deviceType: "Mobile phone",
+      capacity: "250 kW",
+      beneficiaries: "730",
+      assetCode: "ASSET-001",
+      evidence: [
+        {
+          id: "evidence-1",
+          name: "site.jpg",
+          type: "photo",
+          capturedAt: "2026-08-17T12:00:00.000Z",
+          latitude: assignment.latitude,
+          longitude: assignment.longitude,
+          projectId: assignment.id,
+          inspector: assignment.officer,
+          deviceId: "REA-LEGACY",
+          deviceType: "Mobile phone",
+        },
+      ],
+    } as typeof assignment.report;
+
+    const migrated = migrateStoredAssignment(assignment);
+    expect(migrated.report?.assignmentId).toBe(assignment.id);
+    expect(migrated.report?.assignedComponent).toBe("Mini Grid");
+    expect(migrated.report?.componentValues.installedPvKwp).toBe("250");
+    expect(migrated.report?.componentValues.totalNumberOfConnections).toBe(
+      "730",
+    );
+    expect(migrated.report?.evidence).toHaveLength(1);
   });
 });
