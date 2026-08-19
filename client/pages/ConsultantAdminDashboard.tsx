@@ -105,6 +105,13 @@ function MetricCard({
 }
 
 function StatusPill({ status }: { status: InspectionAssignment["status"] }) {
+  if (status === "Rejected") {
+    return (
+      <span className="rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[10px] font-bold text-red-700">
+        REA Rejected
+      </span>
+    );
+  }
   const displayStatus = getAssignmentDisplayStatus(status);
   const style =
     displayStatus === "Verified"
@@ -799,15 +806,21 @@ function ConsultantWorkspace({
   const rows =
     view === "Verification"
       ? assignments.filter((item) =>
-          ["Submitted", "Approved", "Verified", "Re-inspection"].includes(
-            item.status,
-          ),
+          [
+            "Submitted",
+            "Approved",
+            "Verified",
+            "Rejected",
+            "Re-inspection",
+          ].includes(item.status),
         )
       : view === "Reports"
         ? assignments.filter(
             (item) =>
               item.report &&
-              ["Submitted", "Approved", "Verified"].includes(item.status),
+              ["Submitted", "Approved", "Verified", "Rejected"].includes(
+                item.status,
+              ),
           )
         : view === "Notifications"
           ? assignments.filter((item) =>
@@ -848,6 +861,11 @@ function ConsultantWorkspace({
               {item.status === "Re-inspection" && (
                 <p className="mt-1 text-[10px] font-semibold text-red-700">
                   Returned: {item.report?.reviewNote}
+                </p>
+              )}
+              {item.status === "Rejected" && (
+                <p className="mt-1 text-[10px] font-semibold text-red-700">
+                  REA rejection: {item.report?.reaReviewNote}
                 </p>
               )}
             </div>
