@@ -27,6 +27,7 @@ export type AssignmentStatus =
   | "Submitted"
   | "Approved"
   | "Verified"
+  | "Rejected"
   | "Re-inspection";
 
 export type AssignmentDisplayStatus =
@@ -35,7 +36,7 @@ export type AssignmentDisplayStatus =
 export function getAssignmentDisplayStatus(
   status: AssignmentStatus,
 ): AssignmentDisplayStatus {
-  if (status === "Approved") return "Approved";
+  if (status === "Approved" || status === "Rejected") return "Approved";
   if (status === "Verified") return "Verified";
   if (["Draft", "Submitted", "Re-inspection"].includes(status)) return "Draft";
   return "Assigned";
@@ -49,7 +50,10 @@ export function assignmentDisplayRank(status: AssignmentStatus) {
 
 export function isFieldReportLocked(status: AssignmentStatus) {
   return (
-    status === "Submitted" || status === "Approved" || status === "Verified"
+    status === "Submitted" ||
+    status === "Approved" ||
+    status === "Verified" ||
+    status === "Rejected"
   );
 }
 
@@ -97,6 +101,10 @@ export function canReviewReport(status: AssignmentStatus) {
   return status === "Submitted";
 }
 
+export function canReaReviewReport(status: AssignmentStatus) {
+  return status === "Approved";
+}
+
 export type EvidenceItem = {
   id: string;
   name: string;
@@ -142,6 +150,8 @@ export type InspectionReport = {
   contractorSignature?: string;
   submittedAt?: string;
   reviewNote?: string;
+  reaReviewNote?: string;
+  reaReviewedAt?: string;
 };
 
 export type AuditEvent = {
@@ -762,6 +772,11 @@ type WorkflowContextValue = {
     decision: "Approved" | "Re-inspection",
     note: string,
   ) => void;
+  reaReviewReport: (
+    id: string,
+    decision: "Verified" | "Rejected",
+    note: string,
+  ) => void;
   syncNow: () => void;
   resetDemo: () => void;
 };
@@ -1243,6 +1258,41 @@ export function InspectionWorkflowProvider({
     [update],
   );
 
+  const reaReviewReport = useCallback(
+    (id: string, decision: "Verified" | "Rejected", note: string) =>
+      update(id, (assignment) => {
+        if (!canReaReviewReport(assignment.status)) return assignment;
+        if (decision === "Rejected" && !note.trim()) return assignment;
+        const reviewedAt = new Date().toISOString();
+        return {
+          ...assignment,
+          status: decision,
+          report: assignment.report
+            ? {
+                ...assignment.report,
+                reaReviewNote: note.trim(),
+                reaReviewedAt: reviewedAt,
+              }
+            : assignment.report,
+          audit: [
+            ...assignment.audit,
+            {
+              id: uid("audit"),
+              at: reviewedAt,
+              actor: "REA Administrator",
+              action:
+                decision === "Verified"
+                  ? "Report verified by REA"
+                  : `Report rejected by REA: ${note.trim()}`,
+              deviceId: getDeviceId(),
+              deviceType: getDeviceType(),
+            },
+          ],
+        };
+      }),
+    [update],
+  );
+
   const syncNow = useCallback(() => {
     if (!isOnline) return;
     setAssignments((current) =>
@@ -1265,6 +1315,7 @@ export function InspectionWorkflowProvider({
       saveReport,
       submitReport,
       reviewReport,
+      reaReviewReport,
       syncNow,
       resetDemo,
     }),
@@ -1280,6 +1331,7 @@ export function InspectionWorkflowProvider({
       saveReport,
       submitReport,
       reviewReport,
+      reaReviewReport,
       syncNow,
       resetDemo,
     ],
