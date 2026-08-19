@@ -3,6 +3,7 @@ import { projects } from "./dashboard-data";
 import { validateComponentFormValues } from "./component-inspection-form";
 import {
   canReviewReport,
+  canReaReviewReport,
   canStartRoute,
   canVerifyArrival,
   createAssignment,
@@ -96,6 +97,7 @@ describe("inspection workflow", () => {
     expect(isFieldReportLocked("Submitted")).toBe(true);
     expect(isFieldReportLocked("Approved")).toBe(true);
     expect(isFieldReportLocked("Verified")).toBe(true);
+    expect(isFieldReportLocked("Rejected")).toBe(true);
     expect(isFieldReportLocked("Re-inspection")).toBe(false);
   });
 
@@ -105,6 +107,7 @@ describe("inspection workflow", () => {
     expect(getAssignmentDisplayStatus("Re-inspection")).toBe("Draft");
     expect(getAssignmentDisplayStatus("Approved")).toBe("Approved");
     expect(getAssignmentDisplayStatus("Verified")).toBe("Verified");
+    expect(getAssignmentDisplayStatus("Rejected")).toBe("Approved");
   });
 
   it("enforces the ordered field and consultant status transitions", () => {
@@ -114,6 +117,10 @@ describe("inspection workflow", () => {
     expect(canVerifyArrival("En route")).toBe(true);
     expect(canReviewReport("Draft")).toBe(false);
     expect(canReviewReport("Submitted")).toBe(true);
+    expect(canReaReviewReport("Submitted")).toBe(false);
+    expect(canReaReviewReport("Approved")).toBe(true);
+    expect(canReaReviewReport("Verified")).toBe(false);
+    expect(canReaReviewReport("Rejected")).toBe(false);
   });
 
   it("requires a recent GPS verification before a draft can be edited", () => {
