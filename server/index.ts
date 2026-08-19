@@ -2,6 +2,8 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { handleDemo } from "./routes/demo";
+import { handleReaAssistant } from "./routes/rea-assistant";
+import { createReaSession, deleteReaSession } from "./routes/rea-session";
 
 export function createServer() {
   const app = express();
@@ -18,6 +20,9 @@ export function createServer() {
   });
 
   app.get("/api/demo", handleDemo);
+  app.post("/api/rea-assistant", handleReaAssistant);
+  app.post("/api/auth/rea-session", createReaSession);
+  app.delete("/api/auth/rea-session", deleteReaSession);
 
   return app;
 }
