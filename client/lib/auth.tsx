@@ -1,155 +1,122 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
-import { Navigate, useLocation } from "react-router-dom";
 import {
-  defaultFieldOfficers,
-  FIELD_OFFICERS_STORAGE_KEY,
-  type FieldOfficerAccount,
-} from "./inspection-workflow";
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
+import { Navigate, useLocation } from "react-router-dom";
 
 export type DemoRole = "rea" | "field" | "consultant";
 
-export type DemoAccount = {
+export type AuthSession = {
+  id: string;
   role: DemoRole;
   roleLabel: string;
   name: string;
   initials: string;
   email: string;
-  password: string;
   path: string;
 };
 
-export const demoAccounts: DemoAccount[] = [
-  {
-    role: "rea",
-    roleLabel: "REA Dashboard",
-    name: "REA Administrator",
-    initials: "RA",
-    email: "rea.admin@demo.ng",
-    password: "REA2024!",
-    path: "/",
-  },
-  {
-    role: "field",
-    roleLabel: "Field Officer",
-    name: "Amina Yusuf",
-    initials: "AY",
-    email: "field.officer@demo.ng",
-    password: "Field2024!",
-    path: "/field-officer",
-  },
-  {
-    role: "consultant",
-    roleLabel: "Consultant Admin",
-    name: "Ibrahim Musa",
-    initials: "IM",
-    email: "consultant.admin@demo.ng",
-    password: "Consult2024!",
-    path: "/consultant-admin",
-  },
-];
-
-export type AuthSession = Omit<DemoAccount, "password">;
+type ApiUser = {
+  id: string;
+  email: string;
+  displayName: string;
+  role: DemoRole;
+};
 
 type AuthContextValue = {
   session: AuthSession | null;
+  loading: boolean;
   login: (email: string, password: string) => Promise<AuthSession | null>;
   logout: () => void;
 };
 
-const SESSION_KEY = "rea-demo-session";
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-export function authenticateDemoAccount(email: string, password: string) {
-  const normalizedEmail = email.trim().toLowerCase();
-  let managedOfficers = defaultFieldOfficers;
-  if (typeof window !== "undefined") {
-    try {
-      const stored = window.localStorage.getItem(FIELD_OFFICERS_STORAGE_KEY);
-      if (stored) managedOfficers = JSON.parse(stored) as FieldOfficerAccount[];
-    } catch {
-      managedOfficers = defaultFieldOfficers;
-    }
-  }
-  const managedOfficer = managedOfficers.find(
-    (candidate) => candidate.email.toLowerCase() === normalizedEmail,
-  );
-  if (managedOfficer) {
-    if (
-      managedOfficer.status !== "Active" ||
-      managedOfficer.password !== password
-    ) {
-      return null;
-    }
-    return {
-      role: "field" as const,
-      roleLabel: "Field Officer",
-      name: managedOfficer.name,
-      initials: managedOfficer.name
-        .split(/\s+/)
-        .slice(0, 2)
-        .map((part) => part[0]?.toUpperCase())
-        .join(""),
-      email: managedOfficer.email,
-      password: managedOfficer.password,
-      path: "/field-officer",
-    };
-  }
-  return (
-    demoAccounts.find(
-      (candidate) =>
-        candidate.email.toLowerCase() === normalizedEmail &&
-        candidate.password === password &&
-        candidate.role !== "field",
-    ) ?? null
-  );
-}
-
-function readSession(): AuthSession | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const stored = window.sessionStorage.getItem(SESSION_KEY);
-    return stored ? (JSON.parse(stored) as AuthSession) : null;
-  } catch {
-    return null;
-  }
+function sessionFromUser(user: ApiUser): AuthSession {
+  const labels: Record<DemoRole, string> = {
+    rea: "REA Dashboard",
+    field: "Field Officer",
+    consultant: "Consultant Admin",
+  };
+  const paths: Record<DemoRole, string> = {
+    rea: "/",
+    field: "/field-officer",
+    consultant: "/consultant-admin",
+  };
+  return {
+    id: user.id,
+    role: user.role,
+    roleLabel: labels[user.role],
+    name: user.displayName,
+    initials: user.displayName
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join(""),
+    email: user.email,
+    path: paths[user.role],
+  };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<AuthSession | null>(readSession);
+  const [session, setSession] = useState<AuthSession | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    void fetch("/api/auth/session", { credentials: "same-origin" })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        const body = (await response.json()) as {
+          authenticated?: boolean;
+          user?: ApiUser | null;
+        };
+        return body.authenticated && body.user ? sessionFromUser(body.user) : null;
+      })
+      .catch(() => null)
+      .then((nextSession) => {
+        if (active) {
+          setSession(nextSession);
+          setLoading(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const login = async (email: string, password: string) => {
-    const account = authenticateDemoAccount(email, password);
-    if (!account) return null;
-    if (account.role === "rea") {
-      try {
-        await fetch("/api/auth/rea-session", {
-          method: "POST",
-          credentials: "same-origin",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
-        });
-      } catch {
-        // The dashboard remains available if the optional AI service has not
-        // been configured. The protected AI endpoint will remain inaccessible.
-      }
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!response.ok) return null;
+      const body = (await response.json()) as { user?: ApiUser };
+      if (!body.user) return null;
+      const nextSession = sessionFromUser(body.user);
+      setSession(nextSession);
+      return nextSession;
+    } catch {
+      return null;
     }
-    const { password: _password, ...nextSession } = account;
-    setSession(nextSession);
-    window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(nextSession));
-    return nextSession;
   };
 
   const logout = () => {
-    void fetch("/api/auth/rea-session", {
+    void fetch("/api/auth/session", {
       method: "DELETE",
       credentials: "same-origin",
     }).catch(() => undefined);
     setSession(null);
-    window.sessionStorage.removeItem(SESSION_KEY);
   };
 
   return (
-    <AuthContext.Provider value={{ session, login, logout }}>
+    <AuthContext.Provider value={{ session, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
@@ -168,8 +135,15 @@ export function RequireRole({
   role: DemoRole;
   children: ReactNode;
 }) {
-  const { session } = useAuth();
+  const { session, loading } = useAuth();
   const location = useLocation();
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#eef6f0] text-sm font-semibold text-[#08733f]">
+        Securing session…
+      </div>
+    );
+  }
   if (!session) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
