@@ -55,6 +55,7 @@ import {
   type StateSummary,
 } from "../lib/dashboard-data";
 import { useAuth } from "../lib/auth";
+import ReaAiAssistant from "../components/ReaAiAssistant";
 import {
   COMPONENT_FORM_SECTIONS,
   isSupportedAssignmentComponent,
@@ -2119,6 +2120,7 @@ export default function Index() {
           )}
         </div>
       </main>
+      <ReaAiAssistant filters={filters} />
     </div>
   );
 }

@@ -11,7 +11,8 @@ The Worker expects these bindings from `wrangler.jsonc`:
 | `ASSETS` | Workers Static Assets | Built React SPA |
 
 `BOOTSTRAP_TOKEN` and `OPENAI_API_KEY` are secrets. Set them with `wrangler
-secret put`; never add them to `wrangler.jsonc`, `.env`, or GitHub.
+secret put`; never add real values to `wrangler.jsonc`, `.env`,
+`.dev.vars.example`, or GitHub.
 
 ## First deployment
 

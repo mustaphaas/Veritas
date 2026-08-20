@@ -1,0 +1,3 @@
+# Local Cloudflare Worker secrets. Never commit real values.
+BOOTSTRAP_TOKEN=replace-with-a-long-random-value
+OPENAI_API_KEY=replace-with-an-openai-api-key

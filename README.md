@@ -23,7 +23,7 @@ npm run db:migrate:local
 npm run dev
 ```
 
-Create `.dev.vars` from `.env.example` and replace the bootstrap token with a
+Create `.dev.vars` from `.dev.vars.example` and replace the bootstrap token with a
 long random value. Then create the first REA administrator exactly once:
 
 ```bash
