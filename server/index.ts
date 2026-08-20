@@ -2,8 +2,16 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { handleDemo } from "./routes/demo";
-import { handleReaAssistant } from "./routes/rea-assistant";
-import { createReaSession, deleteReaSession } from "./routes/rea-session";
+
+// The REA assistant and session routes now live entirely in the D1-backed
+// Cloudflare backend (functions/_lib/api.ts, shared by functions/api and
+// worker/index.ts). This local Express server is only used for the Vite
+// dev-server middleware and no longer proxies those routes - it previously
+// imported ./routes/rea-assistant and ./routes/rea-session, which called
+// into shared/rea-server-auth.ts. That module was intentionally removed
+// when the Cloudflare backend replaced the old demo-cookie auth, but these
+// two Express routes were left importing it, which broke `vite build` /
+// `npm run build` entirely.
 
 export function createServer() {
   const app = express();
@@ -20,9 +28,6 @@ export function createServer() {
   });
 
   app.get("/api/demo", handleDemo);
-  app.post("/api/rea-assistant", handleReaAssistant);
-  app.post("/api/auth/rea-session", createReaSession);
-  app.delete("/api/auth/rea-session", deleteReaSession);
 
   return app;
 }
