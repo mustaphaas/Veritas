@@ -21,8 +21,6 @@ export const handleReaAssistant: RequestHandler = async (req, res) => {
     });
     res.status(result.status).json(result.body);
   } catch {
-    res
-      .status(500)
-      .json({ error: "Ask Veritas could not complete the request." });
+    res.status(500).json({ error: "REA AI could not complete the request." });
   }
 };
