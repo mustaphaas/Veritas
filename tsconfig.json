@@ -34,10 +34,11 @@
   },
   "include": [
     "client/**/*",
-    "server/**/*",
+    "worker/**/*",
     "shared/**/*",
+    "worker-configuration.d.ts",
     "vite.config.ts",
-    "vite.config.server.ts"
+    "vitest.config.ts"
   ],
   "exclude": ["node_modules", "dist"]
 }

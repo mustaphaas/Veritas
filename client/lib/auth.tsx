@@ -1,141 +1,88 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
-import { Navigate, useLocation } from "react-router-dom";
 import {
-  defaultFieldOfficers,
-  FIELD_OFFICERS_STORAGE_KEY,
-  type FieldOfficerAccount,
-} from "./inspection-workflow";
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import { Navigate, useLocation } from "react-router-dom";
+import type { AuthSession, LoginResponse, UserRole } from "@shared/backend";
 
-export type DemoRole = "rea" | "field" | "consultant";
-
-export type DemoAccount = {
-  role: DemoRole;
-  roleLabel: string;
-  name: string;
-  initials: string;
-  email: string;
-  password: string;
-  path: string;
-};
-
-export const demoAccounts: DemoAccount[] = [
-  {
-    role: "rea",
-    roleLabel: "REA Dashboard",
-    name: "REA Administrator",
-    initials: "RA",
-    email: "rea.admin@demo.ng",
-    password: "REA2024!",
-    path: "/",
-  },
-  {
-    role: "field",
-    roleLabel: "Field Officer",
-    name: "Amina Yusuf",
-    initials: "AY",
-    email: "field.officer@demo.ng",
-    password: "Field2024!",
-    path: "/field-officer",
-  },
-  {
-    role: "consultant",
-    roleLabel: "Consultant Admin",
-    name: "Ibrahim Musa",
-    initials: "IM",
-    email: "consultant.admin@demo.ng",
-    password: "Consult2024!",
-    path: "/consultant-admin",
-  },
-];
-
-export type AuthSession = Omit<DemoAccount, "password">;
+export type DemoRole = UserRole;
 
 type AuthContextValue = {
   session: AuthSession | null;
-  login: (email: string, password: string) => AuthSession | null;
-  logout: () => void;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<AuthSession>;
+  logout: () => Promise<void>;
+  refresh: () => Promise<void>;
 };
 
-const SESSION_KEY = "rea-demo-session";
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-export function authenticateDemoAccount(email: string, password: string) {
-  const normalizedEmail = email.trim().toLowerCase();
-  let managedOfficers = defaultFieldOfficers;
-  if (typeof window !== "undefined") {
-    try {
-      const stored = window.localStorage.getItem(FIELD_OFFICERS_STORAGE_KEY);
-      if (stored) managedOfficers = JSON.parse(stored) as FieldOfficerAccount[];
-    } catch {
-      managedOfficers = defaultFieldOfficers;
-    }
-  }
-  const managedOfficer = managedOfficers.find(
-    (candidate) => candidate.email.toLowerCase() === normalizedEmail,
-  );
-  if (managedOfficer) {
-    if (
-      managedOfficer.status !== "Active" ||
-      managedOfficer.password !== password
-    ) {
-      return null;
-    }
-    return {
-      role: "field" as const,
-      roleLabel: "Field Officer",
-      name: managedOfficer.name,
-      initials: managedOfficer.name
-        .split(/\s+/)
-        .slice(0, 2)
-        .map((part) => part[0]?.toUpperCase())
-        .join(""),
-      email: managedOfficer.email,
-      password: managedOfficer.password,
-      path: "/field-officer",
-    };
-  }
-  return (
-    demoAccounts.find(
-      (candidate) =>
-        candidate.email.toLowerCase() === normalizedEmail &&
-        candidate.password === password &&
-        candidate.role !== "field",
-    ) ?? null
-  );
-}
-
-function readSession(): AuthSession | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const stored = window.sessionStorage.getItem(SESSION_KEY);
-    return stored ? (JSON.parse(stored) as AuthSession) : null;
-  } catch {
-    return null;
-  }
+async function authRequest<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, {
+    ...init,
+    credentials: "include",
+    headers: {
+      ...(init?.body ? { "Content-Type": "application/json" } : {}),
+      ...init?.headers,
+    },
+  });
+  const body = (await response.json().catch(() => ({}))) as T & {
+    error?: string;
+  };
+  if (!response.ok) throw new Error(body.error || "Authentication failed.");
+  return body;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<AuthSession | null>(readSession);
+  const [session, setSession] = useState<AuthSession | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const login = (email: string, password: string) => {
-    const account = authenticateDemoAccount(email, password);
-    if (!account) return null;
-    const { password: _password, ...nextSession } = account;
-    setSession(nextSession);
-    window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(nextSession));
-    return nextSession;
+  const refresh = async () => {
+    try {
+      const result = await authRequest<LoginResponse>("/api/auth/session");
+      setSession(result.user);
+    } catch {
+      setSession(null);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const logout = () => {
-    setSession(null);
-    window.sessionStorage.removeItem(SESSION_KEY);
-  };
+  useEffect(() => {
+    void refresh();
+  }, []);
 
-  return (
-    <AuthContext.Provider value={{ session, login, logout }}>
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      session,
+      loading,
+      login: async (email, password) => {
+        const result = await authRequest<LoginResponse>("/api/auth/login", {
+          method: "POST",
+          body: JSON.stringify({ email, password }),
+        });
+        setSession(result.user);
+        return result.user;
+      },
+      logout: async () => {
+        try {
+          await authRequest<{ ok: boolean }>("/api/auth/logout", {
+            method: "POST",
+          });
+        } finally {
+          setSession(null);
+        }
+      },
+      refresh,
+    }),
+    [session, loading],
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
@@ -148,11 +95,18 @@ export function RequireRole({
   role,
   children,
 }: {
-  role: DemoRole;
+  role: UserRole;
   children: ReactNode;
 }) {
-  const { session } = useAuth();
+  const { session, loading } = useAuth();
   const location = useLocation();
+  if (loading) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-[#eef6f0]">
+        <p className="text-sm font-semibold text-[#08733f]">Loading secure workspace…</p>
+      </main>
+    );
+  }
   if (!session) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }

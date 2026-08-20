@@ -24,4 +24,8 @@ dist-ssr
 *.sw?
 
 .config/
-!.env
+.env
+.env.*
+!.env.example
+.dev.vars
+.wrangler/

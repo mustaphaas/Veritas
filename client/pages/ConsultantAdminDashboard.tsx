@@ -255,7 +255,7 @@ function CreateFieldOfficerModal({ onClose }: { onClose: () => void }) {
   const [device, setDevice] = useState(
     () => `REA-FO-${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
   );
-  const [password, setPassword] = useState("Field2024!");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const submit = () => {
     const result = createFieldOfficer({

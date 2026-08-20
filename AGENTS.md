@@ -1,13 +1,13 @@
-# Fusion Starter
+# Veritas
 
-A production-ready full-stack React application template with integrated Express server, featuring React Router 6 SPA mode, TypeScript, Vitest, Zod and modern tooling.
+A production-ready full-stack React application deployed as a Cloudflare Worker, featuring React Router 6 SPA mode, TypeScript, Vitest, D1, R2, and Zod.
 
-While the starter comes with a express server, only create endpoint when strictly neccesary, for example to encapsulate logic that must leave in the server, such as private keys handling, or certain DB operations, db...
+All privileged data access, authentication, workflow transitions, and private file operations belong in the Worker API. Do not add secrets or authorization logic to the browser.
 
 ## Tech Stack
 
 - **Frontend**: React 18 + React Router 6 (spa) + TypeScript + Vite + TailwindCSS 3
-- **Backend**: Express server integrated with Vite dev server
+- **Backend**: Cloudflare Worker with D1 and R2 bindings
 - **Testing**: Vitest
 - **UI**: Radix UI + TailwindCSS 3 + Lucide React icons
 
@@ -20,9 +20,12 @@ client/                   # React SPA frontend
 ├── App.tsx                # App entry point and with SPA routing setup
 └── global.css            # TailwindCSS 3 theming and global styles
 
-server/                   # Express API backend
-├── index.ts              # Main server setup (express config + routes)
-└── routes/               # API handlers
+worker/                   # Cloudflare Worker API
+├── index.ts              # Router and API handlers
+├── db.ts                 # D1 access and response mapping
+└── crypto.ts             # Password and opaque-session primitives
+
+migrations/               # Ordered D1 schema migrations
 
 shared/                   # Types used by both client & server
 └── api.ts                # Example of how to share api interfaces
@@ -66,15 +69,15 @@ className={cn(
 )}
 ```
 
-### Express Server Integration
+### Cloudflare Worker Integration
 
-- **Development**: Single port (8080) for both frontend/backend
-- **Hot reload**: Both client and server code
+- **Development**: Cloudflare Vite plugin serves frontend and Worker API
+- **Storage**: D1 for relational data and R2 for private evidence
 - **API endpoints**: Prefixed with `/api/`
 
 #### Example API Routes
-- `GET /api/ping` - Simple ping api
-- `GET /api/demo` - Demo endpoint  
+- `GET /api/health` - Service health
+- `GET /api/workflow` - Role-scoped inspection workflow
 
 ### Shared Types
 Import consistent types in both client and server:
@@ -91,7 +94,8 @@ Path aliases:
 ```bash
 npm run dev        # Start dev server (client + server)
 npm run build      # Production build
-npm run start      # Start production server
+npm run deploy     # Build and deploy the Worker
+npm run cf:typegen # Regenerate binding types
 npm run typecheck  # TypeScript validation
 npm test          # Run Vitest tests
 ```
@@ -103,36 +107,24 @@ npm test          # Run Vitest tests
 Open `client/global.css` and `tailwind.config.ts` and add new tailwind colors.
 
 ### New API Route
-1. **Optional**: Create a shared interface in `shared/api.ts`:
+1. Add the request/response types to `shared/backend.ts` when the browser consumes them.
+
+2. Add a Zod request schema to `worker/schemas.ts`:
 ```typescript
-export interface MyRouteResponse {
-  message: string;
-  // Add other response properties here
+export const myRouteSchema = z.object({ message: z.string().min(1) });
+```
+
+3. Register the route in `worker/index.ts`, validate input, enforce role and resource access, and write an audit entry for mutations:
+```typescript
+if (request.method === "POST" && path === "/api/my-endpoint") {
+  const actor = await authenticatedUser(request, env.DB);
+  requireRole(actor, ["rea"]);
+  const input = await readJson(request, myRouteSchema);
+  return json({ message: input.message });
 }
 ```
 
-2. Create a new route handler in `server/routes/my-route.ts`:
-```typescript
-import { RequestHandler } from "express";
-import { MyRouteResponse } from "@shared/api"; // Optional: for type safety
-
-export const handleMyRoute: RequestHandler = (req, res) => {
-  const response: MyRouteResponse = {
-    message: 'Hello from my endpoint!'
-  };
-  res.json(response);
-};
-```
-
-3. Register the route in `server/index.ts`:
-```typescript
-import { handleMyRoute } from "./routes/my-route";
-
-// Add to the createServer function:
-app.get("/api/my-endpoint", handleMyRoute);
-```
-
-4. Use in React components with type safety:
+4. Use it in React with same-origin cookies:
 ```typescript
 import { MyRouteResponse } from '@shared/api'; // Optional: for type safety
 
@@ -149,15 +141,15 @@ const data: MyRouteResponse = await response.json();
 
 ## Production Deployment
 
-- **Standard**: `npm run build` + `npm start`
-- **Binary**: Self-contained executables (Linux, macOS, Windows)
-- **Cloud Deployment**: Use either Netlify or Vercel via their MCP integrations for easy deployment. Both providers work well with this starter template.
+- Run D1 migrations before the Worker deployment.
+- Store `BOOTSTRAP_TOKEN` and `OPENAI_API_KEY` as Cloudflare secrets.
+- Never commit `.env`, `.dev.vars`, passwords, API tokens, or resource credentials.
 
 ## Architecture Notes
 
-- Single-port development with Vite + Express integration
+- Single-worker deployment with the Cloudflare Vite plugin
 - TypeScript throughout (client, server, shared)
 - Full hot reload for rapid development
-- Production-ready with multiple deployment options
+- Cloudflare Worker deployment configured through `wrangler.jsonc`
 - Comprehensive UI component library included
 - Type-safe API communication via shared interfaces

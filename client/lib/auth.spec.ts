@@ -1,25 +1,29 @@
 import { describe, expect, it } from "vitest";
-import { authenticateDemoAccount, demoAccounts } from "./auth";
+import {
+  hashPassword,
+  randomToken,
+  sha256,
+  verifyPassword,
+} from "../../worker/crypto";
 
-describe("REA demo authentication", () => {
-  it("provides one account for every dashboard role", () => {
-    expect(demoAccounts.map((account) => account.role)).toEqual([
-      "rea",
-      "field",
-      "consultant",
-    ]);
-    expect(demoAccounts[0].roleLabel).toBe("REA Dashboard");
-  });
+describe("backend authentication primitives", () => {
+  it("hashes passwords with a unique salt and verifies the right value", async () => {
+    const first = await hashPassword("Secure-Password-2026!");
+    const second = await hashPassword("Secure-Password-2026!");
 
-  it.each(demoAccounts)("authenticates the $roleLabel account", (account) => {
-    expect(authenticateDemoAccount(account.email, account.password)?.path).toBe(
-      account.path,
+    expect(first).not.toBe(second);
+    await expect(verifyPassword("Secure-Password-2026!", first)).resolves.toBe(
+      true,
     );
+    await expect(verifyPassword("wrong-password", first)).resolves.toBe(false);
   });
 
-  it("rejects invalid demo credentials", () => {
-    expect(
-      authenticateDemoAccount("rea.admin@demo.ng", "wrong-password"),
-    ).toBeNull();
+  it("creates opaque session tokens that are stored only as hashes", async () => {
+    const token = randomToken();
+    const digest = await sha256(token);
+
+    expect(token.length).toBeGreaterThan(32);
+    expect(digest).not.toBe(token);
+    expect(await sha256(token)).toBe(digest);
   });
 });
