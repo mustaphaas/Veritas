@@ -1,0 +1,10 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Evidence is uploaded and streamed only by the Admin SDK in Cloud Functions.
+    match /{object=**} {
+      allow read, write: if false;
+    }
+  }
+}

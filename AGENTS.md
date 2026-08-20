@@ -1,163 +1,78 @@
-# Fusion Starter
+# Veritas
 
-A production-ready full-stack React application template with integrated Express server, featuring React Router 6 SPA mode, TypeScript, Vitest, Zod and modern tooling.
+A production-ready full-stack React application deployed on Firebase Hosting
+and Cloud Functions for Firebase, featuring React Router 6 SPA mode,
+TypeScript, Vitest, Firestore, Cloud Storage, Firebase Authentication, App
+Check, and Zod.
 
-While the starter comes with a express server, only create endpoint when strictly neccesary, for example to encapsulate logic that must leave in the server, such as private keys handling, or certain DB operations, db...
+All privileged data access, authorization, workflow transitions, and private
+file operations belong in the Functions API. Do not add secrets, authorization
+decisions, or direct Firestore/Storage access to the browser.
 
 ## Tech Stack
 
-- **Frontend**: React 18 + React Router 6 (spa) + TypeScript + Vite + TailwindCSS 3
-- **Backend**: Express server integrated with Vite dev server
+- **Frontend**: React 18 + React Router 6 SPA + TypeScript + Vite + TailwindCSS 3
+- **Backend**: 2nd-generation HTTPS Function using Express and Firebase Admin
+- **Identity**: Firebase Authentication email/password + Admin session cookies
+- **Data**: Cloud Firestore
+- **Files**: Cloud Storage for Firebase
+- **Abuse protection**: Firebase App Check with reCAPTCHA Enterprise
 - **Testing**: Vitest
 - **UI**: Radix UI + TailwindCSS 3 + Lucide React icons
 
 ## Project Structure
 
-```
+```text
 client/                   # React SPA frontend
-├── pages/                # Route components (Index.tsx = home)
-├── components/ui/        # Pre-built UI component library
-├── App.tsx                # App entry point and with SPA routing setup
-└── global.css            # TailwindCSS 3 theming and global styles
-
-server/                   # Express API backend
-├── index.ts              # Main server setup (express config + routes)
-└── routes/               # API handlers
-
-shared/                   # Types used by both client & server
-└── api.ts                # Example of how to share api interfaces
+functions/src/            # Firebase Functions API
+shared/                   # Browser-shared TypeScript types
+firestore.rules           # Default-deny client data rules
+storage.rules             # Default-deny client file rules
+firebase.json             # Hosting, Functions, rules, and emulator config
 ```
 
-## Key Features
+## Security Boundaries
 
-## SPA Routing System
+- Browser login uses Firebase Auth REST, then immediately exchanges the ID
+  token at `/api/auth/session-login`; never persist ID or refresh tokens.
+- Protected routes call `requireUser`, then enforce role and resource scope.
+- Mutations validate with Zod and write an audit event.
+- Evidence and signatures remain private and are served by authenticated API
+  endpoints only.
+- Firestore and Storage client rules remain default-deny unless a reviewed
+  feature explicitly requires a narrower client capability.
+- Secrets belong in Firebase Secret Manager, never `.env` files committed to
+  Git.
 
-The routing system is powered by React Router 6:
+## API Development
 
-- `client/pages/Index.tsx` represents the home page.
-- Routes are defined in `client/App.tsx` using the `react-router-dom` import
-- Route files are located in the `client/pages/` directory
+1. Add browser-facing request/response types to `shared/backend.ts`.
+2. Add a Zod schema to `functions/src/schemas.ts`.
+3. Register the route in `functions/src/index.ts`.
+4. Authenticate, enforce role/resource access, validate input, and audit every
+   mutation.
+5. Call it from React with `apiRequest`, which sends same-origin cookies and an
+   App Check token when configured.
 
-For example, routes can be defined with:
-
-```typescript
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-
-<Routes>
-  <Route path="/" element={<Index />} />
-  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-  <Route path="*" element={<NotFound />} />
-</Routes>;
-```
-
-### Styling System
-
-- **Primary**: TailwindCSS 3 utility classes
-- **Theme and design tokens**: Configure in `client/global.css` 
-- **UI components**: Pre-built library in `client/components/ui/`
-- **Utility**: `cn()` function combines `clsx` + `tailwind-merge` for conditional classes
-
-```typescript
-// cn utility usage
-className={cn(
-  "base-classes",
-  { "conditional-class": condition },
-  props.className  // User overrides
-)}
-```
-
-### Express Server Integration
-
-- **Development**: Single port (8080) for both frontend/backend
-- **Hot reload**: Both client and server code
-- **API endpoints**: Prefixed with `/api/`
-
-#### Example API Routes
-- `GET /api/ping` - Simple ping api
-- `GET /api/demo` - Demo endpoint  
-
-### Shared Types
-Import consistent types in both client and server:
-```typescript
-import { DemoResponse } from '@shared/api';
-```
-
-Path aliases:
-- `@shared/*` - Shared folder
-- `@/*` - Client folder
-
-## Development Commands
+## Commands
 
 ```bash
-npm run dev        # Start dev server (client + server)
-npm run build      # Production build
-npm run start      # Start production server
-npm run typecheck  # TypeScript validation
-npm test          # Run Vitest tests
-```
-
-## Adding Features
-
-### Add new colors to the theme
-
-Open `client/global.css` and `tailwind.config.ts` and add new tailwind colors.
-
-### New API Route
-1. **Optional**: Create a shared interface in `shared/api.ts`:
-```typescript
-export interface MyRouteResponse {
-  message: string;
-  // Add other response properties here
-}
-```
-
-2. Create a new route handler in `server/routes/my-route.ts`:
-```typescript
-import { RequestHandler } from "express";
-import { MyRouteResponse } from "@shared/api"; // Optional: for type safety
-
-export const handleMyRoute: RequestHandler = (req, res) => {
-  const response: MyRouteResponse = {
-    message: 'Hello from my endpoint!'
-  };
-  res.json(response);
-};
-```
-
-3. Register the route in `server/index.ts`:
-```typescript
-import { handleMyRoute } from "./routes/my-route";
-
-// Add to the createServer function:
-app.get("/api/my-endpoint", handleMyRoute);
-```
-
-4. Use in React components with type safety:
-```typescript
-import { MyRouteResponse } from '@shared/api'; // Optional: for type safety
-
-const response = await fetch('/api/my-endpoint');
-const data: MyRouteResponse = await response.json();
-```
-
-### New Page Route
-1. Create component in `client/pages/MyPage.tsx`
-2. Add route in `client/App.tsx`:
-```typescript
-<Route path="/my-page" element={<MyPage />} />
+npm run dev             # Frontend-only Vite development
+npm run emulators       # Build and run Firebase emulators
+npm run build           # Build SPA and Functions
+npm run deploy          # Build and deploy Firebase resources
+npm run typecheck       # Check SPA/shared and Functions
+npm test                # Run SPA/shared tests
+npm run test:functions  # Run Functions tests
 ```
 
 ## Production Deployment
 
-- **Standard**: `npm run build` + `npm start`
-- **Binary**: Self-contained executables (Linux, macOS, Windows)
-- **Cloud Deployment**: Use either Netlify or Vercel via their MCP integrations for easy deployment. Both providers work well with this starter template.
-
-## Architecture Notes
-
-- Single-port development with Vite + Express integration
-- TypeScript throughout (client, server, shared)
-- Full hot reload for rapid development
-- Production-ready with multiple deployment options
-- Comprehensive UI component library included
-- Type-safe API communication via shared interfaces
+- Create/select the Firebase project with `.firebaserc` (never commit a real
+  project selection if environments should remain portable).
+- Enable email/password Authentication, Firestore, Storage, Hosting, App Check,
+  and Cloud Functions.
+- Set `BOOTSTRAP_TOKEN` and `OPENAI_API_KEY` with Firebase Functions secrets.
+- Configure public `VITE_FIREBASE_*` values at build time.
+- Deploy rules, indexes, functions, and hosting together with `npm run deploy`.
+- Bootstrap the first REA user once, then rotate the bootstrap secret.

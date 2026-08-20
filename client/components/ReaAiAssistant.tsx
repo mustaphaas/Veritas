@@ -12,6 +12,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { apiRequest } from "../lib/api";
 import {
   matchingProjects,
   summarizePortfolio,
@@ -199,12 +200,12 @@ export default function ReaAiAssistant({ filters }: { filters: Filters }) {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/rea-assistant", {
+      const payload = await apiRequest<{
+        answer?: string;
+        sources?: ReaAiSource[];
+        error?: string;
+      }>("/api/rea-assistant", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "same-origin",
         body: JSON.stringify({
           messages: nextMessages
             .filter((message) => message.id !== "welcome")
@@ -213,12 +214,7 @@ export default function ReaAiAssistant({ filters }: { filters: Filters }) {
           databaseContext,
         }),
       });
-      const payload = (await response.json().catch(() => ({}))) as {
-        answer?: string;
-        sources?: ReaAiSource[];
-        error?: string;
-      };
-      if (!response.ok || !payload.answer) {
+      if (!payload.answer) {
         throw new Error(
           payload.error || "REA AI could not answer the question.",
         );

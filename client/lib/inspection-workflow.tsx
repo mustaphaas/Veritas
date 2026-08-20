@@ -8,6 +8,9 @@ import {
   type ReactNode,
 } from "react";
 import { projects, type Project } from "./dashboard-data";
+import type { WorkflowResponse } from "@shared/backend";
+import { useAuth } from "./auth";
+import { apiRequest } from "./api";
 import {
   createComponentFormValues,
   getComponentFieldDefinitions,
@@ -31,7 +34,10 @@ export type AssignmentStatus =
   | "Re-inspection";
 
 export type AssignmentDisplayStatus =
-  "Assigned" | "Draft" | "Approved" | "Verified";
+  | "Assigned"
+  | "Draft"
+  | "Approved"
+  | "Verified";
 
 export function getAssignmentDisplayStatus(
   status: AssignmentStatus,
@@ -215,12 +221,76 @@ export type FieldOfficerAccount = {
   phone: string;
   zone: string;
   device: string;
-  password: string;
+  password?: string;
   status: "Active" | "Suspended";
   createdAt: string;
 };
 
 export const FIELD_OFFICERS_STORAGE_KEY = "rea-field-officers-v1";
+
+async function workflowRequest<T>(
+  path: string,
+  init?: RequestInit,
+): Promise<T> {
+  return apiRequest<T>(path, init);
+}
+
+function reportForApi(report: InspectionReport) {
+  return {
+    ...report,
+    evidence: report.evidence.map(
+      ({ previewUrl: _previewUrl, ...item }) => item,
+    ),
+  };
+}
+
+async function uploadRemoteEvidence(
+  assignmentId: string,
+  evidence: EvidenceItem,
+) {
+  if (
+    !evidence.previewUrl ||
+    evidence.previewUrl.startsWith("/api/evidence/")
+  ) {
+    return evidence;
+  }
+  const source = await fetch(evidence.previewUrl);
+  if (!source.ok) throw new Error(`Could not read ${evidence.name}.`);
+  const blob = await source.blob();
+  const form = new FormData();
+  form.set("file", new File([blob], evidence.name, { type: blob.type }));
+  const { previewUrl: _previewUrl, ...metadata } = evidence;
+  form.set("metadata", JSON.stringify(metadata));
+  const result = await workflowRequest<{ evidence: EvidenceItem }>(
+    `/api/assignments/${encodeURIComponent(assignmentId)}/evidence`,
+    { method: "POST", body: form },
+  );
+  return result.evidence;
+}
+
+async function persistRemoteReport(
+  assignmentId: string,
+  report: InspectionReport,
+  submit: boolean,
+) {
+  await workflowRequest(
+    `/api/assignments/${encodeURIComponent(assignmentId)}/report`,
+    { method: "PUT", body: JSON.stringify(reportForApi(report)) },
+  );
+  const evidence = await Promise.all(
+    report.evidence.map((item) => uploadRemoteEvidence(assignmentId, item)),
+  );
+  if (submit) {
+    await workflowRequest(
+      `/api/assignments/${encodeURIComponent(assignmentId)}/submit`,
+      {
+        method: "POST",
+        body: JSON.stringify(reportForApi({ ...report, evidence })),
+      },
+    );
+  }
+  return { ...report, evidence };
+}
 
 export const defaultFieldOfficers: FieldOfficerAccount[] = [
   {
@@ -230,7 +300,6 @@ export const defaultFieldOfficers: FieldOfficerAccount[] = [
     phone: "08030001001",
     zone: "North West",
     device: "REA-AY-1042",
-    password: "Field2024!",
     status: "Active",
     createdAt: "2026-01-05T09:00:00.000Z",
   },
@@ -241,7 +310,6 @@ export const defaultFieldOfficers: FieldOfficerAccount[] = [
     phone: "08030001002",
     zone: "South East",
     device: "REA-CO-1178",
-    password: "Field2024!",
     status: "Active",
     createdAt: "2026-01-06T09:00:00.000Z",
   },
@@ -252,7 +320,6 @@ export const defaultFieldOfficers: FieldOfficerAccount[] = [
     phone: "08030001003",
     zone: "North East",
     device: "REA-FB-1094",
-    password: "Field2024!",
     status: "Active",
     createdAt: "2026-01-07T09:00:00.000Z",
   },
@@ -263,7 +330,6 @@ export const defaultFieldOfficers: FieldOfficerAccount[] = [
     phone: "08030001004",
     zone: "South West",
     device: "REA-TA-1210",
-    password: "Field2024!",
     status: "Active",
     createdAt: "2026-01-08T09:00:00.000Z",
   },
@@ -905,6 +971,7 @@ export function InspectionWorkflowProvider({
 }: {
   children: ReactNode;
 }) {
+  const { session } = useAuth();
   const [assignments, setAssignments] =
     useState<InspectionAssignment[]>(loadAssignments);
   const [fieldOfficers, setFieldOfficers] =
@@ -912,6 +979,23 @@ export function InspectionWorkflowProvider({
   const [isOnline, setIsOnline] = useState(() =>
     typeof navigator === "undefined" ? true : navigator.onLine,
   );
+
+  const refreshFromBackend = useCallback(async () => {
+    if (!session) return;
+    const result =
+      await workflowRequest<
+        WorkflowResponse<InspectionAssignment, FieldOfficerAccount>
+      >("/api/workflow");
+    setAssignments(result.assignments.map(migrateStoredAssignment));
+    setFieldOfficers(result.fieldOfficers);
+  }, [session?.id]);
+
+  useEffect(() => {
+    if (!session || !isOnline) return;
+    void refreshFromBackend().catch(() => {
+      // Cached workflow remains available for offline field work.
+    });
+  }, [session?.id, isOnline, refreshFromBackend]);
 
   useEffect(() => {
     try {
@@ -925,7 +1009,9 @@ export function InspectionWorkflowProvider({
   useEffect(() => {
     window.localStorage.setItem(
       FIELD_OFFICERS_STORAGE_KEY,
-      JSON.stringify(fieldOfficers),
+      JSON.stringify(
+        fieldOfficers.map(({ password: _password, ...officer }) => officer),
+      ),
     );
   }, [fieldOfficers]);
 
@@ -1004,11 +1090,10 @@ export function InspectionWorkflowProvider({
 
   const assignProject = useCallback(
     (project: Project, officer: string, dueDate: string) => {
-      if (
-        !fieldOfficers.some(
-          (account) => account.name === officer && account.status === "Active",
-        )
-      ) {
+      const officerAccount = fieldOfficers.find(
+        (account) => account.name === officer && account.status === "Active",
+      );
+      if (!officerAccount) {
         return null;
       }
       const assignment = createAssignment(
@@ -1021,9 +1106,48 @@ export function InspectionWorkflowProvider({
         assignment,
         ...current.filter((item) => item.id !== assignment.id),
       ]);
+      void (async () => {
+        await workflowRequest("/api/projects", {
+          method: "POST",
+          body: JSON.stringify({
+            id: assignment.id,
+            name: project.name,
+            programme: project.programme,
+            component: assignment.component,
+            contractor: project.contractor,
+            state: project.state,
+            lga: assignment.lga,
+            community: assignment.community,
+            latitude: assignment.latitude,
+            longitude: assignment.longitude,
+            kw: project.kw,
+            households: project.households,
+            status: project.status,
+          }),
+        });
+        await workflowRequest("/api/assignments", {
+          method: "POST",
+          body: JSON.stringify({
+            id: assignment.id,
+            projectId: assignment.id,
+            officerUserId: officerAccount.id,
+            dueDate: new Date(dueDate).toISOString(),
+            geofenceRadius: assignment.geofenceRadius,
+          }),
+        });
+        await refreshFromBackend();
+      })().catch(() => {
+        setAssignments((current) =>
+          current.map((item) =>
+            item.id === assignment.id
+              ? { ...item, syncStatus: "queued" }
+              : item,
+          ),
+        );
+      });
       return assignment;
     },
-    [assignments.length, fieldOfficers],
+    [assignments.length, fieldOfficers, refreshFromBackend],
   );
 
   const createFieldOfficer = useCallback(
@@ -1050,10 +1174,12 @@ export function InspectionWorkflowProvider({
           message: "A field officer with this name or email already exists.",
         };
       }
+      const officerId = `officer-${crypto.randomUUID()}`;
+      const { password, ...publicAccount } = account;
       setFieldOfficers((current) => [
         {
-          ...account,
-          id: uid("officer"),
+          ...publicAccount,
+          id: officerId,
           name,
           email,
           phone: account.phone.trim(),
@@ -1064,29 +1190,57 @@ export function InspectionWorkflowProvider({
         },
         ...current,
       ]);
+      void workflowRequest<{ user: FieldOfficerAccount }>("/api/users", {
+        method: "POST",
+        body: JSON.stringify({
+          ...publicAccount,
+          email,
+          name,
+          password,
+          role: "field",
+        }),
+      })
+        .then(({ user }) =>
+          setFieldOfficers((current) =>
+            current.map((officer) =>
+              officer.id === officerId ? user : officer,
+            ),
+          ),
+        )
+        .catch(() =>
+          setFieldOfficers((current) =>
+            current.filter((officer) => officer.id !== officerId),
+          ),
+        );
       return { ok: true, message: "Field officer created." };
     },
     [fieldOfficers],
   );
 
   const setFieldOfficerStatus = useCallback(
-    (id: string, status: FieldOfficerAccount["status"]) =>
+    (id: string, status: FieldOfficerAccount["status"]) => {
       setFieldOfficers((current) =>
         current.map((officer) =>
           officer.id === id ? { ...officer, status } : officer,
         ),
-      ),
-    [],
+      );
+      void workflowRequest(`/api/users/${encodeURIComponent(id)}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }).catch(() => void refreshFromBackend());
+    },
+    [refreshFromBackend],
   );
 
   const startRoute = useCallback(
-    (id: string) =>
+    (id: string) => {
       update(id, (assignment) =>
         !canStartRoute(assignment.status)
           ? assignment
           : {
               ...assignment,
               routeStartedAt: new Date().toISOString(),
+              status: "En route",
               audit: [
                 ...assignment.audit,
                 {
@@ -1099,8 +1253,12 @@ export function InspectionWorkflowProvider({
                 },
               ],
             },
-      ),
-    [update],
+      );
+      void workflowRequest(`/api/assignments/${encodeURIComponent(id)}/route`, {
+        method: "POST",
+      }).catch(() => void refreshFromBackend());
+    },
+    [update, refreshFromBackend],
   );
 
   const verifyArrival = useCallback(
@@ -1134,96 +1292,141 @@ export function InspectionWorkflowProvider({
           },
         ],
       }));
+      void workflowRequest(
+        `/api/assignments/${encodeURIComponent(id)}/arrival`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            latitude,
+            longitude,
+            deviceId: getDeviceId(),
+            deviceType: getDeviceType(),
+          }),
+        },
+      ).catch(() => void refreshFromBackend());
       return { allowed, distance };
     },
-    [assignments, update],
+    [assignments, update, refreshFromBackend],
   );
 
   const saveReport = useCallback(
-    (id: string, report: InspectionReport) =>
-      update(id, (assignment) => {
-        if (
-          !canEditReport(assignment) ||
-          !isSupportedAssignmentComponent(assignment.component) ||
-          report.assignmentId !== assignment.id ||
-          report.assignedComponent !== assignment.component
-        ) {
-          return assignment;
-        }
-        const safeReport = {
-          ...report,
-          assignmentId: assignment.id,
-          assignedComponent: assignment.component,
-          componentValues: sanitizeComponentFormValues(
-            assignment.component,
-            report.componentValues,
-          ),
-        };
-        return {
-          ...assignment,
-          report: safeReport,
-          status: "Draft",
-          syncStatus: isOnline ? "synced" : "queued",
-          audit: [
-            ...assignment.audit,
-            {
-              id: uid("audit"),
-              at: new Date().toISOString(),
-              actor: assignment.officer,
-              action: "Inspection draft saved",
-              deviceId: getDeviceId(),
-              deviceType: getDeviceType(),
-            },
-          ],
-        };
-      }),
-    [isOnline, update],
+    (id: string, report: InspectionReport) => {
+      const assignment = assignments.find((item) => item.id === id);
+      if (
+        !assignment ||
+        !canEditReport(assignment) ||
+        !isSupportedAssignmentComponent(assignment.component) ||
+        report.assignmentId !== assignment.id ||
+        report.assignedComponent !== assignment.component
+      ) {
+        return;
+      }
+      const safeReport = {
+        ...report,
+        assignmentId: assignment.id,
+        assignedComponent: assignment.component,
+        componentValues: sanitizeComponentFormValues(
+          assignment.component,
+          report.componentValues,
+        ),
+      };
+      update(id, (current) => ({
+        ...current,
+        report: safeReport,
+        status: "Draft",
+        syncStatus: isOnline ? "synced" : "queued",
+        audit: [
+          ...current.audit,
+          {
+            id: uid("audit"),
+            at: new Date().toISOString(),
+            actor: current.officer,
+            action: "Inspection draft saved",
+            deviceId: getDeviceId(),
+            deviceType: getDeviceType(),
+          },
+        ],
+      }));
+      if (isOnline) {
+        void persistRemoteReport(id, safeReport, false)
+          .then((persisted) =>
+            update(id, (current) => ({
+              ...current,
+              report: persisted,
+              syncStatus: "synced",
+            })),
+          )
+          .catch(() =>
+            update(id, (current) => ({ ...current, syncStatus: "queued" })),
+          );
+      }
+    },
+    [assignments, isOnline, update],
   );
 
   const submitReport = useCallback(
-    (id: string, report: InspectionReport) =>
-      update(id, (assignment) => {
-        if (!canSubmitReport(assignment, report)) {
-          return assignment;
-        }
-        if (!isSupportedAssignmentComponent(assignment.component)) {
-          return assignment;
-        }
-        const safeReport = {
-          ...report,
-          assignmentId: assignment.id,
-          assignedComponent: assignment.component,
-          componentValues: sanitizeComponentFormValues(
-            assignment.component,
-            report.componentValues,
-          ),
-          submittedAt: new Date().toISOString(),
-        };
-        return {
-          ...assignment,
-          report: safeReport,
-          status: "Submitted",
-          syncStatus: isOnline ? "synced" : "queued",
-          audit: [
-            ...assignment.audit,
-            {
-              id: uid("audit"),
-              at: new Date().toISOString(),
-              actor: assignment.officer,
-              action: isOnline
-                ? "Inspection submitted for QA"
-                : "Submission queued offline",
-              deviceId: getDeviceId(),
-              deviceType: getDeviceType(),
-            },
-          ],
-        };
-      }),
-    [isOnline, update],
+    (id: string, report: InspectionReport) => {
+      const assignment = assignments.find((item) => item.id === id);
+      if (
+        !assignment ||
+        !canSubmitReport(assignment, report) ||
+        !isSupportedAssignmentComponent(assignment.component)
+      ) {
+        return;
+      }
+      const safeReport = {
+        ...report,
+        assignmentId: assignment.id,
+        assignedComponent: assignment.component,
+        componentValues: sanitizeComponentFormValues(
+          assignment.component,
+          report.componentValues,
+        ),
+        submittedAt: new Date().toISOString(),
+      };
+      update(id, (current) => ({
+        ...current,
+        report: safeReport,
+        status: "Submitted",
+        syncStatus: isOnline ? "synced" : "queued",
+        audit: [
+          ...current.audit,
+          {
+            id: uid("audit"),
+            at: new Date().toISOString(),
+            actor: current.officer,
+            action: isOnline
+              ? "Inspection submitted for QA"
+              : "Submission queued offline",
+            deviceId: getDeviceId(),
+            deviceType: getDeviceType(),
+          },
+        ],
+      }));
+      if (isOnline) {
+        void persistRemoteReport(id, safeReport, true)
+          .then((persisted) =>
+            update(id, (current) => ({
+              ...current,
+              report: persisted,
+              status: "Submitted",
+              syncStatus: "synced",
+            })),
+          )
+          .catch(() =>
+            update(id, (current) => ({
+              ...current,
+              status: "Draft",
+              syncStatus: "queued",
+            })),
+          );
+      }
+    },
+    [assignments, isOnline, update],
   );
 
   const reviewReport = useCallback(
-    (id: string, decision: "Approved" | "Re-inspection", note: string) =>
+    (id: string, decision: "Approved" | "Re-inspection", note: string) => {
       update(id, (assignment) => {
         if (!canReviewReport(assignment.status)) return assignment;
         if (decision === "Re-inspection" && !note.trim()) return assignment;
@@ -1254,12 +1457,20 @@ export function InspectionWorkflowProvider({
             },
           ],
         };
-      }),
-    [update],
+      });
+      void workflowRequest(
+        `/api/assignments/${encodeURIComponent(id)}/consultant-review`,
+        {
+          method: "POST",
+          body: JSON.stringify({ decision, note }),
+        },
+      ).catch(() => void refreshFromBackend());
+    },
+    [update, refreshFromBackend],
   );
 
   const reaReviewReport = useCallback(
-    (id: string, decision: "Verified" | "Rejected", note: string) =>
+    (id: string, decision: "Verified" | "Rejected", note: string) => {
       update(id, (assignment) => {
         if (!canReaReviewReport(assignment.status)) return assignment;
         if (decision === "Rejected" && !note.trim()) return assignment;
@@ -1289,18 +1500,27 @@ export function InspectionWorkflowProvider({
             },
           ],
         };
-      }),
-    [update],
+      });
+      void workflowRequest(
+        `/api/assignments/${encodeURIComponent(id)}/rea-review`,
+        {
+          method: "POST",
+          body: JSON.stringify({ decision, note }),
+        },
+      ).catch(() => void refreshFromBackend());
+    },
+    [update, refreshFromBackend],
   );
 
   const syncNow = useCallback(() => {
     if (!isOnline) return;
-    setAssignments((current) =>
-      current.map((assignment) => ({ ...assignment, syncStatus: "synced" })),
-    );
-  }, [isOnline]);
+    void refreshFromBackend();
+  }, [isOnline, refreshFromBackend]);
 
-  const resetDemo = useCallback(() => setAssignments(seedAssignments()), []);
+  const resetDemo = useCallback(
+    () => void refreshFromBackend(),
+    [refreshFromBackend],
+  );
 
   const value = useMemo(
     () => ({

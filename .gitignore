@@ -11,16 +11,6 @@ node_modules
 dist
 dist-ssr
 *.local
-.wrangler
-worker-configuration.d.ts
-
-# Secrets
-.env
-.env.*
-.dev.vars
-.dev.vars.*
-!.env.example
-!.dev.vars.example
 
 # Editor directories and files
 .vscode/*
@@ -34,3 +24,11 @@ worker-configuration.d.ts
 *.sw?
 
 .config/
+.env
+.env.*
+!.env.example
+.firebase/
+.firebaserc
+firebase-debug.log*
+functions/lib/
+functions/.secret.local

@@ -7,6 +7,7 @@ import {
   EyeOff,
   LockKeyhole,
   Mail,
+  ShieldCheck,
   Zap,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
@@ -17,27 +18,29 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [signingIn, setSigningIn] = useState(false);
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => setError(""), [email, password]);
   if (!loading && session) return <Navigate to={session.path} replace />;
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    setSigningIn(true);
-    const nextSession = await login(email, password);
-    setSigningIn(false);
-    if (!nextSession) {
-      setError("The email or password is incorrect, or the account is disabled.");
-      return;
+    setBusy(true);
+    setError("");
+    try {
+      const nextSession = await login(email, password);
+      navigate(nextSession.path, { replace: true });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Sign-in failed.");
+    } finally {
+      setBusy(false);
     }
-    navigate(nextSession.path, { replace: true });
   };
 
   return (
     <main className="min-h-screen bg-[#eef6f0] p-4 sm:p-7">
-      <div className="mx-auto grid min-h-[calc(100vh-2rem)] max-w-[1180px] overflow-hidden rounded-2xl border border-[#cfe4d5] bg-white shadow-[0_24px_70px_rgba(11,70,40,0.12)] lg:grid-cols-[1.05fr_.95fr] sm:min-h-[calc(100vh-3.5rem)]">
+      <div className="mx-auto grid min-h-[calc(100vh-2rem)] max-w-[1180px] overflow-hidden rounded-2xl border border-[#cfe4d5] bg-white shadow-[0_24px_70px_rgba(11,70,40,0.12)] sm:min-h-[calc(100vh-3.5rem)] lg:grid-cols-[1.05fr_.95fr]">
         <section className="relative hidden overflow-hidden bg-[#075c33] p-12 text-white lg:flex lg:flex-col lg:justify-between">
           <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full border-[50px] border-white/5" />
           <div className="absolute -bottom-36 -left-28 h-96 w-96 rounded-full border-[70px] border-[#55b979]/15" />
@@ -62,12 +65,14 @@ export default function Login() {
             </p>
           </div>
           <div className="relative grid grid-cols-3 gap-3">
-            {["National oversight", "Field verification", "Consultant assurance"].map((label) => (
-              <div key={label} className="rounded-lg border border-white/15 bg-white/10 p-3 backdrop-blur">
-                <CheckCircle2 className="h-4 w-4 text-[#8ce3aa]" />
-                <p className="mt-2 text-[10px] font-semibold text-white/90">{label}</p>
-              </div>
-            ))}
+            {["National oversight", "Field verification", "Consultant assurance"].map(
+              (label) => (
+                <div key={label} className="rounded-lg border border-white/15 bg-white/10 p-3 backdrop-blur">
+                  <CheckCircle2 className="h-4 w-4 text-[#8ce3aa]" />
+                  <p className="mt-2 text-[10px] font-semibold text-white/90">{label}</p>
+                </div>
+              ),
+            )}
           </div>
         </section>
 
@@ -82,22 +87,25 @@ export default function Login() {
                 <p className="text-[8px] font-bold text-slate-500">RURAL ELECTRIFICATION AGENCY</p>
               </div>
             </div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#08733f]">
-              REA Monitoring Platform
-            </p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#08733f]">REA Monitoring Platform</p>
             <h2 className="mt-2 text-3xl font-bold tracking-tight text-[#142a1f]">Welcome back</h2>
-            <p className="mt-2 text-sm text-slate-500">Sign in with your Veritas account.</p>
+            <p className="mt-2 text-sm text-slate-500">Sign in with your assigned Veritas account.</p>
 
-            <form onSubmit={submit} className="mt-8 space-y-4">
+            <div className="mt-6 flex items-center gap-3 rounded-lg border border-[#d6e9da] bg-[#f7fcf8] p-3 text-xs text-[#39764d]">
+              <ShieldCheck className="h-5 w-5 shrink-0 text-[#08733f]" />
+              Passwords are verified securely; sessions stay in an HttpOnly cookie.
+            </div>
+
+            <form onSubmit={submit} className="mt-6 space-y-4">
               <label className="block">
                 <span className="text-xs font-semibold text-[#263c31]">Email address</span>
                 <div className="relative mt-1.5">
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                   <input
                     type="email"
-                    autoComplete="username"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
+                    autoComplete="username"
                     className="h-10 w-full rounded-md border border-slate-200 pl-10 pr-3 text-sm text-[#173b2a] outline-none focus:border-[#08733f] focus:ring-2 focus:ring-[#08733f]/10"
                     required
                   />
@@ -109,9 +117,9 @@ export default function Login() {
                   <LockKeyhole className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                   <input
                     type={showPassword ? "text" : "password"}
-                    autoComplete="current-password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
+                    autoComplete="current-password"
                     className="h-10 w-full rounded-md border border-slate-200 pl-10 pr-10 text-sm text-[#173b2a] outline-none focus:border-[#08733f] focus:ring-2 focus:ring-[#08733f]/10"
                     required
                   />
@@ -125,24 +133,15 @@ export default function Login() {
                   </button>
                 </div>
               </label>
-              {error && (
-                <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>
-              )}
+              {error && <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>}
               <button
                 type="submit"
-                disabled={signingIn || loading}
-                className="flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#08733f] text-sm font-bold text-white shadow-sm hover:bg-[#065d32] disabled:cursor-wait disabled:opacity-70"
+                disabled={busy || loading}
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#08733f] text-sm font-bold text-white shadow-sm hover:bg-[#065d32] disabled:opacity-60"
               >
-                {signingIn || loading ? "Securing session…" : "Sign in to dashboard"} <ArrowRight className="h-4 w-4" />
+                {busy ? "Signing in…" : "Sign in to dashboard"} <ArrowRight className="h-4 w-4" />
               </button>
             </form>
-
-            <div className="mt-6 rounded-lg border border-[#d6e9da] bg-[#f7fcf8] p-3">
-              <p className="text-xs font-semibold text-[#173b2a]">Protected production access</p>
-              <p className="mt-1 text-[10px] leading-4 text-slate-500">
-                Sessions are stored in a secure HttpOnly cookie. Contact an REA administrator if you need an account.
-              </p>
-            </div>
           </div>
         </section>
       </div>

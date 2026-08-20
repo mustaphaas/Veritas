@@ -1,0 +1,28 @@
+{
+  "name": "veritas-functions",
+  "private": true,
+  "type": "module",
+  "main": "lib/index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "serve": "npm run build && npx firebase-tools emulators:start --only functions,auth,firestore,storage"
+  },
+  "dependencies": {
+    "busboy": "^1.6.0",
+    "express": "^4.21.2",
+    "firebase-admin": "^13.4.0",
+    "firebase-functions": "^6.4.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/busboy": "^1.5.4",
+    "@types/express": "^5.0.3",
+    "typescript": "^5.5.3",
+    "vitest": "^3.1.4"
+  }
+}
