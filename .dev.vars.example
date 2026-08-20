@@ -1,4 +1,5 @@
-# Configure these as encrypted Cloudflare project secrets in production.
-OPENAI_API_KEY=replace-with-a-new-revoked-safe-key
-OPENAI_MODEL=gpt-5.6-luna
-REA_AUTH_SECRET=replace-with-at-least-32-random-characters
+BOOTSTRAP_ADMIN_EMAIL=admin@example.com
+BOOTSTRAP_ADMIN_PASSWORD=replace-with-a-long-random-password
+OPENAI_API_KEY=replace-with-an-openai-api-key
+OPENAI_MODEL=gpt-5-mini
+# SESSION_TTL_SECONDS=43200

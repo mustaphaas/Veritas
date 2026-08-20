@@ -7,30 +7,21 @@ import {
   EyeOff,
   LockKeyhole,
   Mail,
-  ShieldCheck,
-  UsersRound,
   Zap,
 } from "lucide-react";
-import { demoAccounts, useAuth } from "../lib/auth";
+import { useAuth } from "../lib/auth";
 
 export default function Login() {
-  const { session, login } = useAuth();
+  const { session, loading, login } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState(demoAccounts[0].email);
-  const [password, setPassword] = useState(demoAccounts[0].password);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const [error, setError] = useState("");
-  const [selectedRole, setSelectedRole] = useState(demoAccounts[0].role);
 
   useEffect(() => setError(""), [email, password]);
-  if (session) return <Navigate to={session.path} replace />;
-
-  const selectAccount = (account: (typeof demoAccounts)[number]) => {
-    setSelectedRole(account.role);
-    setEmail(account.email);
-    setPassword(account.password);
-  };
+  if (!loading && session) return <Navigate to={session.path} replace />;
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -38,7 +29,7 @@ export default function Login() {
     const nextSession = await login(email, password);
     setSigningIn(false);
     if (!nextSession) {
-      setError("The email or password does not match a demo account.");
+      setError("The email or password is incorrect, or the account is disabled.");
       return;
     }
     navigate(nextSession.path, { replace: true });
@@ -71,19 +62,10 @@ export default function Login() {
             </p>
           </div>
           <div className="relative grid grid-cols-3 gap-3">
-            {[
-              "National oversight",
-              "Field verification",
-              "Consultant assurance",
-            ].map((label) => (
-              <div
-                key={label}
-                className="rounded-lg border border-white/15 bg-white/10 p-3 backdrop-blur"
-              >
+            {["National oversight", "Field verification", "Consultant assurance"].map((label) => (
+              <div key={label} className="rounded-lg border border-white/15 bg-white/10 p-3 backdrop-blur">
                 <CheckCircle2 className="h-4 w-4 text-[#8ce3aa]" />
-                <p className="mt-2 text-[10px] font-semibold text-white/90">
-                  {label}
-                </p>
+                <p className="mt-2 text-[10px] font-semibold text-white/90">{label}</p>
               </div>
             ))}
           </div>
@@ -97,55 +79,23 @@ export default function Login() {
               </div>
               <div>
                 <p className="text-xl font-bold text-[#153b28]">REA</p>
-                <p className="text-[8px] font-bold text-slate-500">
-                  RURAL ELECTRIFICATION AGENCY
-                </p>
+                <p className="text-[8px] font-bold text-slate-500">RURAL ELECTRIFICATION AGENCY</p>
               </div>
             </div>
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#08733f]">
               REA Monitoring Platform
             </p>
-            <h2 className="mt-2 text-3xl font-bold tracking-tight text-[#142a1f]">
-              Welcome back
-            </h2>
-            <p className="mt-2 text-sm text-slate-500">
-              Select a demo account or enter its credentials.
-            </p>
+            <h2 className="mt-2 text-3xl font-bold tracking-tight text-[#142a1f]">Welcome back</h2>
+            <p className="mt-2 text-sm text-slate-500">Sign in with your Veritas account.</p>
 
-            <div className="mt-6 grid gap-2 sm:grid-cols-3">
-              {demoAccounts.map((account) => {
-                const Icon = account.role === "rea" ? ShieldCheck : UsersRound;
-                const selected = selectedRole === account.role;
-                return (
-                  <button
-                    key={account.role}
-                    type="button"
-                    onClick={() => selectAccount(account)}
-                    className={`rounded-lg border p-3 text-left transition-colors ${selected ? "border-[#08733f] bg-[#edf8f0]" : "border-slate-200 bg-white hover:bg-slate-50"}`}
-                  >
-                    <Icon
-                      className={`h-5 w-5 ${selected ? "text-[#08733f]" : "text-slate-400"}`}
-                    />
-                    <p className="mt-2 text-[10px] font-bold text-[#173b2a]">
-                      {account.roleLabel}
-                    </p>
-                    <p className="mt-1 truncate text-[9px] text-slate-500">
-                      {account.name}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-
-            <form onSubmit={submit} className="mt-6 space-y-4">
+            <form onSubmit={submit} className="mt-8 space-y-4">
               <label className="block">
-                <span className="text-xs font-semibold text-[#263c31]">
-                  Email address
-                </span>
+                <span className="text-xs font-semibold text-[#263c31]">Email address</span>
                 <div className="relative mt-1.5">
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                   <input
                     type="email"
+                    autoComplete="username"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     className="h-10 w-full rounded-md border border-slate-200 pl-10 pr-3 text-sm text-[#173b2a] outline-none focus:border-[#08733f] focus:ring-2 focus:ring-[#08733f]/10"
@@ -154,13 +104,12 @@ export default function Login() {
                 </div>
               </label>
               <label className="block">
-                <span className="text-xs font-semibold text-[#263c31]">
-                  Password
-                </span>
+                <span className="text-xs font-semibold text-[#263c31]">Password</span>
                 <div className="relative mt-1.5">
                   <LockKeyhole className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                   <input
                     type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     className="h-10 w-full rounded-md border border-slate-200 pl-10 pr-10 text-sm text-[#173b2a] outline-none focus:border-[#08733f] focus:ring-2 focus:ring-[#08733f]/10"
@@ -170,47 +119,30 @@ export default function Login() {
                     type="button"
                     onClick={() => setShowPassword((visible) => !visible)}
                     className="absolute right-2.5 top-2.5 rounded p-0.5 text-slate-400"
-                    aria-label={
-                      showPassword ? "Hide password" : "Show password"
-                    }
+                    aria-label={showPassword ? "Hide password" : "Show password"}
                   >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </label>
               {error && (
-                <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                  {error}
-                </p>
+                <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>
               )}
               <button
                 type="submit"
-                disabled={signingIn}
+                disabled={signingIn || loading}
                 className="flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#08733f] text-sm font-bold text-white shadow-sm hover:bg-[#065d32] disabled:cursor-wait disabled:opacity-70"
               >
-                {signingIn ? "Securing session…" : "Sign in to dashboard"}{" "}
-                <ArrowRight className="h-4 w-4" />
+                {signingIn || loading ? "Securing session…" : "Sign in to dashboard"} <ArrowRight className="h-4 w-4" />
               </button>
             </form>
 
             <div className="mt-6 rounded-lg border border-[#d6e9da] bg-[#f7fcf8] p-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#08733f]">
-                Selected demo credentials
-              </p>
-              <p className="mt-2 break-all font-mono text-[10px] text-slate-600">
-                {email}
-              </p>
-              <p className="mt-1 font-mono text-[10px] text-slate-600">
-                {password}
+              <p className="text-xs font-semibold text-[#173b2a]">Protected production access</p>
+              <p className="mt-1 text-[10px] leading-4 text-slate-500">
+                Sessions are stored in a secure HttpOnly cookie. Contact an REA administrator if you need an account.
               </p>
             </div>
-            <p className="mt-5 text-center text-[10px] text-slate-400">
-              Demo access only · No production authentication
-            </p>
           </div>
         </section>
       </div>
