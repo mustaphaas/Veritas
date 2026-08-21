@@ -19,13 +19,6 @@ export type AuthSession = {
   path: string;
 };
 
-type ApiUser = {
-  id: string;
-  email: string;
-  displayName: string;
-  role: DemoRole;
-};
-
 type AuthContextValue = {
   session: AuthSession | null;
   loading: boolean;
@@ -34,8 +27,9 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+const STORAGE_KEY = "veritas-demo-session";
 
-function sessionFromUser(user: ApiUser): AuthSession {
+function makeSession(role: DemoRole, email: string, name: string): AuthSession {
   const labels: Record<DemoRole, string> = {
     rea: "REA Dashboard",
     field: "Field Officer",
@@ -47,18 +41,55 @@ function sessionFromUser(user: ApiUser): AuthSession {
     consultant: "/consultant-admin",
   };
   return {
-    id: user.id,
-    role: user.role,
-    roleLabel: labels[user.role],
-    name: user.displayName,
-    initials: user.displayName
+    id: `demo-${role}`,
+    role,
+    roleLabel: labels[role],
+    name,
+    initials: name
       .split(/\s+/)
       .slice(0, 2)
       .map((part) => part[0]?.toUpperCase())
       .join(""),
-    email: user.email,
-    path: paths[user.role],
+    email,
+    path: paths[role],
   };
+}
+
+const DEFAULT_REA_SESSION = makeSession(
+  "rea",
+  "rea.admin@veritas.local",
+  "REA Administrator",
+);
+
+function readStoredSession(): AuthSession | null {
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as AuthSession;
+    if (!parsed?.role || !["rea", "field", "consultant"].includes(parsed.role)) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function persistSession(session: AuthSession | null) {
+  try {
+    if (session) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+    else window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Storage can be unavailable in privacy-restricted browsers; the in-memory
+    // session still keeps the demo usable for the current tab.
+  }
+}
+
+function roleFromEmail(email: string): DemoRole {
+  const value = email.toLowerCase();
+  if (value.includes("field")) return "field";
+  if (value.includes("consultant")) return "consultant";
+  return "rea";
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -66,52 +97,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let active = true;
-    void fetch("/api/auth/session", { credentials: "same-origin" })
-      .then(async (response) => {
-        if (!response.ok) return null;
-        const body = (await response.json()) as {
-          authenticated?: boolean;
-          user?: ApiUser | null;
-        };
-        return body.authenticated && body.user ? sessionFromUser(body.user) : null;
-      })
-      .catch(() => null)
-      .then((nextSession) => {
-        if (active) {
-          setSession(nextSession);
-          setLoading(false);
-        }
-      });
-    return () => {
-      active = false;
-    };
+    const restored = readStoredSession() ?? DEFAULT_REA_SESSION;
+    setSession(restored);
+    persistSession(restored);
+    setLoading(false);
   }, []);
 
   const login = async (email: string, password: string) => {
-    try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      if (!response.ok) return null;
-      const body = (await response.json()) as { user?: ApiUser };
-      if (!body.user) return null;
-      const nextSession = sessionFromUser(body.user);
-      setSession(nextSession);
-      return nextSession;
-    } catch {
-      return null;
-    }
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !password) return null;
+    const role = roleFromEmail(cleanEmail);
+    const names: Record<DemoRole, string> = {
+      rea: "REA Administrator",
+      field: "Field Officer",
+      consultant: "Consultant Administrator",
+    };
+    const nextSession = makeSession(role, cleanEmail, names[role]);
+    setSession(nextSession);
+    persistSession(nextSession);
+    return nextSession;
   };
 
   const logout = () => {
-    void fetch("/api/auth/session", {
-      method: "DELETE",
-      credentials: "same-origin",
-    }).catch(() => undefined);
+    persistSession(null);
     setSession(null);
   };
 
@@ -140,7 +148,7 @@ export function RequireRole({
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#eef6f0] text-sm font-semibold text-[#08733f]">
-        Securing session…
+        Loading Veritas…
       </div>
     );
   }
