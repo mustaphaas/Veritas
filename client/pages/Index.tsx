@@ -85,25 +85,6 @@ type MapMode = "projects" | "capacity" | "households";
 type MapPoint = { x: number; y: number };
 
 const mapBounds = { minLon: 2.5, maxLon: 15, minLat: 3.5, maxLat: 14 };
-const mapViewBox = { width: 650, height: 300 };
-// Longitude degrees are narrower than latitude degrees away from the
-// equator, so a plain linear (lon, lat) -> (x, y) mapping stretches the
-// country horizontally. Correcting by cos(meanLatitude) and fitting the
-// result to the viewBox (instead of stretching lon to fill the full width)
-// keeps Nigeria's true proportions instead of pulling the eastern side wide.
-const mapMeanLatRadians =
-  (((mapBounds.minLat + mapBounds.maxLat) / 2) * Math.PI) / 180;
-const mapLonCorrection = Math.cos(mapMeanLatRadians);
-const mapLonSpanAdjusted =
-  (mapBounds.maxLon - mapBounds.minLon) * mapLonCorrection;
-const mapLatSpan = mapBounds.maxLat - mapBounds.minLat;
-const mapScale = Math.min(
-  mapViewBox.width / mapLonSpanAdjusted,
-  mapViewBox.height / mapLatSpan,
-);
-const mapOffsetX =
-  (mapViewBox.width - mapLonSpanAdjusted * mapScale) / 2;
-const mapOffsetY = (mapViewBox.height - mapLatSpan * mapScale) / 2;
 const mapPalette = ["#f2f8f3", "#dcefe0", "#b9dfc3", "#7fc393", "#18743e"];
 const mapModeOptions: Array<{
   value: MapMode;
@@ -127,12 +108,12 @@ function projectPoint(coordinate: number[]): MapPoint {
   const [longitude, latitude] = coordinate;
   return {
     x:
-      (longitude - mapBounds.minLon) * mapLonCorrection * mapScale +
-      mapOffsetX,
+      ((longitude - mapBounds.minLon) / (mapBounds.maxLon - mapBounds.minLon)) *
+      650,
     y:
-      mapViewBox.height -
-      mapOffsetY -
-      (latitude - mapBounds.minLat) * mapScale,
+      300 -
+      ((latitude - mapBounds.minLat) / (mapBounds.maxLat - mapBounds.minLat)) *
+        300,
   };
 }
 function geometryRings(geometry: BoundaryFeature["geometry"]) {

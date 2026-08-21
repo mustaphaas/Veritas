@@ -30,7 +30,7 @@ const welcomeMessage: DisplayMessage = {
   id: "welcome",
   role: "assistant",
   content:
-    "Hello. I’m Ask Veritas. Ask me about dashboard projects, programme performance, contractors, verification, monthly reports, or information on the official REA website.",
+    "Hello. I’m REA AI Insights. Ask me about dashboard projects, programme performance, contractors, verification, monthly reports, or information on the official REA website.",
 };
 
 const quickActions = [
@@ -220,7 +220,7 @@ export default function ReaAiAssistant({ filters }: { filters: Filters }) {
       };
       if (!response.ok || !payload.answer) {
         throw new Error(
-          payload.error || "Ask Veritas could not answer the question.",
+          payload.error || "REA AI could not answer the question.",
         );
       }
       setMessages((current) => [
@@ -241,7 +241,7 @@ export default function ReaAiAssistant({ filters }: { filters: Filters }) {
           content:
             error instanceof Error
               ? error.message
-              : "Ask Veritas could not answer the question.",
+              : "REA AI could not answer the question.",
         },
       ]);
     } finally {
@@ -254,7 +254,7 @@ export default function ReaAiAssistant({ filters }: { filters: Filters }) {
       {open && (
         <section
           className="fixed inset-x-3 bottom-[88px] top-20 z-50 flex flex-col overflow-hidden rounded-2xl border border-[#c8dfcf] bg-white shadow-[0_24px_80px_rgba(8,72,39,0.24)] sm:inset-x-auto sm:right-5 sm:top-auto sm:h-[min(720px,calc(100vh-120px))] sm:w-[420px]"
-          aria-label="Ask Veritas assistant"
+          aria-label="REA AI Insights assistant"
         >
           <header className="flex items-center justify-between bg-gradient-to-r from-[#075c33] to-[#0b8248] px-4 py-3.5 text-white">
             <div className="flex items-center gap-3">
@@ -262,7 +262,7 @@ export default function ReaAiAssistant({ filters }: { filters: Filters }) {
                 <Sparkles className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-sm font-bold">Ask Veritas</h2>
+                <h2 className="text-sm font-bold">REA AI Insights</h2>
                 <p className="mt-0.5 flex items-center gap-1.5 text-[9px] text-emerald-50">
                   <span className="h-1.5 w-1.5 rounded-full bg-[#8df0b4]" />
                   Dashboard data + official REA website
@@ -282,7 +282,7 @@ export default function ReaAiAssistant({ filters }: { filters: Filters }) {
                 type="button"
                 onClick={() => setOpen(false)}
                 className="rounded-lg p-2 text-white/80 hover:bg-white/10 hover:text-white"
-                aria-label="Close Ask Veritas"
+                aria-label="Close REA AI"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -308,7 +308,7 @@ export default function ReaAiAssistant({ filters }: { filters: Filters }) {
                   >
                     {message.role === "assistant" && (
                       <div className="mb-1.5 flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wide text-[#08733f]">
-                        <Bot className="h-3.5 w-3.5" /> Ask Veritas
+                        <Bot className="h-3.5 w-3.5" /> REA AI
                       </div>
                     )}
                     <p className="whitespace-pre-wrap">{message.content}</p>
@@ -412,7 +412,7 @@ export default function ReaAiAssistant({ filters }: { filters: Filters }) {
         type="button"
         onClick={() => setOpen((current) => !current)}
         className="fixed bottom-5 right-5 z-50 flex h-14 items-center gap-2 rounded-full bg-[#08733f] px-4 text-white shadow-[0_12px_35px_rgba(8,115,63,0.35)] transition-transform hover:scale-[1.03] hover:bg-[#065d32] focus:outline-none focus:ring-4 focus:ring-[#08733f]/20"
-        aria-label={open ? "Close Ask Veritas" : "Open Ask Veritas"}
+        aria-label={open ? "Close REA AI Insights" : "Open REA AI Insights"}
         aria-expanded={open}
       >
         {open ? (
@@ -420,7 +420,7 @@ export default function ReaAiAssistant({ filters }: { filters: Filters }) {
         ) : (
           <MessageCircle className="h-5 w-5" />
         )}
-        <span className="text-xs font-bold">Ask Veritas</span>
+        <span className="text-xs font-bold">REA AI</span>
         {!open && (
           <span className="absolute -right-0.5 -top-0.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-[#f2a100]">
             <Sparkles className="h-2.5 w-2.5" />
