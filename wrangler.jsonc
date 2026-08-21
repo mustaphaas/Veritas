@@ -3,6 +3,9 @@
   "name": "veritas",
   "compatibility_date": "2026-08-20",
   "compatibility_flags": ["nodejs_compat"],
+  "build": {
+    "command": "npm run build:client"
+  },
   "assets": {
     "directory": "./dist/spa",
     "not_found_handling": "single-page-application"
