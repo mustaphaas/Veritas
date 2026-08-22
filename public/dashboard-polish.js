@@ -54,15 +54,26 @@
     const slogans = [...document.querySelectorAll("p")].filter((element) =>
       element.textContent?.includes("Reliable power. Stronger communities. A brighter Nigeria."),
     );
+
     slogans.forEach((slogan) => {
-      const section = slogan.closest("section");
-      if (section) {
-        section.remove();
+      const legacyFooter = slogan.closest("footer");
+      if (legacyFooter && !legacyFooter.classList.contains("veritas-footer")) {
+        legacyFooter.remove();
         return;
       }
-      const article = slogan.closest("article");
-      if (article) article.remove();
+
+      const legacyCard = slogan.closest("section, article");
+      if (legacyCard) legacyCard.remove();
     });
+
+    [...document.querySelectorAll("p, span")]
+      .filter((element) => element.textContent?.includes("Last updated: Today, 4:07 AM"))
+      .forEach((element) => {
+        const legacyFooter = element.closest("footer");
+        if (legacyFooter && !legacyFooter.classList.contains("veritas-footer")) {
+          legacyFooter.remove();
+        }
+      });
   }
 
   function decorateQuickActions() {
