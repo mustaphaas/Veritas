@@ -115,12 +115,12 @@ div:has(> svg[aria-label^="Interactive Nigeria state map"]) {
   background: #eef7f0;
 }
 
-/* Fit the already-correct Nigeria projection comfortably inside the card.
-   Keep a uniform scale so the map shape is unchanged. */
+/* Match the visual size reached by pressing the map + control three times.
+   This is a uniform scale, so Nigeria's corrected projection and shape stay unchanged. */
 svg[aria-label^="Interactive Nigeria state map"] {
   height: 100% !important;
   min-height: 100% !important;
-  transform: scale(0.92);
+  transform: scale(1.61);
   transform-origin: center center;
 }
 
