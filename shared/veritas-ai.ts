@@ -114,7 +114,6 @@ export async function answerVeritasQuestion(
         ],
         generationConfig: {
           maxOutputTokens: 2500,
-          temperature: 0.3,
         },
       }),
     },
