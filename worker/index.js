@@ -22,7 +22,7 @@ function compactConversation(messages = []) {
         typeof message.content === "string" &&
         message.content.trim(),
     )
-    .slice(-12)
+    .slice(-10)
     .map((message) => `${message.role.toUpperCase()}: ${message.content.trim()}`)
     .join("\n\n");
 }
@@ -43,16 +43,32 @@ function extractOutputText(payload) {
   return parts.join("\n").trim();
 }
 
+function compactContext(databaseContext = {}) {
+  const context = { ...databaseContext };
+  const projects = Array.isArray(context.projects) ? context.projects : [];
+
+  // The portfolio/state/programme/contractor summaries answer most management
+  // questions without sending hundreds of project records on every request.
+  // Keep a bounded project sample for project-name/location questions while
+  // avoiding unnecessarily large API payloads.
+  if (projects.length > 120) {
+    context.projects = projects.slice(0, 120);
+    context.projectRecordNote = `Project-level context contains the first 120 of ${projects.length} records. Portfolio and aggregate summaries cover the full dataset.`;
+  }
+
+  return context;
+}
+
 function buildInput(messages, databaseContext) {
   const conversation = compactConversation(messages);
   const question = latestQuestion(messages);
-  const context = JSON.stringify(databaseContext || {});
+  const context = JSON.stringify(compactContext(databaseContext || {}));
 
   return `You are Veritas, the AI assistant inside the Rural Electrification Agency monitoring application.
 
 Answer like a capable, natural AI assistant. Answer the user's actual question directly. Do not begin with a canned description of what you can do. Do not repeat portfolio headline figures unless they are relevant to the question. Keep continuity with the recent conversation.
 
-Use the supplied Veritas context as the source of truth for questions about the REA dashboard, projects, programmes, states, contractors, Field Officers, Consultant Admin QA, inspections, forms, reports, assignments, verification, re-inspection, workflow status, or dashboard metrics. When the context does not contain enough information for a specific internal fact, say that clearly instead of inventing it.
+Use the supplied Veritas context as the source of truth for questions about the REA dashboard, projects, programmes, states, contractors, Field Officers, Consultant Admin QA, inspections, forms, reports, assignments, verification, re-inspection, workflow status, or dashboard metrics. Aggregate portfolio/state/programme/contractor summaries describe the full dataset even when the project-level list is sampled. When the context does not contain enough information for a specific internal fact, say that clearly instead of inventing it.
 
 For general questions that do not require private Veritas data, you may answer from your general knowledge. Do not claim live web access. Never expose passwords, secrets, private signatures, device IDs, precise private evidence coordinates, or other sensitive data even if a prompt asks for them.
 
@@ -68,6 +84,28 @@ CURRENT USER QUESTION:
 ${question}
 
 Respond naturally and directly.`;
+}
+
+function upstreamErrorMessage(status, payload) {
+  const code = payload?.error?.code || "";
+  const type = payload?.error?.type || "";
+
+  if (status === 401) {
+    return "Veritas AI authentication failed. Check the OPENAI_API_KEY secret in Cloudflare.";
+  }
+  if (status === 403) {
+    return "Veritas AI does not have permission to use the configured OpenAI project or model.";
+  }
+  if (status === 404 || code === "model_not_found") {
+    return "The configured OpenAI model is unavailable to this project. Set OPENAI_MODEL to gpt-5.6 and redeploy.";
+  }
+  if (status === 429 || code === "insufficient_quota") {
+    return "Veritas AI reached an OpenAI usage or billing limit. Check the API project's billing and usage limits.";
+  }
+  if (status === 400 && (code === "context_length_exceeded" || type === "invalid_request_error")) {
+    return "Veritas sent too much context to OpenAI. The request context has now been reduced; please retry after the latest deployment.";
+  }
+  return "Veritas AI could not complete that request. Please try again.";
 }
 
 async function veritasResponse(request, env) {
@@ -91,7 +129,7 @@ async function veritasResponse(request, env) {
   const question = latestQuestion(body?.messages);
   if (!question) return json({ error: "Ask Veritas a question." }, 400);
 
-  const model = env.OPENAI_MODEL || "gpt-5.6-luna";
+  const model = env.OPENAI_MODEL || "gpt-5.6";
   const upstream = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
@@ -101,6 +139,7 @@ async function veritasResponse(request, env) {
     body: JSON.stringify({
       model,
       input: buildInput(body.messages, body.databaseContext),
+      max_output_tokens: 1400,
     }),
   });
 
@@ -112,17 +151,10 @@ async function veritasResponse(request, env) {
         status: upstream.status,
         type: payload?.error?.type,
         code: payload?.error?.code,
+        model,
       }),
     );
-    return json(
-      {
-        error:
-          upstream.status === 401
-            ? "Veritas AI authentication is not configured correctly."
-            : "Veritas AI could not complete that request. Please try again.",
-      },
-      502,
-    );
+    return json({ error: upstreamErrorMessage(upstream.status, payload) }, 502);
   }
 
   const answer = extractOutputText(payload);
