@@ -90,7 +90,7 @@ const mapScale = Math.min(
 );
 const mapOffsetX = (mapViewBox.width - mapLonSpanAdjusted * mapScale) / 2;
 const mapOffsetY = (mapViewBox.height - mapLatSpan * mapScale) / 2;
-const mapPalette = ["#f2f8f3", "#dcefe0", "#b9dfc3", "#7fc393", "#18743e"];
+const mapPalette = ["#eef8f1", "#d3ecdc", "#a3d9b8", "#5fb98a", "#0f6e42"];
 const mapModeOptions: Array<{
   value: MapMode;
   label: string;
@@ -826,8 +826,26 @@ export default function Index() {
                     fill="none"
                     aria-label={`Interactive Nigeria state map viewed by ${mapMode}`}
                   >
+                    <defs>
+                      <filter
+                        id="nigeria-map-depth"
+                        x="-20%"
+                        y="-20%"
+                        width="140%"
+                        height="140%"
+                      >
+                        <feDropShadow
+                          dx="0"
+                          dy="1.5"
+                          stdDeviation="2"
+                          floodColor="#0b3d22"
+                          floodOpacity="0.18"
+                        />
+                      </filter>
+                    </defs>
                     {stateBoundaryData.length ? (
                       <g
+                        filter="url(#nigeria-map-depth)"
                         transform={`translate(325 150) scale(${mapZoom}) translate(${-mapFocus.x} ${-mapFocus.y})`}
                       >
                         {stateBoundaryData.map(
@@ -848,14 +866,15 @@ export default function Index() {
                                     mapBand(value, mapMode, maximumMapMetric)
                                   ]
                                 }
-                                stroke={selected ? "#075c33" : "#9fc8aa"}
+                                stroke={selected ? "#075c33" : "#8fbf9e"}
                                 strokeWidth={
                                   selected ? 2 : summary ? 1.05 : 0.7
                                 }
+                                strokeLinejoin="round"
                                 vectorEffect="non-scaling-stroke"
                                 className={
                                   summary
-                                    ? "cursor-pointer transition-colors hover:brightness-95 focus:outline-none"
+                                    ? "cursor-pointer transition-[filter,stroke-width] duration-150 hover:brightness-[0.97] focus:outline-none"
                                     : ""
                                 }
                                 role={summary ? "button" : undefined}
@@ -929,6 +948,7 @@ export default function Index() {
                                     stroke={selected ? "white" : "#b9dfc5"}
                                     strokeWidth="1.2"
                                     vectorEffect="non-scaling-stroke"
+                                    filter="url(#nigeria-map-depth)"
                                   />
                                   <text
                                     y={mapMode === "projects" ? 12.2 : 10.5}
