@@ -1,4 +1,4 @@
-import { ExternalLink, Mail, MapPin, Phone, ShieldCheck } from "lucide-react";
+import { BadgeCheck, ExternalLink, Mail, MapPin, Phone } from "lucide-react";
 
 const resourceLinks = [
   { label: "Rural Electrification Agency", href: "https://rea.gov.ng/" },
@@ -14,12 +14,12 @@ export default function VeritasFooter() {
       <div className="mx-auto grid max-w-[1580px] gap-10 px-5 py-10 sm:px-7 lg:grid-cols-[1.35fr_.8fr_1fr] lg:px-7">
         <div>
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-white/10">
-              <ShieldCheck className="h-6 w-6 text-[#78d69a]" />
+            <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-white text-[#08733f] shadow-sm">
+              <BadgeCheck className="h-6 w-6" strokeWidth={1.8} />
             </div>
             <div>
-              <p className="text-xl font-extrabold tracking-[-0.03em]">Veritas</p>
-              <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#91dbaa]">
+              <p className="text-xl font-semibold tracking-[-0.025em]">Veritas</p>
+              <p className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.16em] text-[#91dbaa]">
                 REA Project & Verification Intelligence
               </p>
             </div>
@@ -29,14 +29,14 @@ export default function VeritasFooter() {
             field inspections, verification performance and project evidence across
             Rural Electrification Agency interventions.
           </p>
-          <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.06] px-3 py-2 text-[10px] font-semibold text-white/75">
+          <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.06] px-3 py-2 text-[10px] font-medium text-white/75">
             <span className="h-2 w-2 rounded-full bg-[#42c879]" />
             Built for evidence-led programme oversight
           </div>
         </div>
 
         <div>
-          <h3 className="text-xs font-bold uppercase tracking-[0.14em] text-[#91dbaa]">
+          <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-[#91dbaa]">
             Official Resources
           </h3>
           <div className="mt-4 space-y-3">
@@ -56,7 +56,7 @@ export default function VeritasFooter() {
         </div>
 
         <div>
-          <h3 className="text-xs font-bold uppercase tracking-[0.14em] text-[#91dbaa]">
+          <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-[#91dbaa]">
             REA Contact
           </h3>
           <div className="mt-4 space-y-3 text-xs text-white/75">
@@ -64,18 +64,18 @@ export default function VeritasFooter() {
               href="tel:+23480020202020"
               className="flex items-start gap-3 transition-colors hover:text-white"
             >
-              <Phone className="mt-0.5 h-4 w-4 shrink-0 text-[#78d69a]" />
+              <Phone className="mt-0.5 h-4 w-4 shrink-0 text-[#78d69a]" strokeWidth={1.7} />
               <span>(+234) 800 202 02020</span>
             </a>
             <a
               href="mailto:nep@rea.gov.ng"
               className="flex items-start gap-3 transition-colors hover:text-white"
             >
-              <Mail className="mt-0.5 h-4 w-4 shrink-0 text-[#78d69a]" />
+              <Mail className="mt-0.5 h-4 w-4 shrink-0 text-[#78d69a]" strokeWidth={1.7} />
               <span>nep@rea.gov.ng</span>
             </a>
             <div className="flex items-start gap-3">
-              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#78d69a]" />
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#78d69a]" strokeWidth={1.7} />
               <span className="leading-5">
                 The Centurion Building, 15th Street, Constitution Avenue,
                 Central Business District, Abuja, Nigeria.
