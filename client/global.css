@@ -187,3 +187,201 @@ div:has(> [aria-label="Map viewing mode"]) > [aria-label="Map viewing mode"] {
     height: auto !important;
   }
 }
+
+/* Modern executive KPI strip. */
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > article,
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > button {
+  position: relative;
+  overflow: hidden;
+  min-height: 116px !important;
+  border-radius: 14px !important;
+  border-color: #e1ebe4 !important;
+  background: linear-gradient(145deg, #ffffff 0%, #fbfefc 100%) !important;
+  padding: 14px !important;
+  box-shadow: 0 6px 18px rgba(18, 66, 39, 0.055) !important;
+}
+
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > article::before,
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > button::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: linear-gradient(180deg, #08733f, #42b66f);
+}
+
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > button:last-child {
+  border-color: #f2ddb0 !important;
+  background: linear-gradient(145deg, #fffdfa 0%, #fff8e8 100%) !important;
+}
+
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > button:last-child::before {
+  background: linear-gradient(180deg, #d89000, #f3b73f);
+}
+
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button) > div {
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button) > div > div:first-child {
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 12px !important;
+  box-shadow: inset 0 0 0 1px rgba(8, 115, 63, 0.06);
+}
+
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button) > div > div:last-child > p:first-child {
+  font-size: 10px !important;
+  line-height: 14px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #5b7163 !important;
+}
+
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button) > div > div:last-child > p:nth-child(2) {
+  margin-top: 5px !important;
+  font-size: 26px !important;
+  line-height: 1 !important;
+  letter-spacing: -0.035em !important;
+}
+
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button) > div > div:last-child > p:nth-child(3) {
+  margin-top: 8px !important;
+  font-size: 10px !important;
+  line-height: 14px !important;
+  color: #718078 !important;
+}
+
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > button:last-child > div > div:last-child > p:nth-child(2) {
+  color: #a66b00 !important;
+}
+
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > button:last-child:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(160, 102, 0, 0.11) !important;
+}
+
+/* Modern Programme Performance card in the map-side summary column. */
+div.mt-3.grid.items-start.gap-3:has(
+    > section svg[aria-label^="Interactive Nigeria state map"]
+  ) > div.grid.gap-4 > section:first-child {
+  border-radius: 14px !important;
+  border-color: #dfeae2 !important;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfefc 100%);
+  box-shadow: 0 6px 20px rgba(18, 66, 39, 0.055) !important;
+}
+
+div.mt-3.grid.items-start.gap-3:has(
+    > section svg[aria-label^="Interactive Nigeria state map"]
+  ) > div.grid.gap-4 > section:first-child > div:first-child {
+  padding: 14px 16px !important;
+  border-bottom-color: #e6efe9 !important;
+  background: linear-gradient(90deg, #f6fbf7 0%, #ffffff 70%);
+}
+
+div.mt-3.grid.items-start.gap-3:has(
+    > section svg[aria-label^="Interactive Nigeria state map"]
+  ) > div.grid.gap-4 > section:first-child > div:first-child h2 {
+  font-size: 13px !important;
+  letter-spacing: -0.01em;
+}
+
+div.mt-3.grid.items-start.gap-3:has(
+    > section svg[aria-label^="Interactive Nigeria state map"]
+  ) > div.grid.gap-4 > section:first-child > div:first-child button {
+  border: 1px solid #cfe6d6;
+  border-radius: 999px;
+  background: #eef8f1;
+  padding: 5px 9px;
+  text-decoration: none !important;
+}
+
+div.mt-3.grid.items-start.gap-3:has(
+    > section svg[aria-label^="Interactive Nigeria state map"]
+  ) > div.grid.gap-4 > section:first-child > div:nth-child(2) {
+  display: grid;
+  gap: 7px;
+  padding: 10px !important;
+}
+
+div.mt-3.grid.items-start.gap-3:has(
+    > section svg[aria-label^="Interactive Nigeria state map"]
+  ) > div.grid.gap-4 > section:first-child > div:nth-child(2) > div {
+  border: 1px solid #e7efe9 !important;
+  border-radius: 11px;
+  background: #ffffff;
+  padding: 8px 9px !important;
+  box-shadow: 0 2px 7px rgba(18, 66, 39, 0.035);
+}
+
+div.mt-3.grid.items-start.gap-3:has(
+    > section svg[aria-label^="Interactive Nigeria state map"]
+  ) > div.grid.gap-4 > section:first-child > div:nth-child(2) > div:hover {
+  border-color: #c9dfd0 !important;
+  background: #fbfefc;
+}
+
+div.mt-3.grid.items-start.gap-3:has(
+    > section svg[aria-label^="Interactive Nigeria state map"]
+  ) > div.grid.gap-4 > section:first-child > div:nth-child(2) > div > div:first-child {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 9px !important;
+}
+
+div.mt-3.grid.items-start.gap-3:has(
+    > section svg[aria-label^="Interactive Nigeria state map"]
+  ) > div.grid.gap-4 > section:first-child > div:nth-child(2) > div strong {
+  font-size: 11px;
+  letter-spacing: 0.01em;
+}
+
+div.mt-3.grid.items-start.gap-3:has(
+    > section svg[aria-label^="Interactive Nigeria state map"]
+  ) > div.grid.gap-4 > section:first-child > div:nth-child(2) > div > span:last-child {
+  border-radius: 999px;
+  background: #eff8f2;
+  padding: 4px 7px;
+  color: #08733f !important;
+  font-weight: 800 !important;
+}
+
+div.mt-3.grid.items-start.gap-3:has(
+    > section svg[aria-label^="Interactive Nigeria state map"]
+  ) > div.grid.gap-4 > section:first-child > div:nth-child(2) > div:last-child > span:last-child {
+  background: #fff5df;
+  color: #a56a00 !important;
+}
+
+div.mt-3.grid.items-start.gap-3:has(
+    > section svg[aria-label^="Interactive Nigeria state map"]
+  ) > div.grid.gap-4 > section:first-child > div:nth-child(2) > div .h-1\.5 {
+  height: 5px !important;
+  background: #edf2ee !important;
+}
+
+div.mt-3.grid.items-start.gap-3:has(
+    > section svg[aria-label^="Interactive Nigeria state map"]
+  ) > div.grid.gap-4 > section:first-child > div:nth-child(2) > div:nth-child(1) .bg-\[\#08733f\] {
+  background: linear-gradient(90deg, #066b39, #159455) !important;
+}
+
+div.mt-3.grid.items-start.gap-3:has(
+    > section svg[aria-label^="Interactive Nigeria state map"]
+  ) > div.grid.gap-4 > section:first-child > div:nth-child(2) > div:nth-child(2) .bg-\[\#08733f\] {
+  background: linear-gradient(90deg, #13834c, #48b978) !important;
+}
+
+div.mt-3.grid.items-start.gap-3:has(
+    > section svg[aria-label^="Interactive Nigeria state map"]
+  ) > div.grid.gap-4 > section:first-child > div:nth-child(2) > div:nth-child(3) .bg-\[\#08733f\] {
+  background: linear-gradient(90deg, #38965e, #74c58e) !important;
+}
+
+div.mt-3.grid.items-start.gap-3:has(
+    > section svg[aria-label^="Interactive Nigeria state map"]
+  ) > div.grid.gap-4 > section:first-child > div:nth-child(2) > div:nth-child(4) .bg-\[\#08733f\] {
+  background: linear-gradient(90deg, #c8870b, #edb84f) !important;
+}
