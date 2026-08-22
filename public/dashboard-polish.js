@@ -1,0 +1,137 @@
+(() => {
+  const SVG_NS = "http://www.w3.org/2000/svg";
+
+  function ensureStylesheet() {
+    if (document.querySelector('link[data-veritas-dashboard-polish]')) return;
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "/dashboard-polish.css";
+    link.dataset.veritasDashboardPolish = "true";
+    document.head.appendChild(link);
+  }
+
+  function svgIcon(kind) {
+    const svg = document.createElementNS(SVG_NS, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("aria-hidden", "true");
+    const paths = {
+      total: [
+        '<path d="M4 6.5h6l1.6 2H20v9.5H4z"/>',
+        '<path d="M4 9h16"/>',
+      ],
+      verified: [
+        '<circle cx="12" cy="12" r="8"/>',
+        '<path d="m8.5 12 2.2 2.3 4.8-5"/>',
+      ],
+      pending: [
+        '<circle cx="12" cy="12" r="8"/>',
+        '<path d="M12 7.5V12l3 1.8"/>',
+      ],
+      submitted: [
+        '<path d="M5 4.5h9l4 4V19.5H5z"/>',
+        '<path d="M14 4.5v4h4"/>',
+        '<path d="m8 14 2 2 4-4"/>',
+      ],
+    };
+    svg.innerHTML = (paths[kind] || paths.total).join("");
+    return svg;
+  }
+
+  function makeIcon(kind) {
+    const span = document.createElement("span");
+    span.className = "veritas-metric-icon";
+    span.dataset.metricIcon = kind;
+    span.appendChild(svgIcon(kind));
+    return span;
+  }
+
+  function removeReaSloganSection() {
+    const slogans = [...document.querySelectorAll("p")].filter((element) =>
+      element.textContent?.includes("Reliable power. Stronger communities. A brighter Nigeria."),
+    );
+    slogans.forEach((slogan) => {
+      const section = slogan.closest("section");
+      if (section) {
+        section.remove();
+        return;
+      }
+      const article = slogan.closest("article");
+      if (article) article.remove();
+    });
+  }
+
+  function decorateQuickActions() {
+    const heading = [...document.querySelectorAll("h2")].find(
+      (element) => element.textContent?.trim() === "Quick Actions",
+    );
+    const article = heading?.closest("article");
+    if (!article) return;
+    article.classList.add("veritas-modern-quick-actions");
+  }
+
+  function decorateProjectMetrics() {
+    const heading = [...document.querySelectorAll("h2")].find(
+      (element) => element.textContent?.trim() === "Projects Across Nigeria",
+    );
+    const article = heading?.closest("article");
+    if (!article) return;
+    article.classList.add("veritas-project-metrics");
+
+    const directChildren = [...article.children];
+    const totalValue = directChildren.find(
+      (element) => element.matches?.("p.text-4xl"),
+    );
+    const totalLabel = totalValue?.nextElementSibling;
+    const statusGrid = directChildren.find((element) =>
+      element.matches?.("div.mt-5.grid.grid-cols-3"),
+    );
+
+    let totalShell = article.querySelector(":scope > .veritas-metric-total-shell");
+    if (!totalShell && totalValue && totalLabel) {
+      totalShell = document.createElement("div");
+      totalShell.className = "veritas-metric-total-shell";
+      totalShell.innerHTML =
+        '<p class="veritas-metric-value"></p><p class="veritas-metric-label">Total Projects</p>';
+      totalShell.prepend(makeIcon("total"));
+      statusGrid ? article.insertBefore(totalShell, statusGrid) : article.appendChild(totalShell);
+    }
+    const shellValue = totalShell?.querySelector(".veritas-metric-value");
+    if (shellValue && totalValue) shellValue.textContent = totalValue.textContent?.trim() || "0";
+
+    if (!statusGrid) return;
+    const kinds = ["verified", "pending", "submitted"];
+    [...statusGrid.children].forEach((cell, index) => {
+      const kind = kinds[index] || "total";
+      if (!cell.querySelector(`.veritas-metric-icon[data-metric-icon="${kind}"]`)) {
+        cell.prepend(makeIcon(kind));
+      }
+    });
+  }
+
+  function apply() {
+    ensureStylesheet();
+    removeReaSloganSection();
+    decorateQuickActions();
+    decorateProjectMetrics();
+  }
+
+  let queued = false;
+  const schedule = () => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      apply();
+    });
+  };
+
+  const observer = new MutationObserver(schedule);
+  observer.observe(document.documentElement, { childList: true, subtree: true });
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", schedule, { once: true });
+  } else {
+    schedule();
+  }
+  window.addEventListener("load", schedule, { once: true });
+})();
