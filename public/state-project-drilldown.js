@@ -26,19 +26,21 @@
     { status: "In progress", verified: false },
   ];
 
-  const SAMPLE_COORDINATES = {
-    Kano: [8.5167, 12.0000],
-    Kaduna: [7.4383, 10.5105],
-    Lagos: [3.3792, 6.5244],
-    FCT: [7.3986, 9.0765],
-    Rivers: [7.0134, 4.8156],
-    Oyo: [3.9470, 7.3775],
-    Niger: [6.5569, 9.5836],
-    Bauchi: [9.8442, 10.3158],
-    Borno: [13.1510, 11.8469],
-    Enugu: [7.4988, 6.4584],
-    Plateau: [8.8965, 9.8965],
+  // Existing demo project-centre coordinates from client/lib/inspection-workflow.tsx.
+  // Stored here as [longitude, latitude] for the SVG projection.
+  const WORKFLOW_COORDINATES = {
+    Kano: [8.5920, 12.0022],
+    Kaduna: [7.4165, 10.5105],
+    Katsina: [7.6018, 12.9908],
     Sokoto: [5.2476, 13.0059],
+    Zamfara: [6.6597, 12.1704],
+    Jigawa: [9.5616, 12.2280],
+    Lagos: [3.3792, 6.5244],
+    Ogun: [3.3619, 7.1475],
+    Oyo: [3.9470, 7.3775],
+    FCT: [7.3986, 9.0765],
+    Rivers: [7.0498, 4.8156],
+    Enugu: [7.5464, 6.4584],
   };
 
   const projects = Object.entries(STATE_TARGETS).flatMap(([state, count], stateIndex) =>
@@ -49,13 +51,19 @@
       const component = firstStateProject
         ? "Mini Grid"
         : COMPONENTS[(seed + projectIndex * 2 + stateIndex) % COMPONENTS.length];
-      const base = SAMPLE_COORDINATES[state];
-      const coordinate = base && projectIndex < 3
-        ? [
-            base[0] + ((projectIndex % 2 ? 1 : -1) * (0.035 + projectIndex * 0.018)),
-            base[1] + ((projectIndex % 2 ? -1 : 1) * (0.028 + projectIndex * 0.015)),
-          ]
-        : null;
+      const base = WORKFLOW_COORDINATES[state];
+      let coordinate = null;
+      let coordinateType = null;
+      if (base && projectIndex === 0) {
+        coordinate = [...base];
+        coordinateType = "Workflow project-centre coordinate";
+      } else if (base && projectIndex < 3) {
+        coordinate = [
+          base[0] + ((projectIndex % 2 ? 1 : -1) * (0.035 + projectIndex * 0.018)),
+          base[1] + ((projectIndex % 2 ? -1 : 1) * (0.028 + projectIndex * 0.015)),
+        ];
+        coordinateType = "Supplemental presentation coordinate";
+      }
       return {
         name: `${state} ${component} Project ${String(projectIndex + 1).padStart(2, "0")}`,
         state,
@@ -68,7 +76,7 @@
         kw: 120 + ((seed * 173 + projectIndex * 61) % 880),
         households: 80 + ((seed * 211 + projectIndex * 97) % 1420),
         coordinate,
-        coordinateType: coordinate ? "Demo project coordinate" : null,
+        coordinateType,
       };
     }),
   );
@@ -80,7 +88,8 @@
     .veritas-demo-marker { cursor:pointer; filter:drop-shadow(0 2px 3px rgba(7,92,51,.25)); }
     .veritas-demo-marker circle:first-child { fill:#ffffff; stroke:#08733f; stroke-width:1.4; }
     .veritas-demo-marker circle:last-child { fill:#08733f; }
-    .veritas-demo-marker:hover circle:first-child { fill:#eaf8ef; }
+    .veritas-demo-marker[data-coordinate-source="workflow"] circle:first-child { fill:#eaf8ef; stroke-width:1.7; }
+    .veritas-demo-marker:hover circle:first-child { fill:#dff3e5; }
     .veritas-state-project-drawer { position:absolute; z-index:45; top:12px; right:12px; bottom:12px; width:min(410px,calc(100% - 24px)); display:flex; flex-direction:column; overflow:hidden; border:1px solid #cfdad2; border-radius:14px; background:rgba(255,255,255,.98); box-shadow:0 20px 50px rgba(20,55,37,.20); backdrop-filter:blur(10px); font-family:"Montserrat",Inter,ui-sans-serif,system-ui,sans-serif; }
     .veritas-state-project-drawer * { box-sizing:border-box; }
     .veritas-state-project-head { padding:16px 16px 13px; border-bottom:1px solid #e5ebe7; background:linear-gradient(180deg,#fbfdfb 0%,#f5faf7 100%); }
@@ -169,7 +178,7 @@
     container.innerHTML = rows.map((project) => {
       const theme = statusTheme(project);
       const coordinate = project.coordinate
-        ? `<span class="veritas-coordinate-note">${project.coordinate[1].toFixed(4)}, ${project.coordinate[0].toFixed(4)} · demo coordinate</span>`
+        ? `<span class="veritas-coordinate-note">${project.coordinate[1].toFixed(4)}, ${project.coordinate[0].toFixed(4)} · ${escapeHtml(project.coordinateType)}</span>`
         : "";
       return `<article class="veritas-state-project-row">
         <div class="veritas-state-project-row-top">
@@ -199,14 +208,15 @@
     const verified = stateProjects.filter((project) => project.verified).length;
     const pending = stateProjects.length - verified;
     const capacityMw = stateProjects.reduce((sum, project) => sum + project.kw, 0) / 1000;
-    const geocoded = stateProjects.filter((project) => project.coordinate).length;
+    const workflowPoints = stateProjects.filter((project) => project.coordinateType === "Workflow project-centre coordinate").length;
+    const supplementalPoints = stateProjects.filter((project) => project.coordinateType === "Supplemental presentation coordinate").length;
     const drawer = document.createElement("section");
     drawer.className = "veritas-state-project-drawer";
     drawer.setAttribute("aria-label", `${state} project list`);
     drawer.innerHTML = `<div class="veritas-state-project-head">
       <div class="veritas-state-project-title-row"><div>
         <h3 class="veritas-state-project-title">${escapeHtml(state)} State Projects</h3>
-        <p class="veritas-state-project-subtitle">${stateProjects.length.toLocaleString()} projects · ${geocoded} coordinate-backed demo point(s)</p>
+        <p class="veritas-state-project-subtitle">${stateProjects.length.toLocaleString()} projects · ${workflowPoints} workflow coordinate · ${supplementalPoints} supplemental point(s)</p>
       </div><button class="veritas-state-project-close" type="button" aria-label="Close ${escapeHtml(state)} projects">×</button></div>
       <div class="veritas-state-project-summary">
         <div class="veritas-state-project-stat"><strong>${verified}</strong><span>Verified</span></div>
@@ -215,7 +225,7 @@
       </div></div>
       <div class="veritas-state-project-search"><input type="search" placeholder="Search projects, programme or contractor" aria-label="Search ${escapeHtml(state)} projects" /></div>
       <div class="veritas-state-project-list"></div>
-      <div class="veritas-state-project-foot">Green map markers are presentation sample coordinates, not verified field evidence coordinates.</div>`;
+      <div class="veritas-state-project-foot">Primary green points use existing Veritas workflow project-centre coordinates. Nearby supplemental points are presentation-only and are labelled accordingly.</div>`;
     mapContainer.appendChild(drawer);
     const list = drawer.querySelector(".veritas-state-project-list");
     const search = drawer.querySelector('input[type="search"]');
@@ -262,8 +272,9 @@
       marker.setAttribute("transform", `translate(${point.x} ${point.y})`);
       marker.setAttribute("role", "button");
       marker.setAttribute("tabindex", "0");
-      marker.setAttribute("aria-label", `${project.name}: demo coordinate`);
+      marker.setAttribute("aria-label", `${project.name}: ${project.coordinateType}`);
       marker.dataset.state = project.state;
+      marker.dataset.coordinateSource = project.coordinateType === "Workflow project-centre coordinate" ? "workflow" : "supplemental";
       marker.innerHTML = '<circle r="5.5"></circle><circle r="2.2"></circle>';
       marker.addEventListener("click", (event) => {
         event.stopPropagation();
