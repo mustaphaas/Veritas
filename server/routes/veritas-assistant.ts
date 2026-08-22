@@ -21,8 +21,8 @@ export const handleVeritasAssistant: RequestHandler = async (req, res) => {
 
   try {
     const result = await answerVeritasQuestion(req.body as VeritasRequest, {
-      OPENAI_API_KEY: process.env.OPENAI_API_KEY,
-      OPENAI_MODEL: process.env.OPENAI_MODEL,
+      GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+      GEMINI_MODEL: process.env.GEMINI_MODEL,
     });
     res.status(result.status).json(result.body);
   } catch {
