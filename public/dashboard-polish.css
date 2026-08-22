@@ -1,0 +1,167 @@
+/* Final presentation polish layered after the component styles. */
+
+/* Restore the original dynamic Installed Capacity content while keeping the solar-style icon. */
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:last-child > p:first-child {
+  font-size: 10.5px !important;
+}
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:last-child > p:first-child::after {
+  content: none !important;
+}
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:last-child > p:nth-child(2) {
+  font-size: 30px !important;
+}
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:last-child > p:nth-child(2)::after {
+  content: none !important;
+}
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:last-child > p:nth-child(3) {
+  font-size: 9.5px !important;
+}
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:last-child > p:nth-child(3)::after {
+  content: none !important;
+}
+
+/* Projects Across Nigeria: modern icon-led status row. */
+.veritas-project-metrics {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  grid-template-rows: auto 112px !important;
+  gap: 10px !important;
+}
+.veritas-project-metrics > .veritas-metric-total-shell,
+.veritas-project-metrics > div.mt-5.grid.grid-cols-3 > div {
+  border: 1px solid #dfe6e2 !important;
+  border-radius: 12px !important;
+  background: #ffffff !important;
+  min-height: 112px !important;
+}
+.veritas-project-metrics > .veritas-metric-total-shell {
+  grid-column: 1 !important;
+  grid-row: 2 !important;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 8px;
+}
+.veritas-project-metrics > div.mt-5.grid.grid-cols-3 {
+  grid-column: 2 / -1 !important;
+  grid-row: 2 !important;
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+  margin: 0 !important;
+}
+.veritas-project-metrics > p.text-4xl,
+.veritas-project-metrics > p.text-4xl + p {
+  display: none !important;
+}
+.veritas-metric-icon {
+  display: flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 8px;
+  border-radius: 50%;
+  border: 1px solid #c7dbcf;
+  color: #08733f;
+  background: #f8fbf9;
+}
+.veritas-metric-icon svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.veritas-project-metrics .veritas-metric-value,
+.veritas-project-metrics > div.mt-5.grid.grid-cols-3 > div p:first-of-type {
+  margin: 0 !important;
+  font-size: 24px !important;
+  line-height: 1 !important;
+  font-weight: 500 !important;
+  color: #08733f !important;
+  text-align: center !important;
+}
+.veritas-project-metrics .veritas-metric-label,
+.veritas-project-metrics > div.mt-5.grid.grid-cols-3 > div p:last-of-type {
+  margin-top: 7px !important;
+  font-size: 10px !important;
+  line-height: 1.2 !important;
+  font-weight: 500 !important;
+  color: #69766f !important;
+  text-align: center !important;
+}
+.veritas-project-metrics > div.mt-5.grid.grid-cols-3 > div {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 12px 8px !important;
+}
+.veritas-project-metrics > div.mt-5.grid.grid-cols-3 > div:nth-child(2) .veritas-metric-icon,
+.veritas-project-metrics > div.mt-5.grid.grid-cols-3 > div:nth-child(2) p:first-of-type {
+  color: #b77905 !important;
+  border-color: #e5d1a3 !important;
+}
+
+/* Modernise Quick Actions without changing their functions. */
+.veritas-modern-quick-actions {
+  border-color: #dfe6e2 !important;
+  background: #ffffff !important;
+}
+.veritas-modern-quick-actions > div:first-child {
+  background: #fbfcfb !important;
+}
+.veritas-modern-quick-actions > div.grid {
+  gap: 10px !important;
+}
+.veritas-modern-quick-actions > div.grid > button {
+  min-height: 96px !important;
+  border: 1px solid #e0e7e3 !important;
+  border-radius: 12px !important;
+  background: #ffffff !important;
+  color: #263b30 !important;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease, box-shadow 160ms ease !important;
+}
+.veritas-modern-quick-actions > div.grid > button:hover {
+  border-color: #9ec8ab !important;
+  background: #f5faf7 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 7px 18px rgba(18,66,39,.08);
+}
+.veritas-modern-quick-actions > div.grid > button > svg {
+  width: 28px !important;
+  height: 28px !important;
+  padding: 6px !important;
+  border: 1px solid #cbded2 !important;
+  border-radius: 50% !important;
+  background: #f8fbf9 !important;
+  color: #08733f !important;
+  stroke-width: 1.6 !important;
+}
+.veritas-modern-quick-actions > div.grid > button strong {
+  margin-top: 8px !important;
+  font-family: var(--veritas-font) !important;
+  font-size: 10.5px !important;
+  font-weight: 500 !important;
+  color: #34463c !important;
+}
+
+@media (max-width: 700px) {
+  .veritas-project-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-rows: auto auto !important;
+  }
+  .veritas-project-metrics > .veritas-metric-total-shell {
+    grid-column: auto !important;
+    grid-row: auto !important;
+  }
+  .veritas-project-metrics > div.mt-5.grid.grid-cols-3 {
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}

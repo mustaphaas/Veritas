@@ -1,0 +1,36 @@
+.veritas-footer {
+  background: #edf1ee !important;
+  color: #46544b !important;
+  border-top-color: #d9e1db !important;
+}
+.veritas-footer > div:first-child {
+  height: 3px !important;
+  background: #08733f !important;
+  border: 0 !important;
+}
+.veritas-footer a {
+  color: #657169 !important;
+}
+.veritas-footer a:hover {
+  color: #08733f !important;
+}
+.veritas-footer svg {
+  color: #08733f !important;
+}
+.veritas-footer [class*="text-white"],
+.veritas-footer [class*="text-\[\#91dbaa\]"] {
+  color: #526158 !important;
+}
+.veritas-footer [class*="border-white"] {
+  border-color: #c8d5cc !important;
+}
+.veritas-footer [class*="bg-white"] {
+  background-color: #f8faf8 !important;
+}
+.veritas-footer > div:last-child {
+  border-top-color: #d1dad3 !important;
+  background: #e2e8e3 !important;
+}
+.veritas-footer > div:last-child p {
+  color: #6d7771 !important;
+}
