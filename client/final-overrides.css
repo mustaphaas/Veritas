@@ -1,0 +1,31 @@
+/* Final source-bundled overrides. Keep these after nep-inspired.css. */
+
+/* Installed Capacity must use the native React energy/Zap icon and content. */
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:first-child svg {
+  display: block !important;
+  width: 20px !important;
+  height: 20px !important;
+  color: currentColor !important;
+}
+
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:first-child::before {
+  content: none !important;
+  display: none !important;
+  background: none !important;
+  background-image: none !important;
+}
+
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:last-child > p:first-child {
+  font-size: 10.5px !important;
+}
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:last-child > p:nth-child(2) {
+  font-size: 30px !important;
+}
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:last-child > p:nth-child(3) {
+  font-size: 9.5px !important;
+}
+
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:last-child > p::after {
+  content: none !important;
+  display: none !important;
+}
