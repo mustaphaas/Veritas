@@ -72,7 +72,7 @@ type MapMode = "projects" | "capacity" | "households";
 type MapPoint = { x: number; y: number };
 
 const mapBounds = { minLon: 2.5, maxLon: 15, minLat: 3.5, maxLat: 14 };
-const mapViewBox = { width: 650, height: 300 };
+const mapViewBox = { width: 353, height: 300 };
 // Longitude degrees are narrower than latitude degrees away from the
 // equator, so a plain linear (lon, lat) -> (x, y) mapping stretches the
 // country horizontally. Correcting by cos(meanLatitude) and fitting the
@@ -350,7 +350,10 @@ export default function Index() {
   const [filters, setFilters] = useState<Filters>(defaultFilters);
   const [mapMode, setMapMode] = useState<MapMode>("projects");
   const [mapZoom, setMapZoom] = useState(1);
-  const [mapFocus, setMapFocus] = useState<MapPoint>({ x: 325, y: 150 });
+  const [mapFocus, setMapFocus] = useState<MapPoint>({
+    x: mapViewBox.width / 2,
+    y: mapViewBox.height / 2,
+  });
   const [mapTooltip, setMapTooltip] = useState<{
     state: string;
     x: number;
@@ -473,14 +476,14 @@ export default function Index() {
       !stateSummaries.some((summary) => summary.state === selectedState)
     ) {
       setSelectedState(null);
-      setMapFocus({ x: 325, y: 150 });
+      setMapFocus({ x: mapViewBox.width / 2, y: mapViewBox.height / 2 });
       setMapZoom(1);
     }
   }, [selectedState, stateSummaries]);
 
   const resetMapView = () => {
     setMapZoom(1);
-    setMapFocus({ x: 325, y: 150 });
+    setMapFocus({ x: mapViewBox.width / 2, y: mapViewBox.height / 2 });
   };
 
   const selectMapState = (state: string, centroid: MapPoint) => {
@@ -822,13 +825,13 @@ export default function Index() {
 
                   <svg
                     className="relative z-10 h-full min-h-[390px] w-full touch-pan-x touch-pan-y sm:min-h-0"
-                    viewBox="0 0 650 300"
+                    viewBox={`0 0 ${mapViewBox.width} ${mapViewBox.height}`}
                     fill="none"
                     aria-label={`Interactive Nigeria state map viewed by ${mapMode}`}
                   >
                     {stateBoundaryData.length ? (
                       <g
-                        transform={`translate(325 150) scale(${mapZoom}) translate(${-mapFocus.x} ${-mapFocus.y})`}
+                        transform={`translate(${mapViewBox.width / 2} ${mapViewBox.height / 2}) scale(${mapZoom}) translate(${-mapFocus.x} ${-mapFocus.y})`}
                       >
                         {stateBoundaryData.map(
                           ({ boundary, state, centroid, key }) => {
@@ -949,8 +952,8 @@ export default function Index() {
                       </g>
                     ) : (
                       <text
-                        x="325"
-                        y="150"
+                        x={mapViewBox.width / 2}
+                        y={mapViewBox.height / 2}
                         textAnchor="middle"
                         fill="#557060"
                         fontSize="12"
