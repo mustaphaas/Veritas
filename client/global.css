@@ -115,12 +115,13 @@ div:has(> svg[aria-label^="Interactive Nigeria state map"]) {
   background: #eef7f0;
 }
 
-/* Enlarge the Nigeria map while correcting the earlier horizontal stretch.
-   The x/y ratio mirrors the proven proportion fix, but the whole map is
-   larger and remains centered in the available map surface. */
+/* Enlarge the Nigeria map. The projection itself (projectPoint() in
+   client/pages/Index.tsx) already corrects for true proportions with a
+   cos(latitude) adjustment, so this only needs a uniform scale - no
+   x/y compensation - to avoid re-distorting an already-correct shape. */
 svg[aria-label^="Interactive Nigeria state map"] {
   height: 100% !important;
   min-height: 100% !important;
-  transform: scale(0.96, 1.12);
-  transform-origin: center center;
+  transform: scale(1.12);
+  transform-origin: center;
 }
