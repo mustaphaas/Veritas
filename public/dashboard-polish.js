@@ -24,6 +24,12 @@
         '<path d="M4 6.5h6l1.6 2H20v9.5H4z"/>',
         '<path d="M4 9h16"/>',
       ],
+      solar: [
+        '<circle cx="18" cy="5" r="2.3"/>',
+        '<path d="M18 1v1M18 8v1M14 5h1M21 5h1M15.2 2.2l.7.7M20.1 7.1l.7.7M20.8 2.2l-.7.7M15.9 7.1l-.7.7"/>',
+        '<path d="M3.5 9.5h11l2 8h-15l2-8Z"/>',
+        '<path d="M4.5 13.5h11M8.5 9.5l-1 8M12 9.5l1 8M9 17.5v3M13 17.5v3M7 20.5h8"/>',
+      ],
       verified: [
         '<circle cx="12" cy="12" r="8"/>',
         '<path d="m8.5 12 2.2 2.3 4.8-5"/>',
@@ -48,6 +54,35 @@
     span.dataset.metricIcon = kind;
     span.appendChild(svgIcon(kind));
     return span;
+  }
+
+  function decorateCapacityKpi() {
+    const label = [...document.querySelectorAll("p")].find(
+      (element) => element.textContent?.trim() === "Installed Capacity",
+    );
+    const card = label?.closest("article, section, div[class*='rounded']");
+    if (!card) return;
+
+    const iconHost = [...card.querySelectorAll("div")].find((element) => {
+      const svg = element.querySelector(":scope > svg");
+      return Boolean(svg) && element.children.length <= 2;
+    });
+    if (!iconHost) return;
+
+    let solar = iconHost.querySelector('[data-veritas-capacity-solar="true"]');
+    if (!solar) {
+      iconHost.replaceChildren();
+      solar = document.createElement("span");
+      solar.dataset.veritasCapacitySolar = "true";
+      solar.style.display = "inline-flex";
+      solar.style.width = "24px";
+      solar.style.height = "24px";
+      solar.style.alignItems = "center";
+      solar.style.justifyContent = "center";
+      solar.style.color = "#08733f";
+      solar.appendChild(svgIcon("solar"));
+      iconHost.appendChild(solar);
+    }
   }
 
   function removeReaSloganSection() {
@@ -127,6 +162,7 @@
   function apply() {
     ensureStylesheet();
     removeReaSloganSection();
+    decorateCapacityKpi();
     decorateQuickActions();
     decorateProjectMetrics();
   }
