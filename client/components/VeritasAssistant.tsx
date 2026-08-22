@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  BadgeCheck,
   BarChart3,
   BrainCircuit,
   Database,
@@ -9,7 +10,6 @@ import {
   Search,
   Send,
   ShieldCheck,
-  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
@@ -18,7 +18,17 @@ import {
   summarizePortfolio,
   summarizeProjectsByState,
 } from "../lib/dashboard-data";
-import { useInspectionWorkflow } from "../lib/inspection-workflow";
+import {
+  COMPONENT_FORM_SECTIONS,
+  SUPPORTED_ASSIGNMENT_COMPONENTS,
+  isSupportedAssignmentComponent,
+} from "../lib/component-inspection-form";
+import {
+  FIELD_OFFICERS_STORAGE_KEY,
+  defaultFieldOfficers,
+  useInspectionWorkflow,
+  type FieldOfficerAccount,
+} from "../lib/inspection-workflow";
 import type { VeritasMessage, VeritasSource } from "../../shared/veritas-ai";
 
 type DisplayMessage = VeritasMessage & {
@@ -30,7 +40,7 @@ const welcome: DisplayMessage = {
   id: "welcome",
   role: "assistant",
   content:
-    "Welcome to Veritas. I can answer questions about REA programmes, projects, contractors, inspections and verification performance, or prepare management reports from the system data.",
+    "Welcome to Veritas. I can answer presentation questions across the REA, Field Officer and Consultant Admin demo dashboards, including projects, programmes, contractors, assignments, inspection forms, reports and verification performance.",
 };
 
 const quickActions = [
@@ -65,10 +75,10 @@ const quickActions = [
 ];
 
 const questionExamples = [
-  "Which states have the most pending verification?",
-  "Which programme has the strongest verification performance?",
-  "Summarise contractor performance and key risks.",
-  "What should REA management prioritise next?",
+  "How many field officers and assignments are in the demo?",
+  "Which projects are still pending verification?",
+  "What can the Consultant Admin review and approve?",
+  "What fields are in the Mini Grid inspection form?",
 ];
 
 function id() {
@@ -78,16 +88,79 @@ function id() {
 function VeritasMark({ compact = false }: { compact?: boolean }) {
   return (
     <div
-      className={`${compact ? "h-11 w-11 rounded-xl" : "h-12 w-12 rounded-2xl"} relative flex shrink-0 items-center justify-center bg-gradient-to-br from-[#064f2d] via-[#08733f] to-[#13a15b] text-white shadow-[0_8px_24px_rgba(8,115,63,0.25)] ring-1 ring-white/40`}
+      className={`${compact ? "h-11 w-11" : "h-12 w-12"} flex shrink-0 items-center justify-center rounded-full border border-[#cbd9cf] bg-white p-1 shadow-[0_6px_18px_rgba(8,61,34,0.12)]`}
       aria-hidden="true"
     >
-      <span className={`${compact ? "text-lg" : "text-xl"} font-black tracking-[-0.06em]`}>
-        V
-      </span>
-      <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-[#f4b83f] text-white shadow-sm">
-        <Sparkles className="h-2.5 w-2.5" />
-      </span>
+      <div className="flex h-full w-full items-center justify-center rounded-full bg-[#0a5f35] text-white ring-1 ring-[#0a5f35]/10">
+        <BadgeCheck
+          className={compact ? "h-5 w-5" : "h-6 w-6"}
+          strokeWidth={1.8}
+        />
+      </div>
     </div>
+  );
+}
+
+function readSafeFieldOfficers() {
+  let officers = defaultFieldOfficers;
+  if (typeof window !== "undefined") {
+    try {
+      const stored = window.localStorage.getItem(FIELD_OFFICERS_STORAGE_KEY);
+      if (stored) officers = JSON.parse(stored) as FieldOfficerAccount[];
+    } catch {
+      officers = defaultFieldOfficers;
+    }
+  }
+
+  return officers.map((officer) => ({
+    id: officer.id,
+    name: officer.name,
+    zone: officer.zone,
+    status: officer.status,
+    createdAt: officer.createdAt,
+  }));
+}
+
+function inspectionFormSchema() {
+  return Object.fromEntries(
+    SUPPORTED_ASSIGNMENT_COMPONENTS.map((component) => [
+      component,
+      COMPONENT_FORM_SECTIONS[component].map((section) => ({
+        section: section.title,
+        fields: section.items.flatMap((item) =>
+          item.type === "field"
+            ? [item.label]
+            : item.fields.map((field) => `${item.label} — ${field.label}`),
+        ),
+      })),
+    ]),
+  );
+}
+
+function safeComponentValues(component: string, values?: Record<string, string>) {
+  if (!values || !isSupportedAssignmentComponent(component)) return undefined;
+
+  const allowedKeys = new Set(
+    COMPONENT_FORM_SECTIONS[component].flatMap((section) =>
+      section.items.flatMap((item) => {
+        const fields = item.type === "field" ? [item] : item.fields;
+        return fields
+          .filter(
+            (field) =>
+              field.kind !== "coordinate" &&
+              field.kind !== "phone" &&
+              field.assignmentKey !== "latitude" &&
+              field.assignmentKey !== "longitude",
+          )
+          .map((field) => field.key);
+      }),
+    ),
+  );
+
+  return Object.fromEntries(
+    Object.entries(values).filter(
+      ([key, value]) => allowedKeys.has(key) && String(value).trim().length > 0,
+    ),
   );
 }
 
@@ -102,6 +175,7 @@ export default function VeritasAssistant() {
 
   const databaseContext = useMemo(() => {
     const totals = summarizePortfolio(projects);
+    const fieldOfficers = readSafeFieldOfficers();
     const programmePerformance = [
       ...new Set(projects.map((project) => project.programme)),
     ].map((programme) => {
@@ -141,7 +215,54 @@ export default function VeritasAssistant() {
     return {
       generatedAt: new Date().toISOString(),
       dataScope:
-        "Current Veritas project dataset and inspection workflow available to the REA dashboard",
+        "Presentation-safe demo data across the REA Dashboard, Field Officer Dashboard and Consultant Admin Dashboard, plus the shared inspection workflow.",
+      dashboardViews: {
+        reaAdmin: {
+          navigation: [
+            "Overview",
+            "Projects",
+            "Inspections",
+            "Verification",
+            "Contractors",
+            "Analytics",
+            "Reports",
+            "Users",
+          ],
+          purpose:
+            "National portfolio monitoring, programme performance, contractor performance, project coverage, reporting and verification oversight.",
+        },
+        fieldOfficer: {
+          navigation: [
+            "Overview",
+            "My Assignments",
+            "Inspections",
+            "Draft Reports",
+            "Sync Queue",
+            "Profile",
+          ],
+          purpose:
+            "View assigned inspections, travel to project sites, verify arrival, complete component-specific forms, capture evidence, save drafts, submit reports and manage sync status.",
+        },
+        consultantAdmin: {
+          navigation: [
+            "Overview",
+            "Projects",
+            "Field Officers",
+            "Verification",
+            "Reports",
+          ],
+          purpose:
+            "Manage field officers and assignments, review submitted inspection reports, approve QA or request re-inspection, and monitor project/report status.",
+        },
+      },
+      workflowDefinition: [
+        "Field Officer receives an assignment.",
+        "Field Officer starts route and verifies arrival at the project location.",
+        "Field Officer completes the component-specific inspection form and evidence requirements.",
+        "Field Officer submits the report.",
+        "Consultant Admin reviews submitted reports for QA and can approve or request re-inspection.",
+        "Approved work can progress to REA verification and final Verified status in the shared workflow.",
+      ],
       portfolio: {
         totalProjects: totals.projects,
         installedCapacityKw: totals.kw,
@@ -166,9 +287,17 @@ export default function VeritasAssistant() {
         households: project.households,
         verified: project.verified,
       })),
+      fieldOfficers: {
+        total: fieldOfficers.length,
+        active: fieldOfficers.filter((officer) => officer.status === "Active").length,
+        suspended: fieldOfficers.filter((officer) => officer.status === "Suspended")
+          .length,
+        roster: fieldOfficers,
+      },
+      inspectionFormSchema: inspectionFormSchema(),
       inspectionWorkflow: {
         privacyScope:
-          "Management-safe fields only. Signatures, device IDs, precise evidence coordinates and private evidence are excluded.",
+          "Management-safe demo fields only. Passwords, personal phone numbers, signatures, device IDs, precise evidence coordinates and private evidence are excluded.",
         totalAssignments: assignments.length,
         statusCounts,
         submittedReports: assignments.filter((assignment) => assignment.report)
@@ -178,6 +307,12 @@ export default function VeritasAssistant() {
             total + (assignment.report?.evidence.length ?? 0),
           0,
         ),
+        consultantReviewQueue: assignments
+          .filter((assignment) => assignment.status === "Submitted")
+          .map((assignment) => assignment.id),
+        approvedForVerification: assignments
+          .filter((assignment) => assignment.status === "Approved")
+          .map((assignment) => assignment.id),
         assignments: assignments.map((assignment) => ({
           id: assignment.id,
           projectName: assignment.projectName,
@@ -187,13 +322,20 @@ export default function VeritasAssistant() {
           state: assignment.state,
           lga: assignment.lga,
           community: assignment.community,
+          officer: assignment.officer,
           dueDate: assignment.dueDate,
           status: assignment.status,
+          syncStatus: assignment.syncStatus,
           reportSubmittedAt: assignment.report?.submittedAt,
           reviewNote: assignment.report?.reviewNote,
           observations: assignment.report?.observations,
           defects: assignment.report?.defects,
           recommendations: assignment.report?.recommendations,
+          componentValues: safeComponentValues(
+            assignment.component,
+            assignment.report?.componentValues,
+          ),
+          evidenceCount: assignment.report?.evidence.length ?? 0,
         })),
       },
     };
@@ -284,15 +426,15 @@ export default function VeritasAssistant() {
               <VeritasMark compact />
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <h2 className="text-[15px] font-extrabold tracking-tight text-[#173b2a]">
+                  <h2 className="text-[15px] font-bold tracking-tight text-[#173b2a]">
                     Veritas
                   </h2>
-                  <span className="rounded-full border border-[#cce4d4] bg-[#eef8f1] px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-[0.12em] text-[#08733f]">
+                  <span className="rounded-full border border-[#cce4d4] bg-[#eef8f1] px-2 py-0.5 text-[8px] font-bold uppercase tracking-[0.12em] text-[#08733f]">
                     REA Intelligence
                   </span>
                 </div>
                 <p className="mt-0.5 truncate text-[10px] text-slate-500">
-                  Projects · verification · programmes · official REA information
+                  REA · Field Officer · Consultant Admin demo intelligence
                 </p>
               </div>
             </div>
@@ -320,7 +462,7 @@ export default function VeritasAssistant() {
             <span className="flex h-5 w-5 items-center justify-center rounded-md bg-[#e8f6ed] text-[#08733f]">
               <Database className="h-3 w-3" />
             </span>
-            Grounded in Veritas system data
+            Grounded in all dashboard demo data
             <span className="text-slate-300">•</span>
             <Globe2 className="h-3 w-3 text-[#08733f]" /> Official REA sources
           </div>
@@ -340,8 +482,8 @@ export default function VeritasAssistant() {
                     }`}
                   >
                     {message.role === "assistant" && (
-                      <div className="mb-2 flex items-center gap-2 text-[9px] font-extrabold uppercase tracking-[0.12em] text-[#08733f]">
-                        <span className="flex h-5 w-5 items-center justify-center rounded-md bg-[#eaf7ee]">
+                      <div className="mb-2 flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.12em] text-[#08733f]">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full border border-[#d7e5db] bg-white">
                           <BrainCircuit className="h-3.5 w-3.5" />
                         </span>
                         Veritas analysis
@@ -378,13 +520,13 @@ export default function VeritasAssistant() {
                   <div className="rounded-2xl border border-[#d9e9de] bg-white p-3.5 shadow-[0_4px_14px_rgba(18,66,39,0.04)]">
                     <div className="flex items-center gap-2">
                       <Search className="h-4 w-4 text-[#08733f]" />
-                      <p className="text-[11px] font-extrabold text-[#173b2a]">
-                        Ask a management question
+                      <p className="text-[11px] font-bold text-[#173b2a]">
+                        Ask any demo dashboard question
                       </p>
                     </div>
                     <p className="mt-1 text-[9px] leading-4 text-slate-500">
-                      Ask Veritas directly about any project, state, programme,
-                      contractor, verification status or portfolio trend.
+                      Ask about REA portfolio data, Field Officer assignments and forms,
+                      Consultant Admin review queues, contractors, reports or verification status.
                     </p>
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {questionExamples.map((example) => (
@@ -402,7 +544,7 @@ export default function VeritasAssistant() {
 
                   <div>
                     <div className="mb-2 flex items-center justify-between">
-                      <p className="text-[9px] font-extrabold uppercase tracking-[0.12em] text-slate-400">
+                      <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-400">
                         Generate a report
                       </p>
                       <span className="text-[8px] text-slate-400">One click</span>
@@ -415,10 +557,10 @@ export default function VeritasAssistant() {
                           onClick={() => void send(prompt)}
                           className="group rounded-xl border border-[#dbe8df] bg-white p-3 text-left shadow-[0_2px_8px_rgba(18,66,39,0.03)] transition-all hover:-translate-y-0.5 hover:border-[#9bc9aa] hover:shadow-[0_7px_18px_rgba(18,66,39,0.08)]"
                         >
-                          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#edf8f0] text-[#08733f] transition-colors group-hover:bg-[#08733f] group-hover:text-white">
-                            <Icon className="h-4 w-4" />
+                          <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[#d7e5db] bg-white text-[#08733f] transition-colors group-hover:border-[#08733f]">
+                            <Icon className="h-4 w-4" strokeWidth={1.8} />
                           </span>
-                          <span className="mt-2.5 block text-[10px] font-extrabold text-[#173b2a]">
+                          <span className="mt-2.5 block text-[10px] font-bold text-[#173b2a]">
                             {label}
                           </span>
                           <span className="mt-0.5 block text-[8px] leading-3.5 text-slate-500">
@@ -435,7 +577,7 @@ export default function VeritasAssistant() {
                 <div className="flex justify-start">
                   <div className="flex items-center gap-2 rounded-2xl rounded-bl-md border border-[#dfe9e2] bg-white px-4 py-3 text-[10px] text-slate-500 shadow-sm">
                     <Loader2 className="h-4 w-4 animate-spin text-[#08733f]" />
-                    Analysing project and verification data…
+                    Analysing dashboard demo data…
                   </div>
                 </div>
               )}
@@ -452,7 +594,7 @@ export default function VeritasAssistant() {
             <div className="mb-2 flex items-center justify-between">
               <label
                 htmlFor="veritas-question"
-                className="text-[10px] font-extrabold text-[#173b2a]"
+                className="text-[10px] font-bold text-[#173b2a]"
               >
                 Ask Veritas a question
               </label>
@@ -472,7 +614,7 @@ export default function VeritasAssistant() {
                 }}
                 rows={1}
                 maxLength={3_000}
-                placeholder="e.g. Which states have the highest pending verification?"
+                placeholder="e.g. What is pending with the Consultant Admin?"
                 className="max-h-28 min-h-10 flex-1 resize-none border-0 bg-transparent px-2 py-2 text-xs text-[#173b2a] outline-none placeholder:text-slate-400"
               />
               <button
@@ -502,16 +644,16 @@ export default function VeritasAssistant() {
         aria-label={open ? "Close Veritas" : "Open Veritas and ask a question"}
       >
         {open ? (
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#173b2a] text-white">
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#173b2a] text-white">
             <X className="h-5 w-5" />
           </span>
         ) : (
           <VeritasMark compact />
         )}
         <span className="hidden text-left sm:block">
-          <span className="block text-xs font-extrabold tracking-tight">Veritas</span>
+          <span className="block text-xs font-bold tracking-tight">Veritas</span>
           <span className="mt-0.5 block text-[9px] font-medium text-slate-500">
-            Ask REA intelligence
+            Ask dashboard intelligence
           </span>
         </span>
       </button>
