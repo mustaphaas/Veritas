@@ -1,4 +1,5 @@
 import "./global.css";
+import "./nep-inspired.css";
 
 import { Toaster } from "@/components/ui/toaster";
 import { createRoot } from "react-dom/client";
@@ -17,6 +18,7 @@ import ConsultantAdminDashboard from "./pages/ConsultantAdminDashboard";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import VeritasAssistant from "./components/VeritasAssistant";
+import VeritasFooter from "./components/VeritasFooter";
 import { AuthProvider, RequireRole, useAuth } from "./lib/auth";
 import { InspectionWorkflowProvider } from "./lib/inspection-workflow";
 
@@ -29,6 +31,15 @@ function VeritasGate() {
     return null;
   }
   return <VeritasAssistant />;
+}
+
+function VeritasFooterGate() {
+  const { session } = useAuth();
+  const location = useLocation();
+  if (!session || session.role !== "rea" || location.pathname !== "/") {
+    return null;
+  }
+  return <VeritasFooter />;
 }
 
 const App = () => (
@@ -68,6 +79,7 @@ const App = () => (
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            <VeritasFooterGate />
             <VeritasGate />
           </BrowserRouter>
         </InspectionWorkflowProvider>
