@@ -1,18 +1,24 @@
 /* Final source-bundled overrides. Keep these after nep-inspired.css. */
 
-/* Installed Capacity must use the native React energy/Zap icon and content. */
+/* Installed Capacity keeps the live React content but uses a renewable-energy
+   solar-panel icon, matching the original visual language the dashboard used. */
 section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:first-child svg {
-  display: block !important;
-  width: 20px !important;
-  height: 20px !important;
-  color: currentColor !important;
+  display: none !important;
 }
 
 section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:first-child::before {
-  content: none !important;
-  display: none !important;
-  background: none !important;
-  background-image: none !important;
+  content: "" !important;
+  display: block !important;
+  width: 24px !important;
+  height: 24px !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-size: contain !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2308733f' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='18' cy='5' r='2.3'/%3E%3Cpath d='M18 1v1M18 8v1M14 5h1M21 5h1M15.2 2.2l.7.7M20.1 7.1l.7.7M20.8 2.2l-.7.7M15.9 7.1l-.7.7'/%3E%3Cpath d='M3.5 9.5h11l2 8h-15l2-8Z'/%3E%3Cpath d='M4.5 13.5h11M8.5 9.5l-1 8M12 9.5l1 8M9 17.5v3M13 17.5v3M7 20.5h8'/%3E%3C/svg%3E") !important;
+}
+
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2):hover > div > div:first-child::before {
+  filter: brightness(0) invert(1) !important;
 }
 
 section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:last-child > p:first-child {
