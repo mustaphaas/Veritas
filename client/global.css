@@ -123,3 +123,18 @@ svg[aria-label^="Interactive Nigeria state map"] {
   transform: scale(0.92);
   transform-origin: center center;
 }
+
+/* Keep the National Project Coverage heading and map-mode controls on one
+   row on desktop. Allow a clean wrap only when the available width is tight. */
+div:has(> [aria-label="Map viewing mode"]) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+div:has(> [aria-label="Map viewing mode"]) > [aria-label="Map viewing mode"] {
+  margin-top: 0 !important;
+  margin-left: auto;
+}
