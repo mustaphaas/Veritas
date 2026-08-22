@@ -1,66 +1,65 @@
 @import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap");
 
-/*
- * NEP-inspired dashboard treatment.
- * Keep the KPI card structure, but use the lighter number-first hierarchy,
- * restrained green typography and consistent circular line-icon language
- * seen in the public REA/NEP impact statistics.
- */
-section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > article,
-section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > button {
-  min-height: 122px !important;
-  border: 1px solid #e0e7e2 !important;
-  border-radius: 10px !important;
-  background: #fff !important;
-  padding: 16px 17px !important;
-  box-shadow: 0 2px 8px rgba(18, 66, 39, 0.035) !important;
-  font-family: "Montserrat", Inter, ui-sans-serif, system-ui, sans-serif;
-  transition: border-color 160ms ease, box-shadow 160ms ease;
+:root {
+  --veritas-font: "Montserrat", Inter, ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
-section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > article::before,
-section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > button::before {
+html,
+body,
+#root,
+button,
+input,
+select,
+textarea {
+  font-family: var(--veritas-font) !important;
+}
+
+/* NEP-inspired KPI cards: centered, restrained and consistent. */
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > article,
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > button {
+  min-height: 138px !important;
+  border: 1px solid #dfe6e1 !important;
+  border-radius: 12px !important;
+  background: #ffffff !important;
+  padding: 16px 14px !important;
+  box-shadow: 0 2px 8px rgba(18, 66, 39, 0.035) !important;
+  text-align: center !important;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    color 180ms ease !important;
+}
+
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button)::before {
   display: none !important;
 }
 
-section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button):hover {
-  border-color: #c7d7cc !important;
-  box-shadow: 0 5px 15px rgba(18, 66, 39, 0.055) !important;
-  transform: none !important;
-}
-
-section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > button:last-child,
-section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > button:last-child:hover {
-  border-color: #e8dcc0 !important;
-  background: #fff !important;
-}
-
 section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button) > div {
-  position: relative;
-  display: block !important;
+  display: flex !important;
   height: 100%;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
 }
 
 section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button) > div > div:first-child {
-  position: absolute;
-  top: 1px;
-  right: 0;
+  position: relative !important;
+  top: auto !important;
+  right: auto !important;
   display: flex !important;
-  width: 38px !important;
-  height: 38px !important;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #cfe0d4 !important;
+  width: 40px !important;
+  height: 40px !important;
+  flex: 0 0 40px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: 1px solid #cbded2 !important;
   border-radius: 50% !important;
   background: transparent !important;
-  color: #0b7b45 !important;
+  color: #08733f !important;
   box-shadow: none !important;
-}
-
-section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > button:last-child > div > div:first-child {
-  border-color: #e2cc94 !important;
-  background: transparent !important;
-  color: #b77a05 !important;
 }
 
 section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button) > div > div:first-child svg {
@@ -70,306 +69,283 @@ section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button) > div > div:
 }
 
 section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button) > div > div:last-child {
-  padding-right: 42px;
+  width: 100%;
+  padding: 0 !important;
+  text-align: center !important;
 }
 
 section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button) > div > div:last-child > p:first-child {
   margin: 0 !important;
-  font-size: 11px !important;
+  font-size: 10.5px !important;
   line-height: 1.35 !important;
   font-weight: 500 !important;
   letter-spacing: 0 !important;
   text-transform: none !important;
-  color: #66756d !important;
+  color: #68766f !important;
 }
 
 section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button) > div > div:last-child > p:nth-child(2) {
-  margin-top: 8px !important;
-  font-size: 29px !important;
+  margin-top: 5px !important;
+  font-size: 30px !important;
   line-height: 1 !important;
-  font-weight: 600 !important;
+  font-weight: 500 !important;
   letter-spacing: -0.035em !important;
   color: #08733f !important;
 }
 
-section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > button:last-child > div > div:last-child > p:nth-child(2) {
-  color: #ad7408 !important;
-}
-
 section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button) > div > div:last-child > p:nth-child(3) {
-  margin-top: 10px !important;
-  font-size: 10px !important;
+  margin-top: 7px !important;
+  font-size: 9.5px !important;
   line-height: 1.45 !important;
   font-weight: 400 !important;
-  color: #849087 !important;
+  color: #87918b !important;
 }
 
 section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button) .h-1\.5 {
   height: 3px !important;
-  margin-top: 9px !important;
-  background: #eef2ef !important;
+  margin: 8px auto 0 !important;
+  background: #edf1ee !important;
 }
 
-/* Programme Performance uses the same light typography and consistent icon geometry. */
-div.mt-3.grid.items-start.gap-3:has(
-    > section svg[aria-label^="Interactive Nigeria state map"]
-  ) > div.grid.gap-4 > section:first-child {
-  border: 1px solid #e0e7e2 !important;
-  border-radius: 10px !important;
+/* Replace the former capacity KPI with the public NEP 176 mini-grid metric. */
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:first-child svg {
+  display: none !important;
+}
+
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:first-child::before {
+  content: "";
+  width: 24px;
+  height: 24px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2308733f' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='18' cy='5' r='2.3'/%3E%3Cpath d='M18 1v1M18 8v1M14 5h1M21 5h1M15.2 2.2l.7.7M20.1 7.1l.7.7M20.8 2.2l-.7.7M15.9 7.1l-.7.7'/%3E%3Cpath d='M3.5 9.5h11l2 8h-15l2-8Z'/%3E%3Cpath d='M4.5 13.5h11M8.5 9.5l-1 8M12 9.5l1 8M9 17.5v3M13 17.5v3M7 20.5h8'/%3E%3C/svg%3E");
+}
+
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:last-child > p:first-child {
+  font-size: 0 !important;
+}
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:last-child > p:first-child::after {
+  content: "Mini Grids Deployed";
+  font-size: 10.5px;
+  font-weight: 500;
+  color: #68766f;
+}
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:last-child > p:nth-child(2) {
+  font-size: 0 !important;
+}
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:last-child > p:nth-child(2)::after {
+  content: "176";
+  font-size: 30px;
+  line-height: 1;
+  font-weight: 500;
+  color: #08733f;
+}
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:last-child > p:nth-child(3) {
+  font-size: 0 !important;
+}
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:last-child > p:nth-child(3)::after {
+  content: "Mini grids deployed across Nigeria";
+  font-size: 9.5px;
+  line-height: 1.45;
+  font-weight: 400;
+  color: #87918b;
+}
+
+/* KPI hover interaction: clear visual response without losing legibility. */
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button):hover {
+  border-color: #08733f !important;
+  background: #08733f !important;
+  box-shadow: 0 9px 22px rgba(8, 115, 63, 0.16) !important;
+  transform: none !important;
+}
+
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button):hover > div > div:first-child {
+  border-color: rgba(255, 255, 255, 0.65) !important;
+  color: #ffffff !important;
+}
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button):hover > div > div:first-child svg {
+  color: #ffffff !important;
+}
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2):hover > div > div:first-child::before {
+  filter: brightness(0) invert(1);
+}
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button):hover > div > div:last-child > p,
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button):hover > div > div:last-child > p::after {
+  color: #ffffff !important;
+}
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button):hover .h-1\.5 {
+  background: rgba(255, 255, 255, 0.28) !important;
+}
+
+/* Pending retains its warning identity on hover. */
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > button:last-child:hover {
+  border-color: #a66f05 !important;
+  background: #a66f05 !important;
+  box-shadow: 0 9px 22px rgba(166, 111, 5, 0.16) !important;
+}
+
+/* Programme Performance follows the same lighter type system. */
+div.mt-3.grid.items-start.gap-3:has(> section svg[aria-label^="Interactive Nigeria state map"]) > div.grid.gap-4 > section:first-child {
+  border: 1px solid #e0e6e2 !important;
+  border-radius: 12px !important;
   background: #fff !important;
   box-shadow: 0 2px 8px rgba(18, 66, 39, 0.035) !important;
-  font-family: "Montserrat", Inter, ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--veritas-font) !important;
 }
 
-div.mt-3.grid.items-start.gap-3:has(
-    > section svg[aria-label^="Interactive Nigeria state map"]
-  ) > div.grid.gap-4 > section:first-child > div:first-child {
+div.mt-3.grid.items-start.gap-3:has(> section svg[aria-label^="Interactive Nigeria state map"]) > div.grid.gap-4 > section:first-child > div:first-child {
   padding: 14px 16px 12px !important;
-  border-bottom: 1px solid #edf1ee !important;
+  border-bottom: 1px solid #ecefec !important;
   background: #fff !important;
 }
 
-div.mt-3.grid.items-start.gap-3:has(
-    > section svg[aria-label^="Interactive Nigeria state map"]
-  ) > div.grid.gap-4 > section:first-child > div:first-child h2 {
-  font-size: 13px !important;
-  line-height: 1.2;
+div.mt-3.grid.items-start.gap-3:has(> section svg[aria-label^="Interactive Nigeria state map"]) > div.grid.gap-4 > section:first-child h2 {
   font-weight: 600 !important;
-  letter-spacing: -0.01em !important;
-  color: #244334 !important;
+  color: #33433a !important;
 }
 
-div.mt-3.grid.items-start.gap-3:has(
-    > section svg[aria-label^="Interactive Nigeria state map"]
-  ) > div.grid.gap-4 > section:first-child > div:first-child button {
-  border: 0 !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  padding: 0 !important;
-  font-size: 10px !important;
-  font-weight: 500 !important;
-  color: #08733f !important;
-}
-
-div.mt-3.grid.items-start.gap-3:has(
-    > section svg[aria-label^="Interactive Nigeria state map"]
-  ) > div.grid.gap-4 > section:first-child > div:nth-child(2) {
+div.mt-3.grid.items-start.gap-3:has(> section svg[aria-label^="Interactive Nigeria state map"]) > div.grid.gap-4 > section:first-child > div:nth-child(2) {
   display: block !important;
   padding: 2px 16px 4px !important;
 }
 
-div.mt-3.grid.items-start.gap-3:has(
-    > section svg[aria-label^="Interactive Nigeria state map"]
-  ) > div.grid.gap-4 > section:first-child > div:nth-child(2) > div {
+div.mt-3.grid.items-start.gap-3:has(> section svg[aria-label^="Interactive Nigeria state map"]) > div.grid.gap-4 > section:first-child > div:nth-child(2) > div {
   border: 0 !important;
-  border-bottom: 1px solid #eef2ef !important;
+  border-bottom: 1px solid #edf0ed !important;
   border-radius: 0 !important;
   background: transparent !important;
   padding: 9px 0 !important;
   box-shadow: none !important;
 }
 
-div.mt-3.grid.items-start.gap-3:has(
-    > section svg[aria-label^="Interactive Nigeria state map"]
-  ) > div.grid.gap-4 > section:first-child > div:nth-child(2) > div:last-child {
+div.mt-3.grid.items-start.gap-3:has(> section svg[aria-label^="Interactive Nigeria state map"]) > div.grid.gap-4 > section:first-child > div:nth-child(2) > div:last-child {
   border-bottom: 0 !important;
 }
 
-div.mt-3.grid.items-start.gap-3:has(
-    > section svg[aria-label^="Interactive Nigeria state map"]
-  ) > div.grid.gap-4 > section:first-child > div:nth-child(2) > div > div:first-child {
+div.mt-3.grid.items-start.gap-3:has(> section svg[aria-label^="Interactive Nigeria state map"]) > div.grid.gap-4 > section:first-child > div:nth-child(2) > div > div:first-child {
   width: 30px !important;
   height: 30px !important;
-  border: 1px solid #cfe0d4 !important;
+  border: 1px solid #cbded2 !important;
   border-radius: 50% !important;
   background: transparent !important;
-  color: #0b7b45 !important;
-}
-
-div.mt-3.grid.items-start.gap-3:has(
-    > section svg[aria-label^="Interactive Nigeria state map"]
-  ) > div.grid.gap-4 > section:first-child > div:nth-child(2) > div > div:first-child svg {
-  width: 16px !important;
-  height: 16px !important;
-  stroke-width: 1.65 !important;
-}
-
-div.mt-3.grid.items-start.gap-3:has(
-    > section svg[aria-label^="Interactive Nigeria state map"]
-  ) > div.grid.gap-4 > section:first-child > div:nth-child(2) > div strong {
-  font-size: 11px !important;
-  font-weight: 600 !important;
-  color: #244334 !important;
-}
-
-div.mt-3.grid.items-start.gap-3:has(
-    > section svg[aria-label^="Interactive Nigeria state map"]
-  ) > div.grid.gap-4 > section:first-child > div:nth-child(2) > div span.text-slate-600 {
-  font-size: 10px !important;
-  font-weight: 400 !important;
-  color: #7b8981 !important;
-}
-
-div.mt-3.grid.items-start.gap-3:has(
-    > section svg[aria-label^="Interactive Nigeria state map"]
-  ) > div.grid.gap-4 > section:first-child > div:nth-child(2) > div > span:last-child {
-  border-radius: 0 !important;
-  background: transparent !important;
-  padding: 0 !important;
-  font-size: 11px !important;
-  font-weight: 600 !important;
   color: #08733f !important;
 }
 
-div.mt-3.grid.items-start.gap-3:has(
-    > section svg[aria-label^="Interactive Nigeria state map"]
-  ) > div.grid.gap-4 > section:first-child > div:nth-child(2) > div:last-child > span:last-child {
-  color: #ad7408 !important;
+div.mt-3.grid.items-start.gap-3:has(> section svg[aria-label^="Interactive Nigeria state map"]) > div.grid.gap-4 > section:first-child strong,
+div.mt-3.grid.items-start.gap-3:has(> section svg[aria-label^="Interactive Nigeria state map"]) > div.grid.gap-4 > section:first-child span {
+  font-weight: 500 !important;
 }
 
-/*
- * Projects Across Nigeria: force all four figures into one real visual row.
- * Total Projects was previously outside the three status cells, which caused
- * inconsistent baselines. The pseudo-icons use the same 18px silhouette,
- * circle size and stroke-like weight so the four metrics read as one set.
- */
+/* Projects Across Nigeria: four equal aligned metrics with consistent icon geometry. */
 article:has(> p.text-4xl) {
   display: grid !important;
   grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-  grid-template-rows: auto 104px !important;
+  grid-template-rows: auto 108px !important;
   gap: 10px !important;
   padding: 16px !important;
-  font-family: "Montserrat", Inter, ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--veritas-font) !important;
 }
-
 article:has(> p.text-4xl) > div:first-child {
   grid-column: 1 / -1 !important;
-  margin: 0 !important;
 }
-
 article:has(> p.text-4xl)::before {
   content: "";
-  grid-column: 1 !important;
-  grid-row: 2 !important;
-  border: 1px solid #dfe8e2 !important;
-  border-radius: 9px !important;
-  background: #fff !important;
+  grid-column: 1;
+  grid-row: 2;
+  border: 1px solid #e0e6e2;
+  border-radius: 10px;
+  background: #fff;
 }
-
 article:has(> p.text-4xl) > p.text-4xl,
 article:has(> p.text-4xl) > p.text-4xl + p {
   position: relative;
   z-index: 2;
-  grid-column: 1 !important;
-  grid-row: 2 !important;
+  grid-column: 1;
+  grid-row: 2;
   margin: 0 !important;
   text-align: center !important;
 }
-
 article:has(> p.text-4xl) > p.text-4xl {
-  align-self: center !important;
-  padding: 8px 0 17px !important;
-  font-size: 23px !important;
-  line-height: 1 !important;
-  font-weight: 600 !important;
+  align-self: center;
+  padding-top: 7px;
+  font-size: 24px !important;
+  font-weight: 500 !important;
   color: #08733f !important;
 }
-
 article:has(> p.text-4xl) > p.text-4xl + p {
-  align-self: end !important;
-  padding: 0 5px 13px !important;
+  align-self: end;
+  padding-bottom: 14px;
   font-size: 10px !important;
-  line-height: 1.2 !important;
   font-weight: 500 !important;
-  color: #607168 !important;
+  color: #68766f !important;
 }
-
 article:has(> p.text-4xl) > div.mt-5.grid.grid-cols-3 {
-  grid-column: 2 / -1 !important;
-  grid-row: 2 !important;
+  grid-column: 2 / -1;
+  grid-row: 2;
   display: grid !important;
   grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   gap: 10px !important;
   margin: 0 !important;
 }
-
 article:has(> p.text-4xl) > div.mt-5.grid.grid-cols-3 > div {
-  position: relative;
   display: flex !important;
-  min-width: 0 !important;
-  min-height: 104px !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  justify-content: center !important;
-  border: 1px solid #dfe8e2 !important;
-  border-radius: 9px !important;
+  min-width: 0;
+  min-height: 108px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e0e6e2 !important;
+  border-radius: 10px !important;
   background: #fff !important;
-  padding: 8px !important;
+  padding: 12px 8px !important;
 }
-
 article:has(> p.text-4xl) > div.mt-5.grid.grid-cols-3 > div p:first-child {
-  margin-top: 18px !important;
-  font-size: 23px !important;
-  line-height: 1 !important;
-  font-weight: 600 !important;
+  font-size: 24px !important;
+  font-weight: 500 !important;
 }
-
 article:has(> p.text-4xl) > div.mt-5.grid.grid-cols-3 > div p:last-child {
   margin-top: 7px !important;
   font-size: 10px !important;
-  line-height: 1.2 !important;
   font-weight: 500 !important;
 }
 
-article:has(> p.text-4xl) > div.mt-5.grid.grid-cols-3 > div::before,
-article:has(> p.text-4xl)::after {
-  content: "";
-  position: absolute;
-  width: 24px;
-  height: 24px;
-  border: 1px solid currentColor;
-  border-radius: 50%;
-  opacity: 0.9;
-}
-
-article:has(> p.text-4xl)::after {
-  left: calc(12.5% - 12px);
-  bottom: 69px;
-  color: #08733f;
-  background:
-    linear-gradient(#08733f, #08733f) center 7px / 10px 1.5px no-repeat,
-    linear-gradient(#08733f, #08733f) center 11px / 10px 1.5px no-repeat,
-    linear-gradient(#08733f, #08733f) center 15px / 7px 1.5px no-repeat;
-}
-
-article:has(> p.text-4xl) > div.mt-5.grid.grid-cols-3 > div::before {
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-article:has(> p.text-4xl) > div.mt-5.grid.grid-cols-3 > div:first-child::before {
-  color: #08733f;
-  background:
-    linear-gradient(45deg, transparent 43%, #08733f 44% 52%, transparent 53%) 7px 10px / 6px 6px no-repeat,
-    linear-gradient(-45deg, transparent 43%, #08733f 44% 52%, transparent 53%) 11px 8px / 8px 10px no-repeat;
-}
-
-article:has(> p.text-4xl) > div.mt-5.grid.grid-cols-3 > div:nth-child(2)::before {
-  color: #b77a05;
-  background:
-    linear-gradient(#b77a05, #b77a05) center / 2px 10px no-repeat,
-    linear-gradient(#b77a05, #b77a05) center / 10px 2px no-repeat;
-}
-
-article:has(> p.text-4xl) > div.mt-5.grid.grid-cols-3 > div:nth-child(3)::before {
-  color: #4775c5;
-  background:
-    linear-gradient(#4775c5, #4775c5) 7px 7px / 10px 1.5px no-repeat,
-    linear-gradient(#4775c5, #4775c5) 7px 11px / 10px 1.5px no-repeat,
-    linear-gradient(#4775c5, #4775c5) 7px 15px / 7px 1.5px no-repeat;
-}
-
+/* NEP-like institutional footer: light neutral grey with REA green accents. */
 .veritas-footer {
-  font-family: "Montserrat", Inter, ui-sans-serif, system-ui, sans-serif;
+  margin-top: 2.5rem !important;
+  background: #e7e8e5 !important;
+  color: #3e4742 !important;
+  border-top: 1px solid #d0d3cf !important;
+  font-family: var(--veritas-font) !important;
+}
+.veritas-footer > div:first-child {
+  height: 2px !important;
+  border: 0 !important;
+  background: #08733f !important;
+}
+.veritas-footer a {
+  color: #525d57 !important;
+}
+.veritas-footer a:hover {
+  color: #08733f !important;
+}
+.veritas-footer svg {
+  color: #08733f !important;
+}
+.veritas-footer [class*="text-white"],
+.veritas-footer [class*="text-\[\#91dbaa\]"] {
+  color: #4b5750 !important;
+}
+.veritas-footer [class*="border-white"] {
+  border-color: #c9ceca !important;
+}
+.veritas-footer [class*="bg-white"] {
+  background-color: #f4f5f3 !important;
+}
+.veritas-footer > div:last-child {
+  border-top: 1px solid #cbd0cc !important;
+  background: #d9dbd8 !important;
+}
+.veritas-footer > div:last-child p {
+  color: #68716c !important;
 }
