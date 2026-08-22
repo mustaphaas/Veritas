@@ -1,0 +1,12 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "veritas",
+  "compatibility_date": "2026-08-22",
+  "build": {
+    "command": "npm run build:client"
+  },
+  "assets": {
+    "directory": "./dist/spa",
+    "not_found_handling": "single-page-application"
+  }
+}
