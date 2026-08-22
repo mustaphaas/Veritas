@@ -49,7 +49,7 @@
 
     --sidebar-accent: 240 4.8% 95.9%;
 
-    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-accent-foreground: 149 43% 16%;
 
     --sidebar-border: 220 13% 91%;
 
@@ -137,4 +137,53 @@ div:has(> [aria-label="Map viewing mode"]) {
 div:has(> [aria-label="Map viewing mode"]) > [aria-label="Map viewing mode"] {
   margin-top: 0 !important;
   margin-left: auto;
+}
+
+/* On wide dashboards, keep the two summary cards on the right balanced with
+   National Project Coverage. The right column matches the map card's total
+   height and splits into two equal rows while preserving the existing gap. */
+@media (min-width: 1280px) {
+  div.mt-3.grid.items-start.gap-3:has(
+      > section svg[aria-label^="Interactive Nigeria state map"]
+    ) {
+    align-items: stretch;
+  }
+
+  div.mt-3.grid.items-start.gap-3:has(
+      > section svg[aria-label^="Interactive Nigeria state map"]
+    ) > section {
+    height: 100%;
+  }
+
+  div.mt-3.grid.items-start.gap-3:has(
+      > section svg[aria-label^="Interactive Nigeria state map"]
+    ) > div.grid.gap-4 {
+    height: 100%;
+    align-self: stretch;
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+  }
+
+  div.mt-3.grid.items-start.gap-3:has(
+      > section svg[aria-label^="Interactive Nigeria state map"]
+    ) > div.grid.gap-4 > section {
+    height: 100%;
+    min-height: 0;
+  }
+
+  div.mt-3.grid.items-start.gap-3:has(
+      > section svg[aria-label^="Interactive Nigeria state map"]
+    ) > div.grid.gap-4 > section:has(
+      [aria-label="Project and verification trend chart"]
+    ) {
+    display: flex;
+    flex-direction: column;
+  }
+
+  div.mt-3.grid.items-start.gap-3:has(
+      > section svg[aria-label^="Interactive Nigeria state map"]
+    ) [aria-label="Project and verification trend chart"] {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto !important;
+  }
 }
