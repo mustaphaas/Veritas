@@ -72,6 +72,24 @@ type MapMode = "projects" | "capacity" | "households";
 type MapPoint = { x: number; y: number };
 
 const mapBounds = { minLon: 2.5, maxLon: 15, minLat: 3.5, maxLat: 14 };
+const mapViewBox = { width: 650, height: 300 };
+// Longitude degrees are narrower than latitude degrees away from the
+// equator, so a plain linear (lon, lat) -> (x, y) mapping stretches the
+// country horizontally. Correcting by cos(meanLatitude) and fitting the
+// result to the viewBox (instead of stretching lon to fill the full width)
+// keeps Nigeria's true proportions instead of pulling it wide.
+const mapMeanLatRadians =
+  (((mapBounds.minLat + mapBounds.maxLat) / 2) * Math.PI) / 180;
+const mapLonCorrection = Math.cos(mapMeanLatRadians);
+const mapLonSpanAdjusted =
+  (mapBounds.maxLon - mapBounds.minLon) * mapLonCorrection;
+const mapLatSpan = mapBounds.maxLat - mapBounds.minLat;
+const mapScale = Math.min(
+  mapViewBox.width / mapLonSpanAdjusted,
+  mapViewBox.height / mapLatSpan,
+);
+const mapOffsetX = (mapViewBox.width - mapLonSpanAdjusted * mapScale) / 2;
+const mapOffsetY = (mapViewBox.height - mapLatSpan * mapScale) / 2;
 const mapPalette = ["#f2f8f3", "#dcefe0", "#b9dfc3", "#7fc393", "#18743e"];
 const mapModeOptions: Array<{
   value: MapMode;
@@ -95,12 +113,12 @@ function projectPoint(coordinate: number[]): MapPoint {
   const [longitude, latitude] = coordinate;
   return {
     x:
-      ((longitude - mapBounds.minLon) / (mapBounds.maxLon - mapBounds.minLon)) *
-      650,
+      (longitude - mapBounds.minLon) * mapLonCorrection * mapScale +
+      mapOffsetX,
     y:
-      300 -
-      ((latitude - mapBounds.minLat) / (mapBounds.maxLat - mapBounds.minLat)) *
-        300,
+      mapViewBox.height -
+      mapOffsetY -
+      (latitude - mapBounds.minLat) * mapScale,
   };
 }
 function geometryRings(geometry: BoundaryFeature["geometry"]) {
@@ -656,24 +674,24 @@ export default function Index() {
           <section className="mt-3 flex gap-3 overflow-x-auto pb-1">
             {metrics.map(
               ({ label, value, detail, icon: Icon, tone, action }) => {
-                const cardClassName = `min-h-[120px] min-w-[210px] flex-1 rounded-lg border p-4 text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)] ${tone === "highlighted" ? "border-[#cdebd6] bg-[#f4fbf6]" : tone === "pending" ? "border-[#f1dfaf] bg-[#fffaf0] transition-colors hover:border-[#d9aa37] hover:bg-[#fff7df]" : "border-slate-200 bg-white"}`;
+                const cardClassName = `min-h-[100px] min-w-[210px] flex-1 rounded-lg border p-3 text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)] ${tone === "highlighted" ? "border-[#cdebd6] bg-[#f4fbf6]" : tone === "pending" ? "border-[#f1dfaf] bg-[#fffaf0] transition-colors hover:border-[#d9aa37] hover:bg-[#fff7df]" : "border-slate-200 bg-white"}`;
                 const cardContent = (
-                  <div className="flex h-full items-start gap-4">
+                  <div className="flex h-full items-start gap-3">
                     <div
-                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${tone === "pending" ? "bg-[#fff3cf] text-[#e29a00]" : "bg-[#e9f7ed] text-[#159455]"}`}
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${tone === "pending" ? "bg-[#fff3cf] text-[#e29a00]" : "bg-[#e9f7ed] text-[#159455]"}`}
                     >
-                      <Icon className="h-6 w-6" />
+                      <Icon className="h-5 w-5" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-[#263c31]">
                         {label}
                       </p>
                       <p
-                        className={`mt-1 text-[25px] font-bold leading-none tracking-tight ${tone === "pending" ? "text-[#9a6300]" : "text-[#13281e]"}`}
+                        className={`mt-1 text-[21px] font-bold leading-none tracking-tight ${tone === "pending" ? "text-[#9a6300]" : "text-[#13281e]"}`}
                       >
                         {value}
                       </p>
-                      <p className="mt-3 text-[11px] leading-4 text-slate-500">
+                      <p className="mt-2 text-[11px] leading-4 text-slate-500">
                         {detail}
                       </p>
                       {label === "Verification Rate" && (
