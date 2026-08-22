@@ -1,9 +1,12 @@
+const BUILD_ID = "veritas-2026-08-22-r30";
+
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "no-store",
+      "X-Veritas-Build": BUILD_ID,
     },
   });
 
@@ -47,10 +50,6 @@ function compactContext(databaseContext = {}) {
   const context = { ...databaseContext };
   const projects = Array.isArray(context.projects) ? context.projects : [];
 
-  // The portfolio/state/programme/contractor summaries answer most management
-  // questions without sending hundreds of project records on every request.
-  // Keep a bounded project sample for project-name/location questions while
-  // avoiding unnecessarily large API payloads.
   if (projects.length > 120) {
     context.projects = projects.slice(0, 120);
     context.projectRecordNote = `Project-level context contains the first 120 of ${projects.length} records. Portfolio and aggregate summaries cover the full dataset.`;
@@ -86,6 +85,38 @@ ${question}
 Respond naturally and directly.`;
 }
 
+function internalFallback(question, databaseContext = {}) {
+  const normalized = String(question || "").toLowerCase();
+  const portfolio = databaseContext?.portfolio || {};
+
+  if (
+    /how many (total )?projects/.test(normalized) ||
+    /number of projects/.test(normalized) ||
+    /projects (are|do we have) in nigeria/.test(normalized)
+  ) {
+    const total = Number(portfolio.totalProjects);
+    if (Number.isFinite(total)) {
+      return `There are ${total.toLocaleString()} projects in the current Veritas portfolio across Nigeria.`;
+    }
+  }
+
+  if (/installed capacity|total capacity/.test(normalized)) {
+    const kw = Number(portfolio.installedCapacityKw);
+    if (Number.isFinite(kw)) {
+      return `The current Veritas portfolio shows ${(kw / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })} MW of installed capacity.`;
+    }
+  }
+
+  if (/verification rate|percent.*verified|percentage.*verified/.test(normalized)) {
+    const rate = Number(portfolio.verificationRatePercent);
+    if (Number.isFinite(rate)) {
+      return `The current Veritas portfolio verification rate is ${rate}%.`;
+    }
+  }
+
+  return null;
+}
+
 function upstreamErrorMessage(status, payload) {
   const code = payload?.error?.code || "";
   const type = payload?.error?.type || "";
@@ -105,7 +136,7 @@ function upstreamErrorMessage(status, payload) {
   if (status === 400 && (code === "context_length_exceeded" || type === "invalid_request_error")) {
     return "Veritas sent too much context to OpenAI. The request context has now been reduced; please retry after the latest deployment.";
   }
-  return "Veritas AI could not complete that request. Please try again.";
+  return `Veritas AI upstream request failed (HTTP ${status}${code ? `, ${code}` : type ? `, ${type}` : ""}).`;
 }
 
 async function veritasResponse(request, env) {
@@ -114,6 +145,7 @@ async function veritasResponse(request, env) {
       {
         error:
           "Veritas AI is not configured yet. Add OPENAI_API_KEY as a Cloudflare Worker secret.",
+        build: BUILD_ID,
       },
       503,
     );
@@ -123,11 +155,11 @@ async function veritasResponse(request, env) {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Invalid JSON request." }, 400);
+    return json({ error: "Invalid JSON request.", build: BUILD_ID }, 400);
   }
 
   const question = latestQuestion(body?.messages);
-  if (!question) return json({ error: "Ask Veritas a question." }, 400);
+  if (!question) return json({ error: "Ask Veritas a question.", build: BUILD_ID }, 400);
 
   const model = env.OPENAI_MODEL || "gpt-5.6";
   const upstream = await fetch("https://api.openai.com/v1/responses", {
@@ -152,17 +184,47 @@ async function veritasResponse(request, env) {
         type: payload?.error?.type,
         code: payload?.error?.code,
         model,
+        build: BUILD_ID,
       }),
     );
-    return json({ error: upstreamErrorMessage(upstream.status, payload) }, 502);
+
+    const fallback = internalFallback(question, body.databaseContext);
+    if (fallback) {
+      return json({
+        answer: fallback,
+        sources: [],
+        mode: "veritas-context-fallback",
+        model,
+        build: BUILD_ID,
+        upstreamStatus: upstream.status,
+      });
+    }
+
+    return json(
+      {
+        error: upstreamErrorMessage(upstream.status, payload),
+        build: BUILD_ID,
+      },
+      502,
+    );
   }
 
   const answer = extractOutputText(payload);
   if (!answer) {
-    return json({ error: "Veritas AI returned an empty response." }, 502);
+    const fallback = internalFallback(question, body.databaseContext);
+    if (fallback) {
+      return json({
+        answer: fallback,
+        sources: [],
+        mode: "veritas-context-fallback",
+        model,
+        build: BUILD_ID,
+      });
+    }
+    return json({ error: "Veritas AI returned an empty response.", build: BUILD_ID }, 502);
   }
 
-  return json({ answer, sources: [], mode: "openai", model });
+  return json({ answer, sources: [], mode: "openai", model, build: BUILD_ID });
 }
 
 export default {
@@ -171,7 +233,7 @@ export default {
 
     if (url.pathname === "/api/veritas") {
       if (request.method !== "POST") {
-        return json({ error: "Method not allowed." }, 405);
+        return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
       }
       try {
         return await veritasResponse(request, env);
@@ -180,17 +242,24 @@ export default {
           JSON.stringify({
             event: "veritas_request_failure",
             message: error instanceof Error ? error.message : "Unknown error",
+            build: BUILD_ID,
           }),
         );
         return json(
-          { error: "Veritas AI is temporarily unavailable. Please try again." },
+          { error: "Veritas AI is temporarily unavailable. Please try again.", build: BUILD_ID },
           503,
         );
       }
     }
 
-    if (url.pathname === "/api/auth/veritas-session") {
-      return json({ ok: true, mode: "cloudflare-worker" });
+    if (url.pathname === "/api/auth/veritas-session" || url.pathname === "/api/version") {
+      return json({
+        ok: true,
+        mode: "cloudflare-worker",
+        build: BUILD_ID,
+        model: env.OPENAI_MODEL || "gpt-5.6",
+        openaiKeyConfigured: Boolean(env.OPENAI_API_KEY),
+      });
     }
 
     return env.ASSETS.fetch(request);
