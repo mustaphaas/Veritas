@@ -52,7 +52,7 @@ export type AuthSession = Omit<DemoAccount, "password">;
 
 type AuthContextValue = {
   session: AuthSession | null;
-  login: (email: string, password: string) => AuthSession | null;
+  login: (email: string, password: string) => Promise<AuthSession | null>;
   logout: () => void;
 };
 
@@ -117,9 +117,26 @@ function readSession(): AuthSession | null {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(readSession);
 
-  const login = (email: string, password: string) => {
+  const login = async (email: string, password: string) => {
     const account = authenticateDemoAccount(email, password);
     if (!account) return null;
+
+    if (account.role === "rea") {
+      try {
+        const response = await fetch("/api/auth/veritas-session", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        if (!response.ok) {
+          console.warn("Veritas AI session is not available yet.");
+        }
+      } catch {
+        // Keep the dashboard usable even if the optional AI service is offline.
+      }
+    }
+
     const { password: _password, ...nextSession } = account;
     setSession(nextSession);
     window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(nextSession));
@@ -127,6 +144,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    void fetch("/api/auth/veritas-session", {
+      method: "DELETE",
+      credentials: "same-origin",
+    }).catch(() => undefined);
     setSession(null);
     window.sessionStorage.removeItem(SESSION_KEY);
   };

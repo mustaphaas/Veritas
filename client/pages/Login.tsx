@@ -19,6 +19,7 @@ export default function Login() {
   const [email, setEmail] = useState(demoAccounts[0].email);
   const [password, setPassword] = useState(demoAccounts[0].password);
   const [showPassword, setShowPassword] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
   const [error, setError] = useState("");
   const [selectedRole, setSelectedRole] = useState(demoAccounts[0].role);
 
@@ -31,9 +32,11 @@ export default function Login() {
     setPassword(account.password);
   };
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
-    const nextSession = login(email, password);
+    setSigningIn(true);
+    const nextSession = await login(email, password);
+    setSigningIn(false);
     if (!nextSession) {
       setError("The email or password does not match a demo account.");
       return;
@@ -186,9 +189,11 @@ export default function Login() {
               )}
               <button
                 type="submit"
-                className="flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#08733f] text-sm font-bold text-white shadow-sm hover:bg-[#065d32]"
+                disabled={signingIn}
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#08733f] text-sm font-bold text-white shadow-sm hover:bg-[#065d32] disabled:cursor-wait disabled:opacity-70"
               >
-                Sign in to dashboard <ArrowRight className="h-4 w-4" />
+                {signingIn ? "Securing session…" : "Sign in to dashboard"}{" "}
+                <ArrowRight className="h-4 w-4" />
               </button>
             </form>
 
