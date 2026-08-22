@@ -115,10 +115,12 @@ div:has(> svg[aria-label^="Interactive Nigeria state map"]) {
   background: #eef7f0;
 }
 
-/* Use more of the available map box while preserving Nigeria's proportions. */
+/* Enlarge the Nigeria map while correcting the earlier horizontal stretch.
+   The x/y ratio mirrors the proven proportion fix, but the whole map is
+   larger and remains centered in the available map surface. */
 svg[aria-label^="Interactive Nigeria state map"] {
   height: 100% !important;
   min-height: 100% !important;
-  transform: scale(1.12);
-  transform-origin: center;
+  transform: scale(0.96, 1.12);
+  transform-origin: center center;
 }
