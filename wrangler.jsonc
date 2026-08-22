@@ -3,11 +3,15 @@
   "name": "veritas",
   "main": "./worker/index.js",
   "compatibility_date": "2026-08-22",
+  "keep_vars": true,
   "build": {
     "command": "npm run build:client"
   },
   "vars": {
     "OPENAI_MODEL": "gpt-5.6-luna"
+  },
+  "secrets": {
+    "required": ["OPENAI_API_KEY"]
   },
   "assets": {
     "directory": "./dist/spa",
