@@ -14,6 +14,11 @@
     const svg = document.createElementNS(SVG_NS, "svg");
     svg.setAttribute("viewBox", "0 0 24 24");
     svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("stroke", "currentColor");
+    svg.setAttribute("stroke-width", "1.8");
+    svg.setAttribute("stroke-linecap", "round");
+    svg.setAttribute("stroke-linejoin", "round");
     const paths = {
       total: [
         '<path d="M4 6.5h6l1.6 2H20v9.5H4z"/>',
@@ -31,6 +36,12 @@
         '<path d="M5 4.5h9l4 4V19.5H5z"/>',
         '<path d="M14 4.5v4h4"/>',
         '<path d="m8 14 2 2 4-4"/>',
+      ],
+      capacity: [
+        '<path d="M4.5 16.5a8 8 0 1 1 15 0"/>',
+        '<path d="M12 12l4.2-3.2"/>',
+        '<path d="M7.5 16.5h9"/>',
+        '<circle cx="12" cy="12" r="1.2"/>',
       ],
     };
     svg.innerHTML = (paths[kind] || paths.total).join("");
@@ -58,6 +69,21 @@
       const article = slogan.closest("article");
       if (article) article.remove();
     });
+  }
+
+  function decorateCapacityKpi() {
+    const label = [...document.querySelectorAll("p")].find(
+      (element) => element.textContent?.trim() === "Installed Capacity",
+    );
+    const card = label?.closest("article, button");
+    if (!card) return;
+
+    const iconHost = card.querySelector(":scope > div > div:first-child");
+    if (!iconHost || iconHost.dataset.capacityIconApplied === "true") return;
+
+    iconHost.replaceChildren(svgIcon("capacity"));
+    iconHost.dataset.capacityIconApplied = "true";
+    iconHost.setAttribute("aria-label", "Installed capacity");
   }
 
   function decorateQuickActions() {
@@ -111,6 +137,7 @@
   function apply() {
     ensureStylesheet();
     removeReaSloganSection();
+    decorateCapacityKpi();
     decorateQuickActions();
     decorateProjectMetrics();
   }
