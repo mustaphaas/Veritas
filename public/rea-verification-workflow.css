@@ -1,0 +1,123 @@
+/* REA verification workflow workspace */
+.rea-v-workspace {
+  font-family: "Montserrat", Inter, ui-sans-serif, system-ui, sans-serif;
+  background: #f6f8f6;
+  min-height: calc(100vh - 94px);
+  padding: 22px 28px 40px;
+}
+.rea-v-workspace[hidden] { display: none !important; }
+.rea-v-shell { max-width: 1580px; margin: 0 auto; }
+.rea-v-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 20px;
+  border: 1px solid #dce6df;
+  border-radius: 14px;
+  background: #fff;
+}
+.rea-v-kicker {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #08733f;
+}
+.rea-v-heading h2 { margin: 5px 0 0; font-size: 22px; font-weight: 600; color: #173b2a; }
+.rea-v-heading p:not(.rea-v-kicker) { margin: 7px 0 0; max-width: 760px; font-size: 11px; line-height: 1.6; color: #6d7a73; }
+.rea-v-flow { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; justify-content: flex-end; font-size: 9px; color: #738078; }
+.rea-v-flow span { padding: 6px 8px; border: 1px solid #dfe6e2; border-radius: 999px; background: #fafcfb; }
+.rea-v-flow .rea-v-flow-active { border-color: #99c8a9; background: #edf8f0; color: #08733f; font-weight: 700; }
+.rea-v-flow b { color: #a4aea8; font-weight: 500; }
+.rea-v-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+.rea-v-summary article {
+  min-height: 116px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #dfe6e2;
+  border-radius: 12px;
+  background: #fff;
+  text-align: center;
+}
+.rea-v-icon {
+  display: flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+  border: 1px solid #c8dbcf;
+  border-radius: 50%;
+  color: #08733f;
+  background: #f8fbf9;
+  font-size: 13px;
+}
+.rea-v-icon-warn { color: #a66f05; border-color: #e2cea0; background: #fffaf0; }
+.rea-v-summary strong { font-size: 27px; line-height: 1; font-weight: 500; color: #08733f; }
+.rea-v-summary small { margin-top: 7px; font-size: 10px; color: #77837c; }
+.rea-v-table-wrap { margin-top: 14px; overflow: hidden; border: 1px solid #dfe6e2; border-radius: 14px; background: #fff; }
+.rea-v-table-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 15px 18px; border-bottom: 1px solid #e8ede9; }
+.rea-v-table-head h3 { margin: 0; font-size: 14px; font-weight: 600; color: #173b2a; }
+.rea-v-table-head p { margin: 4px 0 0; font-size: 9px; color: #88928d; }
+.rea-v-table-head button { border: 1px solid #b8d8c3; border-radius: 8px; background: #fff; padding: 8px 11px; color: #08733f; font-size: 9px; font-weight: 600; cursor: pointer; }
+.rea-v-table-head button:hover { background: #f1f8f3; }
+.rea-v-table-scroll { overflow-x: auto; }
+.rea-v-table { width: 100%; min-width: 980px; border-collapse: collapse; text-align: left; }
+.rea-v-table th { padding: 10px 14px; background: #fafcfb; border-bottom: 1px solid #e9eeeb; font-size: 8px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #7b8780; }
+.rea-v-table td { padding: 13px 14px; border-top: 1px solid #edf0ee; vertical-align: top; font-size: 10px; color: #53635a; }
+.rea-v-table td > strong { display: block; color: #243c30; font-size: 10.5px; font-weight: 600; }
+.rea-v-table td > small { display: block; margin-top: 4px; color: #88928d; font-size: 8.5px; line-height: 1.4; }
+.rea-v-note { max-width: 210px; color: #7b6a3d !important; }
+.rea-v-status { display: inline-flex; border-radius: 999px; padding: 4px 7px; border: 1px solid #d7e0da; background: #f7faf8; color: #65736b; font-size: 8px; font-weight: 700; }
+.rea-v-status-approved { border-color: #a8d5b7; background: #edf9f1; color: #08733f; }
+.rea-v-status-verified { border-color: #08733f; background: #08733f; color: #fff; }
+.rea-v-status-submitted { border-color: #c7d9ee; background: #f2f7fd; color: #356ca5; }
+.rea-v-status-re-inspection { border-color: #efd9a6; background: #fff8e8; color: #956300; }
+.rea-v-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.rea-v-actions button { border-radius: 7px; padding: 7px 9px; font-size: 8.5px; font-weight: 700; cursor: pointer; }
+.rea-v-approve { border: 1px solid #08733f; background: #08733f; color: #fff; }
+.rea-v-approve:hover { background: #065d32; }
+.rea-v-reject { border: 1px solid #d9a5a5; background: #fff; color: #a23b3b; }
+.rea-v-reject:hover { background: #fff3f3; }
+.rea-v-readonly { color: #8a948e; font-size: 8.5px; }
+.rea-v-empty { padding: 38px !important; text-align: center; color: #7e8983 !important; }
+
+/* Do not replace REA or Field Officer KPI icons with the solar pseudo-icon.
+   Keep each dashboard's native Lucide icon while retaining the new card/font design. */
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:first-child svg {
+  display: block !important;
+}
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:first-child::before {
+  content: none !important;
+  display: none !important;
+  background-image: none !important;
+}
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:last-child > p:first-child,
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:last-child > p:nth-child(2),
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:last-child > p:nth-child(3) {
+  font-size: inherit !important;
+}
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:last-child > p:first-child::after,
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:last-child > p:nth-child(2)::after,
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:last-child > p:nth-child(3)::after {
+  content: none !important;
+  display: none !important;
+}
+/* Restore the intended new-design typography after removing the content replacement. */
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:last-child > p:first-child { font-size: 10.5px !important; }
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:last-child > p:nth-child(2) { font-size: 30px !important; }
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:last-child > p:nth-child(3) { font-size: 9.5px !important; }
+
+@media (max-width: 900px) {
+  .rea-v-workspace { padding: 14px 14px 32px; }
+  .rea-v-heading { flex-direction: column; }
+  .rea-v-flow { justify-content: flex-start; }
+  .rea-v-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .rea-v-summary { grid-template-columns: 1fr; }
+}
