@@ -1,6 +1,15 @@
 /* Final presentation polish layered after the component styles. */
 
-/* Restore the original dynamic Installed Capacity content while keeping the solar-style icon. */
+/* Keep KPI card 2 as Installed Capacity with its native energy icon. */
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:first-child svg {
+  display: block !important;
+  visibility: visible !important;
+}
+section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:first-child::before {
+  content: none !important;
+  display: none !important;
+  background-image: none !important;
+}
 section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:last-child > p:first-child {
   font-size: 10.5px !important;
 }
