@@ -37,12 +37,6 @@
         '<path d="M14 4.5v4h4"/>',
         '<path d="m8 14 2 2 4-4"/>',
       ],
-      capacity: [
-        '<path d="M4.5 16.5a8 8 0 1 1 15 0"/>',
-        '<path d="M12 12l4.2-3.2"/>',
-        '<path d="M7.5 16.5h9"/>',
-        '<circle cx="12" cy="12" r="1.2"/>',
-      ],
     };
     svg.innerHTML = (paths[kind] || paths.total).join("");
     return svg;
@@ -69,21 +63,6 @@
       const article = slogan.closest("article");
       if (article) article.remove();
     });
-  }
-
-  function decorateCapacityKpi() {
-    const label = [...document.querySelectorAll("p")].find(
-      (element) => element.textContent?.trim() === "Installed Capacity",
-    );
-    const card = label?.closest("article, button");
-    if (!card) return;
-
-    const iconHost = card.querySelector(":scope > div > div:first-child");
-    if (!iconHost || iconHost.dataset.capacityIconApplied === "true") return;
-
-    iconHost.replaceChildren(svgIcon("capacity"));
-    iconHost.dataset.capacityIconApplied = "true";
-    iconHost.setAttribute("aria-label", "Installed capacity");
   }
 
   function decorateQuickActions() {
@@ -137,7 +116,6 @@
   function apply() {
     ensureStylesheet();
     removeReaSloganSection();
-    decorateCapacityKpi();
     decorateQuickActions();
     decorateProjectMetrics();
   }
