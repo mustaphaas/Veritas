@@ -279,7 +279,6 @@ async function veritasResponse(request, env) {
         ],
         generationConfig: {
           maxOutputTokens: 1400,
-          temperature: 0.3,
         },
       }),
     },
