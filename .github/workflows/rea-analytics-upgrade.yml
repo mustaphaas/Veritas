@@ -1,0 +1,48 @@
+name: REA analytics upgrade
+
+on:
+  push:
+    paths:
+      - '.github/workflows/rea-analytics-upgrade.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Update REA navigation and analytics view
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('client/pages/Index.tsx')
+          s = p.read_text()
+          s = s.replace('import { useAuth } from "../lib/auth";', 'import { useAuth } from "../lib/auth";\nimport ReaAnalyticsDashboard from "../components/ReaAnalyticsDashboard";')
+          s = s.replace('  { label: "Projects", icon: FolderKanban },\n', '')
+          s = s.replace('{ label: "Inspections", icon: ClipboardCheck }', '{ label: "Claims", icon: ClipboardCheck }')
+          s = s.replace('action: "Inspections"', 'action: "Claims"')
+          s = s.replace('setActiveNav("Inspections")', 'setActiveNav("Claims")')
+          marker = '        <div className="mx-auto max-w-[1580px] px-4 py-0 sm:px-7 lg:px-7">\n'
+          if marker in s and 'activeNav === "Analytics" ?' not in s:
+              s = s.replace(marker, marker + '          {activeNav === "Analytics" ? (\n            <ReaAnalyticsDashboard projects={projects} />\n          ) : (\n            <>\n', 1)
+              footer = '          <footer className="mt-8 -mx-4'
+              s = s.replace(footer, '            </>\n          )}\n' + footer, 1)
+          p.write_text(s)
+          PY
+      - name: Install and build
+        run: |
+          npm ci
+          npm run build
+      - name: Commit upgrade
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add client/pages/Index.tsx
+          git commit -m "Make REA analytics functional and update navigation" || exit 0
+          git push
