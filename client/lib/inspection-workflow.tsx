@@ -762,6 +762,11 @@ type WorkflowContextValue = {
     decision: "Approved" | "Re-inspection",
     note: string,
   ) => void;
+  reaReviewReport: (
+    id: string,
+    decision: "Verified" | "Re-inspection",
+    note: string,
+  ) => void;
   syncNow: () => void;
   resetDemo: () => void;
 };
@@ -1243,6 +1248,30 @@ export function InspectionWorkflowProvider({
     [update],
   );
 
+  const reaReviewReport = useCallback(
+    (id: string, decision: "Verified" | "Re-inspection", note: string) =>
+      update(id, (assignment) => {
+        if (assignment.status !== "Approved") return assignment;
+        if (decision === "Re-inspection" && !note.trim()) return assignment;
+        return {
+          ...assignment,
+          status: decision,
+          arrival: decision === "Re-inspection" ? undefined : assignment.arrival,
+          routeStartedAt: decision === "Re-inspection" ? undefined : assignment.routeStartedAt,
+          report: assignment.report ? { ...assignment.report, reviewNote: note || assignment.report.reviewNote } : assignment.report,
+          audit: [...assignment.audit, {
+            id: uid("audit"),
+            at: new Date().toISOString(),
+            actor: "REA Administrator",
+            action: decision === "Verified" ? "Report verified by REA" : "REA requested re-inspection",
+            deviceId: getDeviceId(),
+            deviceType: getDeviceType(),
+          }],
+        };
+      }),
+    [update],
+  );
+
   const syncNow = useCallback(() => {
     if (!isOnline) return;
     setAssignments((current) =>
@@ -1265,6 +1294,7 @@ export function InspectionWorkflowProvider({
       saveReport,
       submitReport,
       reviewReport,
+      reaReviewReport,
       syncNow,
       resetDemo,
     }),
@@ -1280,6 +1310,7 @@ export function InspectionWorkflowProvider({
       saveReport,
       submitReport,
       reviewReport,
+      reaReviewReport,
       syncNow,
       resetDemo,
     ],
