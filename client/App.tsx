@@ -20,7 +20,6 @@ import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import VeritasAssistant from "./components/VeritasAssistant";
 import VeritasFooter from "./components/VeritasFooter";
-import ReaNavigationEnhancer from "./components/ReaNavigationEnhancer";
 import { AuthProvider, RequireRole, useAuth } from "./lib/auth";
 import { InspectionWorkflowProvider } from "./lib/inspection-workflow";
 
@@ -42,15 +41,6 @@ function VeritasFooterGate() {
     return null;
   }
   return <VeritasFooter />;
-}
-
-function ReaNavigationGate() {
-  const { session } = useAuth();
-  const location = useLocation();
-  if (!session || session.role !== "rea" || location.pathname !== "/") {
-    return null;
-  }
-  return <ReaNavigationEnhancer />;
 }
 
 const App = () => (
@@ -90,7 +80,6 @@ const App = () => (
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
-            <ReaNavigationGate />
             <VeritasFooterGate />
             <VeritasGate />
           </BrowserRouter>
