@@ -1,0 +1,64 @@
+name: Integrate REA management workspaces
+
+on:
+  push:
+    paths:
+      - '.github/workflows/integrate-rea-management.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Wire REA navigation and workspaces
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('client/pages/Index.tsx')
+          s = p.read_text()
+
+          auth_import = 'import { useAuth } from "../lib/auth";'
+          extra = '''import { useAuth } from "../lib/auth";\nimport ReaAnalyticsDashboard from "../components/ReaAnalyticsDashboard";\nimport ReaUserManagement from "../components/ReaUserManagement";\nimport ReaAuditTrail from "../components/ReaAuditTrail";\nimport ReaConsultantsManagement from "../components/ReaConsultantsManagement";'''
+          if 'ReaUserManagement' not in s:
+              s = s.replace(auth_import, extra)
+
+          s = s.replace('  { label: "Projects", icon: FolderKanban },\n', '')
+          s = s.replace('  { label: "Inspections", icon: ClipboardCheck },', '  { label: "Claims", icon: ClipboardCheck },')
+          s = s.replace('  { label: "Contractors", icon: Building2 },', '  { label: "Consultants", icon: Building2 },')
+          if '{ label: "Audit Trail"' not in s:
+              s = s.replace('  { label: "Users", icon: UsersRound },', '  { label: "Users", icon: UsersRound },\n  { label: "Audit Trail", icon: FileCheck2 },')
+
+          s = s.replace('action: "Inspections"', 'action: "Claims"')
+          s = s.replace('setActiveNav("Inspections")', 'setActiveNav("Claims")')
+
+          marker = '        <div className="mx-auto max-w-[1580px] px-4 py-0 sm:px-7 lg:px-7">\n'
+          if 'activeNav === "Users" ?' not in s:
+              switch = '''          {activeNav === "Analytics" ? (\n            <ReaAnalyticsDashboard projects={projects} />\n          ) : activeNav === "Users" ? (\n            <ReaUserManagement />\n          ) : activeNav === "Audit Trail" ? (\n            <ReaAuditTrail />\n          ) : activeNav === "Consultants" ? (\n            <ReaConsultantsManagement />\n          ) : (\n            <>\n'''
+              if marker not in s:
+                  raise SystemExit('dashboard container marker not found')
+              s = s.replace(marker, marker + switch, 1)
+              footer = '          <footer className="mt-8 -mx-4'
+              if footer not in s:
+                  raise SystemExit('footer marker not found')
+              s = s.replace(footer, '            </>\n          )}\n' + footer, 1)
+
+          p.write_text(s)
+          PY
+      - name: Install dependencies and build
+        run: |
+          npm ci
+          npm run build
+      - name: Commit integrated dashboard
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add client/pages/Index.tsx
+          git commit -m "Wire REA Users Audit Consultants and Analytics into dashboard" || exit 0
+          git push
