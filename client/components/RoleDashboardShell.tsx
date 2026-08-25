@@ -7,7 +7,6 @@ import {
   Settings,
   UsersRound,
   X,
-  Zap,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
@@ -32,8 +31,8 @@ type RoleDashboardShellProps = {
 function ReaBrand() {
   return (
     <div className="flex h-[94px] items-center gap-3 px-4">
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-[3px] border-[#08733f] text-[#08733f]">
-        <Zap className="h-7 w-7" fill="#e7f7ec" strokeWidth={2.5} />
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white">
+        <img src="/rea-brand-mark.svg" alt="REA" className="h-11 w-11 object-contain" />
       </div>
       <div>
         <p className="text-xl font-bold tracking-tight text-[#153b28]">REA</p>
