@@ -275,7 +275,7 @@ function SolarCapacityIcon({ className = "" }: { className?: string }) {
 }
 
 function AtlasMark() {
-  return <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-[3px] border-[#08733f] text-[#08733f]" aria-hidden="true"><Zap className="h-7 w-7" fill="#e7f7ec" strokeWidth={2.5} /></div>;
+  return <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white" aria-hidden="true"><img src="/rea-brand-mark.svg" alt="" className="h-11 w-11 object-contain" /></div>;
 }
 
 function StatusBadge({ tone, children }: { tone: string; children: string }) {
