@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { BadgeCheck, Check, KeyRound, LockKeyhole, Plus, Search, ShieldCheck, UserCheck, UserRoundCog, UserRoundX, X } from "lucide-react";
+import { BadgeCheck, Check, KeyRound, LockKeyhole, Plus, Search, ShieldCheck, UserCheck, UserRoundCog, UserRoundX, UserX, X } from "lucide-react";
 import { appendAuditEvent, readReaStaff, reaAccessModules, type ReaStaffAccount, type ReaStaffRole, writeReaStaff } from "../lib/rea-admin";
 
 const roles: ReaStaffRole[] = ["REA Administrator", "Programme Manager", "Verification Officer", "Claims Officer", "Analyst", "Viewer"];
