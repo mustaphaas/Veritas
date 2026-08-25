@@ -1,0 +1,32 @@
+import { useMemo, useState } from "react";
+import { CheckCircle2, Clock3, FileCheck2, RefreshCw, RotateCcw, Search, ShieldCheck } from "lucide-react";
+import { useInspectionWorkflow, type AssignmentStatus } from "../lib/inspection-workflow";
+
+const tone:Record<string,string>={
+  Approved:"border-amber-200 bg-amber-50 text-amber-700",
+  Submitted:"border-blue-200 bg-blue-50 text-blue-700",
+  Verified:"border-emerald-200 bg-emerald-50 text-emerald-700",
+  "Re-inspection":"border-rose-200 bg-rose-50 text-rose-700",
+};
+function Status({value}:{value:AssignmentStatus}) {
+  return <span className={"rounded-full border px-2.5 py-1 text-[9px] font-bold "+(tone[value]||"border-slate-200 bg-slate-50 text-slate-600")}>{value==="Approved"?"Awaiting REA":value}</span>;
+}
+export default function ReaVerificationManagement(){
+  const {assignments,reaReviewReport}=useInspectionWorkflow();
+  const [query,setQuery]=useState("");
+  const [status,setStatus]=useState("All");
+  const visible=useMemo(()=>assignments.filter((item)=>["Submitted","Approved","Verified","Re-inspection"].includes(item.status)).filter((item)=>(status==="All"||item.status===status)&&(!query.trim()||(item.projectName+" "+item.officer+" "+item.state+" "+item.contractor).toLowerCase().includes(query.toLowerCase()))),[assignments,query,status]);
+  const counts={approved:assignments.filter((a)=>a.status==="Approved").length,submitted:assignments.filter((a)=>a.status==="Submitted").length,verified:assignments.filter((a)=>a.status==="Verified").length,reinspection:assignments.filter((a)=>a.status==="Re-inspection").length};
+  const decide=(id:string,decision:"Verified"|"Re-inspection")=>{
+    const note=window.prompt(decision==="Verified"?"Optional REA verification note":"Reason for rejection / re-inspection",decision==="Verified"?"Verified by REA after consultant QA approval.":"");
+    if(note===null||decision==="Re-inspection"&&!note.trim())return;
+    reaReviewReport(id,decision,note);
+  };
+  return <div className="space-y-4 py-4">
+    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div><p className="text-[9px] font-bold uppercase tracking-[.2em] text-[#08733f]">REA final verification</p><h2 className="mt-1 text-xl font-black text-[#173b2a]">Verification Queue</h2><p className="mt-1 text-xs text-slate-500">Only Consultant-approved reports can receive final REA verification.</p></div><div className="flex flex-wrap items-center gap-2 text-[9px] font-bold text-slate-500"><span className="rounded-lg bg-slate-100 px-3 py-2">Field Officer</span><b>→</b><span className="rounded-lg bg-slate-100 px-3 py-2">Consultant QA</span><b>→</b><span className="rounded-lg bg-emerald-50 px-3 py-2 text-[#08733f]">REA</span><b>→</b><span className="rounded-lg bg-slate-100 px-3 py-2">Verified</span></div></div></section>
+    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[["Awaiting REA",counts.approved,Clock3,"bg-amber-50 text-amber-700"],["With Consultant QA",counts.submitted,FileCheck2,"bg-blue-50 text-blue-700"],["Verified",counts.verified,CheckCircle2,"bg-emerald-50 text-emerald-700"],["Re-inspection",counts.reinspection,RotateCcw,"bg-rose-50 text-rose-700"]].map(([label,value,Icon,color]:any)=><article key={label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div className={"flex h-9 w-9 items-center justify-center rounded-lg "+color}><Icon className="h-4 w-4"/></div><p className="mt-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p><p className="mt-1 text-2xl font-black text-[#173b2a]">{value}</p></article>)}</section>
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row"><div className="relative flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Search project, officer, contractor or state" className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-xs outline-none focus:border-[#08733f]"/></div><select value={status} onChange={(e)=>setStatus(e.target.value)} className="h-10 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600"><option>All</option><option>Approved</option><option>Submitted</option><option>Verified</option><option>Re-inspection</option></select></div>
+      <div className="overflow-x-auto"><table className="w-full min-w-[980px] text-left"><thead className="bg-slate-50 text-[9px] uppercase tracking-wider text-slate-500"><tr><th className="px-4 py-3">Project</th><th className="px-4 py-3">Officer</th><th className="px-4 py-3">Consultant stage</th><th className="px-4 py-3">Location</th><th className="px-4 py-3">Evidence</th><th className="px-4 py-3">REA decision</th></tr></thead><tbody>{visible.map((item)=><tr key={item.id} className="border-t border-slate-100"><td className="px-4 py-4"><p className="text-xs font-bold text-[#173b2a]">{item.projectName}</p><p className="mt-1 text-[9px] text-slate-400">{item.id} · {item.programme} · {item.component}</p></td><td className="px-4 py-4 text-xs text-slate-600">{item.officer}</td><td className="px-4 py-4"><Status value={item.status}/>{item.report?.reviewNote&&<p className="mt-2 max-w-48 text-[9px] text-slate-400">{item.report.reviewNote}</p>}</td><td className="px-4 py-4 text-xs text-slate-600">{item.community}, {item.state}</td><td className="px-4 py-4 text-xs font-bold">{item.report?.evidence?.length||0} files</td><td className="px-4 py-4">{item.status==="Approved"?<div className="flex gap-2"><button onClick={()=>decide(item.id,"Verified")} className="flex items-center gap-1 rounded-lg bg-[#08733f] px-3 py-2 text-[9px] font-bold text-white"><ShieldCheck className="h-3.5 w-3.5"/>Approve & Verify</button><button onClick={()=>decide(item.id,"Re-inspection")} className="rounded-lg border border-rose-200 px-3 py-2 text-[9px] font-bold text-rose-700">Reject</button></div>:<span className="text-[9px] font-semibold text-slate-400">{item.status==="Submitted"?"Waiting for Consultant Admin":item.status==="Verified"?"Finalised":"Returned to Field Officer"}</span>}</td></tr>)}</tbody></table>{!visible.length&&<div className="p-10 text-center text-xs text-slate-400"><RefreshCw className="mx-auto mb-2 h-5 w-5"/>No verification records match these filters.</div>}</div>
+    </section>
+  </div>;
+}
