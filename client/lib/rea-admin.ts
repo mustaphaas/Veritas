@@ -89,24 +89,93 @@ export const defaultAuditEvents: AuditEvent[] = [
   { id: "audit-004", timestamp: "2026-08-23T11:08:00.000Z", actor: "REA Administrator", action: "Suspended account", category: "User Management", target: "Zainab Musa", details: "Account access suspended pending review", severity: "Warning" },
 ];
 
+function cloneDefaultStaff(): ReaStaffAccount[] {
+  return defaultReaStaff.map((account) => ({ ...account, access: [...account.access] }));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 export function readReaStaff(): ReaStaffAccount[] {
-  if (typeof window === "undefined") return defaultReaStaff;
+  if (typeof window === "undefined") return cloneDefaultStaff();
   try {
     const stored = window.localStorage.getItem(REA_STAFF_STORAGE_KEY);
-    return stored ? JSON.parse(stored) as ReaStaffAccount[] : defaultReaStaff;
-  } catch { return defaultReaStaff; }
+    if (!stored) return cloneDefaultStaff();
+    const parsed: unknown = JSON.parse(stored);
+    if (!Array.isArray(parsed)) return cloneDefaultStaff();
+
+    const accounts = parsed.flatMap((value, index): ReaStaffAccount[] => {
+      if (!isRecord(value)) return [];
+      const fallback = defaultReaStaff[index % defaultReaStaff.length];
+      const role = typeof value.role === "string" && ["REA Administrator", "Programme Manager", "Verification Officer", "Claims Officer", "Analyst", "Viewer"].includes(value.role)
+        ? value.role as ReaStaffRole
+        : fallback.role;
+      const status = value.status === "Suspended" || value.status === "Invited" ? value.status : "Active";
+      return [{
+        id: typeof value.id === "string" && value.id ? value.id : `rea-recovered-${index}`,
+        name: typeof value.name === "string" && value.name ? value.name : fallback.name,
+        email: typeof value.email === "string" ? value.email : fallback.email,
+        phone: typeof value.phone === "string" ? value.phone : undefined,
+        department: typeof value.department === "string" ? value.department : fallback.department,
+        role,
+        status,
+        password: typeof value.password === "string" ? value.password : "",
+        lastLogin: typeof value.lastLogin === "string" ? value.lastLogin : undefined,
+        createdAt: typeof value.createdAt === "string" ? value.createdAt : new Date().toISOString(),
+        access: Array.isArray(value.access) ? value.access.filter((module): module is string => typeof module === "string") : [...fallback.access],
+      }];
+    });
+    return accounts.length ? accounts : cloneDefaultStaff();
+  } catch {
+    return cloneDefaultStaff();
+  }
 }
 
 export function writeReaStaff(accounts: ReaStaffAccount[]) {
-  if (typeof window !== "undefined") window.localStorage.setItem(REA_STAFF_STORAGE_KEY, JSON.stringify(accounts));
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(REA_STAFF_STORAGE_KEY, JSON.stringify(accounts));
+  } catch {
+    // Keep the current in-memory view usable when browser storage is unavailable.
+  }
 }
 
 export function readAuditEvents(): AuditEvent[] {
-  if (typeof window === "undefined") return defaultAuditEvents;
+  if (typeof window === "undefined") return [...defaultAuditEvents];
   try {
     const stored = window.localStorage.getItem(REA_AUDIT_STORAGE_KEY);
-    return stored ? JSON.parse(stored) as AuditEvent[] : defaultAuditEvents;
-  } catch { return defaultAuditEvents; }
+    if (!stored) return [...defaultAuditEvents];
+    const parsed: unknown = JSON.parse(stored);
+    if (!Array.isArray(parsed)) return [...defaultAuditEvents];
+
+    const events = parsed.flatMap((value, index): AuditEvent[] => {
+      if (!isRecord(value)) return [];
+      const fallback = defaultAuditEvents[index % defaultAuditEvents.length];
+      const timestamp = typeof value.timestamp === "string" && !Number.isNaN(Date.parse(value.timestamp))
+        ? value.timestamp
+        : fallback.timestamp;
+      const category = ["Authentication", "User Management", "Access Control", "Claims", "Verification", "System"].includes(String(value.category))
+        ? value.category as AuditEvent["category"]
+        : "System";
+      const severity = ["Info", "Success", "Warning", "Critical"].includes(String(value.severity))
+        ? value.severity as AuditEvent["severity"]
+        : "Info";
+      return [{
+        id: typeof value.id === "string" && value.id ? value.id : `audit-recovered-${index}`,
+        timestamp,
+        actor: typeof value.actor === "string" ? value.actor : "Unknown user",
+        action: typeof value.action === "string" ? value.action : "Activity recorded",
+        category,
+        target: typeof value.target === "string" ? value.target : "Veritas",
+        details: typeof value.details === "string" ? value.details : "",
+        severity,
+      }];
+    });
+    return events.length ? events : [...defaultAuditEvents];
+  } catch {
+    return [...defaultAuditEvents];
+  }
 }
 
 export function appendAuditEvent(event: Omit<AuditEvent, "id" | "timestamp">) {
