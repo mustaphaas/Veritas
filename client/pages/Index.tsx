@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Bar,
@@ -56,6 +56,18 @@ import ReaUserManagement from "../components/ReaUserManagement";
 import ReaAuditTrail from "../components/ReaAuditTrail";
 import ReaConsultantsManagement from "../components/ReaConsultantsManagement";
 import ReaVerificationManagement from "../components/ReaVerificationManagement";
+
+class TabErrorBoundary extends Component<{ children: ReactNode; tab: string }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidUpdate(previous: { tab: string }) {
+    if (previous.tab !== this.props.tab && this.state.failed) this.setState({ failed: false });
+  }
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return <section className="my-4 rounded-xl border border-amber-200 bg-white p-8 text-center shadow-sm"><p className="text-sm font-bold text-[#173b2a]">{this.props.tab} could not load from the saved browser session.</p><p className="mt-2 text-xs text-slate-500">Retry the page without changing your dashboard data.</p><button type="button" onClick={() => this.setState({ failed: false })} className="mt-4 rounded-lg bg-[#08733f] px-4 py-2.5 text-xs font-bold text-white">Retry {this.props.tab}</button></section>;
+  }
+}
 
 const navigation = [
   { label: "Overview", icon: LayoutDashboard },
@@ -360,13 +372,13 @@ export default function Index() {
         <header className="sticky top-0 z-20 flex h-[94px] items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-7 lg:px-8"><div className="flex items-center gap-3"><button onClick={() => setMobileMenuOpen(true)} className="rounded-md p-2 text-slate-600 hover:bg-slate-100" aria-label="Open navigation"><Menu className="h-5 w-5" /></button><div><h1 className="text-lg font-bold tracking-tight text-[#142a1f] sm:text-[22px]">REA Dashboard</h1><p className="mt-1 hidden text-xs text-slate-500 sm:block">Monitor programme delivery and field verification across Nigeria.</p></div></div><div className="flex items-center gap-2 sm:gap-4"><span className="hidden items-center gap-2 text-xs font-semibold text-[#08733f] md:flex"><i className="h-2 w-2 rounded-full bg-[#08733f]" />Live data</span><span className="hidden border-l border-slate-200 pl-4 text-xs text-slate-500 xl:block">Last updated: Today, 10:24 AM</span><button className="relative rounded-md p-2 text-slate-500 hover:bg-slate-100" aria-label="Notifications"><Bell className="h-5 w-5" /><span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full border border-white bg-[#df7d00] px-1 text-[8px] font-bold text-white">3</span></button><div className="hidden items-center gap-2 sm:flex"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500"><UsersRound className="h-5 w-5" /></div><span className="hidden text-xs font-semibold text-[#142a1f] xl:inline">REA Administrator</span></div><button type="button" onClick={() => { logout(); navigate("/login", { replace: true }); }} className="flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-[11px] font-bold text-slate-600 hover:border-[#e2b5b5] hover:bg-red-50 hover:text-red-700"><LogOut className="h-4 w-4" /><span className="hidden xl:inline">Logout</span></button></div></header>
         <div className="mx-auto max-w-[1580px] px-4 py-0 sm:px-7 lg:px-7">
           {activeNav === "Analytics" ? (
-            <ReaAnalyticsDashboard projects={projects} />
+            <TabErrorBoundary key="Analytics" tab="Analytics"><ReaAnalyticsDashboard projects={projects} /></TabErrorBoundary>
           ) : activeNav === "Users" ? (
-            <ReaUserManagement />
+            <TabErrorBoundary key="Users" tab="Users"><ReaUserManagement /></TabErrorBoundary>
           ) : activeNav === "Audit Trail" ? (
-            <ReaAuditTrail />
+            <TabErrorBoundary key="Audit Trail" tab="Audit Trail"><ReaAuditTrail /></TabErrorBoundary>
           ) : activeNav === "Consultants" ? (
-            <ReaConsultantsManagement />
+            <TabErrorBoundary key="Consultants" tab="Consultants"><ReaConsultantsManagement /></TabErrorBoundary>
           ) : activeNav === "Verification" ? (
             <ReaVerificationManagement />
           ) : (
