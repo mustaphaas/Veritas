@@ -238,7 +238,7 @@ function getKpis(filteredProjects: Project[]) {
   const totals = summarizePortfolio(filteredProjects);
   return [
     { label: "Projects", value: totals.projects.toLocaleString(), detail: "Across filtered portfolio", icon: FolderKanban, tone: "default" },
-    { label: "Installed Capacity", value: `${(totals.kw / 1000).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} MW`, detail: "Across filtered projects", icon: Zap, tone: "highlighted" },
+    { label: "Installed Capacity", value: `${(totals.kw / 1000).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} MW`, detail: "Across filtered projects", icon: SolarCapacityIcon, tone: "highlighted" },
     { label: "Households Reached", value: totals.households.toLocaleString(), detail: "Connected households", icon: Home, tone: "default" },
     { label: "Verification Rate", value: `${totals.verificationRate}%`, detail: `${totals.verified} of ${totals.projects} reports verified`, icon: CheckCircle2, tone: "default" },
     { label: "Pending Verification", value: totals.pending.toLocaleString(), detail: "Reports awaiting REA review", icon: Clock3, tone: "pending", action: "Claims" },
@@ -254,6 +254,10 @@ function FilterSelect({ label, value, options, onChange }: { label: string; valu
       </select>
     </label>
   );
+}
+
+function SolarCapacityIcon({ className = "" }: { className?: string }) {
+  return <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="18" cy="5" r="2.3"/><path d="M18 1v1M18 8v1M14 5h1M21 5h1M15.2 2.2l.7.7M20.1 7.1l.7.7M20.8 2.2l-.7.7M15.9 7.1l-.7.7"/><path d="M3.5 9.5h11l2 8h-15l2-8Z"/><path d="M4.5 13.5h11M8.5 9.5l-1 8M12 9.5l1 8M9 17.5v3M13 17.5v3M7 20.5h8"/></svg>;
 }
 
 function AtlasMark() {
