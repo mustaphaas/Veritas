@@ -57,6 +57,7 @@ import ReaAuditTrail from "../components/ReaAuditTrail";
 import ReaConsultantsManagement from "../components/ReaConsultantsManagement";
 import ReaVerificationManagement from "../components/ReaVerificationManagement";
 import ReaClaimsManagement from "../components/ReaClaimsManagement";
+import ReaReportsManagement from "../components/ReaReportsManagement";
 
 class TabErrorBoundary extends Component<{ children: ReactNode; tab: string }, { failed: boolean }> {
   state = { failed: false };
@@ -384,6 +385,8 @@ export default function Index() {
             <TabErrorBoundary key="Claims" tab="Claims"><ReaClaimsManagement /></TabErrorBoundary>
           ) : activeNav === "Verification" ? (
             <ReaVerificationManagement />
+          ) : activeNav === "Reports" ? (
+            <TabErrorBoundary key="Reports" tab="Reports"><ReaReportsManagement projects={projects} /></TabErrorBoundary>
           ) : (
             <>
           <section className="rounded-b-lg border border-t-0 border-[#d6e9da] bg-[#f7fcf8] p-3"><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[repeat(5,minmax(0,1fr))_205px]">{(Object.keys(filterDefaults) as FilterKey[]).map((key) => <div key={key} className="min-w-0 self-end"><FilterSelect label={filterLabels[key]} value={filters[key]} options={getFilterOptions(filters, key)} onChange={(value) => updateFilterWithDependencies(key, value)} /></div>)}<div className="flex gap-2 sm:col-span-2 xl:col-span-1 xl:flex-col"><button onClick={() => setActiveNav("Claims")} className="flex h-10 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[#08733f] px-3 text-[11px] font-bold text-white hover:bg-[#065d32]"><ClipboardCheck className="h-4 w-4" /> Review Pending Reports ({visibleProjects.filter((project) => !project.verified).length})</button><button onClick={() => { setFilters(defaultFilters); setSelectedState("Kano"); resetMapView(); }} className="flex h-10 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-[#76bd91] bg-white px-4 text-xs font-bold text-[#08733f] hover:bg-[#edf9f0]"><LocateFixed className="h-4 w-4" /> Reset filters</button></div></div></section>
