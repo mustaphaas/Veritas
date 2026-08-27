@@ -22,6 +22,7 @@ import VeritasAssistant from "./components/VeritasAssistant";
 import VeritasFooter from "./components/VeritasFooter";
 import ReaProjectMapHost from "./components/ReaProjectMapProgramme";
 import ProjectMapFullscreenControl from "./components/ProjectMapFullscreenControl";
+import ReaExecutiveDashboardHost from "./components/ReaExecutiveDashboard";
 import { AuthProvider, RequireRole, useAuth } from "./lib/auth";
 import { InspectionWorkflowProvider } from "./lib/inspection-workflow";
 
@@ -57,6 +58,15 @@ function ProjectMapGate() {
       <ProjectMapFullscreenControl />
     </>
   );
+}
+
+function ExecutiveDashboardGate() {
+  const { session } = useAuth();
+  const location = useLocation();
+  if (!session || session.role !== "rea" || location.pathname !== "/") {
+    return null;
+  }
+  return <ReaExecutiveDashboardHost />;
 }
 
 const App = () => (
@@ -97,6 +107,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
             <ProjectMapGate />
+            <ExecutiveDashboardGate />
             <VeritasFooterGate />
             <VeritasGate />
           </BrowserRouter>
