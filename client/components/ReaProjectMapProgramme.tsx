@@ -369,22 +369,34 @@ function ProjectMap({
 
   const mappedProjects = useMemo(() => enrichProjects(lgaFeatures), [lgaFeatures]);
 
-  const stateOptions = useMemo(
-    () => ["All States", ...unique(mappedProjects.map((project) => project.state))],
-    [mappedProjects],
-  );
+  const stateOptions = useMemo(() => {
+    const boundaryStates = unique(lgaFeatures.map((feature) => stateName(feature)));
+    return [
+      "All States",
+      ...(boundaryStates.length
+        ? boundaryStates
+        : unique(mappedProjects.map((project) => project.state))),
+    ];
+  }, [lgaFeatures, mappedProjects]);
 
   const lgaOptions = useMemo(() => {
     const effectiveState = stateFilter !== "All States" ? stateFilter : selectedState;
+    const boundaryLgas = unique(
+      lgaFeatures
+        .filter((feature) => !effectiveState || stateName(feature) === effectiveState)
+        .map((feature) => lgaName(feature)),
+    );
     return [
       "All LGAs",
-      ...unique(
-        mappedProjects
-          .filter((project) => !effectiveState || project.state === effectiveState)
-          .map((project) => project.lga),
-      ),
+      ...(boundaryLgas.length
+        ? boundaryLgas
+        : unique(
+            mappedProjects
+              .filter((project) => !effectiveState || project.state === effectiveState)
+              .map((project) => project.lga),
+          )),
     ];
-  }, [mappedProjects, selectedState, stateFilter]);
+  }, [lgaFeatures, mappedProjects, selectedState, stateFilter]);
 
   const filteredProjects = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -520,6 +532,7 @@ function ProjectMap({
     setSelectedState(state);
     setSelectedLga(null);
     setSelectedProject(null);
+    setLgaFilter("All LGAs");
     setZoom(1);
   };
 
@@ -557,13 +570,28 @@ function ProjectMap({
 
   const selectLgaFilter = (value: string) => {
     setLgaFilter(value);
-    if (value !== "All LGAs") openLga(value);
+    if (value === "All LGAs") {
+      setSelectedLga(null);
+      setSelectedProject(null);
+      setZoom(1);
+      return;
+    }
+
+    if (!selectedState) {
+      const ownerFeature = lgaFeatures.find((feature) => lgaName(feature) === value);
+      if (ownerFeature) {
+        const ownerState = stateName(ownerFeature);
+        setSelectedState(ownerState);
+        setStateFilter(ownerState);
+      }
+    }
+    openLga(value);
   };
 
   const mapTitle = !selectedState
     ? "Nigeria · National Project Coverage"
     : !selectedLga
-      ? `${selectedState} · Local Government Coverage`
+      ? `${selectedState} · ${selectedStateLgas.length} Local Governments`
       : `${selectedLga} · Project Locations`;
 
   return (
@@ -577,6 +605,8 @@ function ProjectMap({
                 setSelectedState(null);
                 setSelectedLga(null);
                 setSelectedProject(null);
+                setStateFilter("All States");
+                setLgaFilter("All LGAs");
                 setZoom(1);
               }}
               className={`whitespace-nowrap rounded-md px-2 py-1.5 ${!selectedState ? "bg-[#edf8f0] text-[#138049]" : "hover:bg-slate-100"}`}
@@ -590,6 +620,7 @@ function ProjectMap({
                 onClick={() => {
                   setSelectedLga(null);
                   setSelectedProject(null);
+                  setLgaFilter("All LGAs");
                   setZoom(1);
                 }}
                 className={`whitespace-nowrap rounded-md px-2 py-1.5 ${!selectedLga ? "bg-[#edf8f0] text-[#138049]" : "hover:bg-slate-100"}`}
