@@ -52,7 +52,7 @@ section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:last-ch
   display: none !important;
 }
 
-/* Sidebar brand: show the REA mark only and let it occupy the full brand area. */
+/* Sidebar brand: show the REA mark only as a circular logo. */
 aside > div.flex.h-\[94px\].items-center.gap-3.px-4 {
   justify-content: center !important;
   gap: 0 !important;
@@ -65,15 +65,20 @@ aside > div.flex.h-\[94px\].items-center.gap-3.px-4 > div:last-child {
 }
 
 aside > div.flex.h-\[94px\].items-center.gap-3.px-4 > div:first-child {
-  width: 100% !important;
-  height: 82px !important;
-  border-radius: 0 !important;
-  background: transparent !important;
+  width: 74px !important;
+  height: 74px !important;
+  flex: 0 0 74px !important;
+  border-radius: 9999px !important;
+  overflow: hidden !important;
+  background: #ffffff !important;
+  border: 1px solid #dbe7df !important;
+  box-shadow: 0 3px 10px rgba(18, 129, 73, 0.08) !important;
 }
 
 aside > div.flex.h-\[94px\].items-center.gap-3.px-4 > div:first-child img {
-  width: 100% !important;
-  height: 78px !important;
-  max-width: 150px !important;
+  width: 68px !important;
+  height: 68px !important;
+  max-width: none !important;
   object-fit: contain !important;
+  border-radius: 9999px !important;
 }
