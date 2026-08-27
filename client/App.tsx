@@ -21,7 +21,7 @@ import NotFound from "./pages/NotFound";
 import VeritasAssistant from "./components/VeritasAssistant";
 import VeritasFooter from "./components/VeritasFooter";
 import ReaProjectMapHost from "./components/ReaProjectMapProgramme";
-import ProjectMapFullscreenEnhancer from "./components/ProjectMapFullscreenEnhancer";
+import ProjectMapFullscreenControl from "./components/ProjectMapFullscreenControl";
 import { AuthProvider, RequireRole, useAuth } from "./lib/auth";
 import { InspectionWorkflowProvider } from "./lib/inspection-workflow";
 
@@ -54,7 +54,7 @@ function ProjectMapGate() {
   return (
     <>
       <ReaProjectMapHost />
-      <ProjectMapFullscreenEnhancer />
+      <ProjectMapFullscreenControl />
     </>
   );
 }
