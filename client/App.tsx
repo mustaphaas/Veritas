@@ -20,7 +20,7 @@ import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import VeritasAssistant from "./components/VeritasAssistant";
 import VeritasFooter from "./components/VeritasFooter";
-import ReaProjectMapHost from "./components/ReaProjectMap";
+import ReaProjectMapHost from "./components/ReaProjectMapProgramme";
 import { AuthProvider, RequireRole, useAuth } from "./lib/auth";
 import { InspectionWorkflowProvider } from "./lib/inspection-workflow";
 
