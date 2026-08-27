@@ -1,13 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Building2,
   CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   Compass,
   Filter,
   Layers3,
   LocateFixed,
+  Maximize2,
+  Minimize2,
   Minus,
   Plus,
   RotateCcw,
@@ -459,6 +462,9 @@ function ProjectMap({ onClose, onOpenSection }: { onClose: () => void; onOpenSec
   const [hoveredProjectId, setHoveredProjectId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [zoom, setZoom] = useState(1);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [layers, setLayers] = useState<Record<LayerKey, boolean>>({
     Projects: true,
     Status: true,
@@ -673,112 +679,189 @@ function ProjectMap({ onClose, onOpenSection }: { onClose: () => void; onOpenSec
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, filteredProjects.length]);
 
+  // Fullscreen: try the native API for a true edge-to-edge view, but degrade
+  // gracefully to a CSS-only maximize if the host page blocks it (e.g. inside
+  // a restricted iframe) — the map still gets the full viewport either way.
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      if (!document.fullscreenElement) setIsFullscreen(false);
+    };
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !document.fullscreenElement) setIsFullscreen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isFullscreen]);
+  const toggleFullscreen = () => {
+    if (!isFullscreen) {
+      containerRef.current?.requestFullscreen?.().catch(() => {});
+      setIsFullscreen(true);
+      setSidebarCollapsed(true);
+    } else {
+      if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+      setIsFullscreen(false);
+    }
+  };
+  const activeFilterCount = useMemo(
+    () => Object.entries(filters).filter(([key, value]) => value && value !== (defaultFilters as Record<string, string>)[key]).length,
+    [filters],
+  );
+
   const viewKey = `${selectedState ?? "national"}-${selectedLga ?? "state"}`;
   const nationalLatitude = useMemo(() => averageLatitude(stateFeatures), [stateFeatures]);
   const stateLatitude = useMemo(() => averageLatitude(selectedStateLgas.length ? selectedStateLgas : stateFeatures), [selectedStateLgas, stateFeatures]);
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 top-[94px] z-[24] flex overflow-hidden bg-[#edf2ee] lg:left-[190px]">
+    <div
+      ref={containerRef}
+      className={`z-[24] flex overflow-hidden bg-[#edf2ee] ${
+        isFullscreen ? "fixed inset-0 z-[70]" : "fixed bottom-0 left-0 right-0 top-[94px] lg:left-[190px]"
+      }`}
+    >
       <style>{MAP_STYLES}</style>
 
-      <aside className="hidden w-[288px] shrink-0 flex-col border-r border-slate-200 bg-white xl:flex">
-        <div className="border-b border-slate-200 px-4 py-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-[#128149]">
-                <Compass className="h-3 w-3" /> Project Map
-              </p>
-              <h2 className="mt-1 text-[15px] font-extrabold text-[#173b2a]">Project location explorer</h2>
-              <p className="mt-1 max-w-[210px] text-[10px] leading-4 text-slate-500">
-                Drill from Nigeria to state, LGA and individual projects.
-              </p>
-            </div>
-            <button onClick={onClose} className="rounded-md p-2 text-slate-400 hover:bg-slate-100" aria-label="Close project map">
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          <div className="relative mt-3">
-            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search project ID or name"
-              className="h-9 w-full rounded-md border border-slate-200 bg-[#fafcfb] pl-9 pr-3 text-[11px] font-medium outline-none focus:border-[#16824b]"
-            />
-          </div>
-        </div>
+      <aside
+        className={`relative hidden shrink-0 flex-col border-r border-slate-200 bg-white transition-[width] duration-300 ease-in-out xl:flex ${
+          sidebarCollapsed ? "w-14" : "w-[288px]"
+        }`}
+      >
+        <button
+          onClick={() => setSidebarCollapsed((v) => !v)}
+          className="absolute -right-3 top-[70px] z-20 hidden h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50 hover:text-[#128149] xl:flex"
+          aria-label={sidebarCollapsed ? "Expand map panel" : "Collapse map panel to enlarge the map"}
+          title={sidebarCollapsed ? "Show filters" : "Collapse to enlarge map"}
+        >
+          {sidebarCollapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
+        </button>
 
-        <div className="flex-1 overflow-y-auto px-4 py-4">
-          <div className="mb-3 flex items-center justify-between">
-            <span className="flex items-center gap-2 text-[11px] font-extrabold text-[#173b2a]">
-              <Filter className="h-3.5 w-3.5" /> Filters
-            </span>
-            <button onClick={resetFilters} className="text-[9px] font-extrabold uppercase tracking-[0.08em] text-[#128149]">
-              Clear all
+        {sidebarCollapsed ? (
+          <div className="flex flex-1 flex-col items-center gap-3 overflow-hidden py-4">
+            <Compass className="h-4 w-4 text-[#128149]" />
+            <div className="h-px w-6 bg-slate-200" />
+            <button onClick={() => setSidebarCollapsed(false)} className="rounded-md p-2 text-slate-400 transition hover:bg-slate-100 hover:text-[#128149]" aria-label="Open search" title="Search">
+              <Search className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setSidebarCollapsed(false)}
+              className="relative rounded-md p-2 text-slate-400 transition hover:bg-slate-100 hover:text-[#128149]"
+              aria-label="Open filters"
+              title="Filters"
+            >
+              <Filter className="h-4 w-4" />
+              {activeFilterCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#16824b] text-[7px] font-black text-white">{activeFilterCount}</span>
+              )}
+            </button>
+            <button onClick={() => setSidebarCollapsed(false)} className="rounded-md p-2 text-slate-400 transition hover:bg-slate-100 hover:text-[#128149]" aria-label="Open map layers" title="Map layers">
+              <Layers3 className="h-4 w-4" />
             </button>
           </div>
-          <div className="space-y-2.5">
-            <SelectFilter label="State" value={filters.state} options={stateOptions} onChange={(v) => updateFilter("state", v)} />
-            <SelectFilter label="LGA" value={filters.lga} options={lgaOptions} onChange={(v) => updateFilter("lga", v)} />
-            <SelectFilter label="Community" value={filters.community} options={communityOptions} onChange={(v) => updateFilter("community", v)} />
-            <SelectFilter
-              label="Project Type"
-              value={filters.type}
-              options={["All Project Types", ...unique(mappedProjects.map((p) => p.projectType))]}
-              onChange={(v) => updateFilter("type", v)}
-            />
-            <SelectFilter label="Status" value={filters.status} options={["All Statuses", ...statusOrder]} onChange={(v) => updateFilter("status", v)} />
-            <SelectFilter
-              label="Phase"
-              value={filters.phase}
-              options={["All Phases", ...unique(mappedProjects.map((p) => p.phase))]}
-              onChange={(v) => updateFilter("phase", v)}
-            />
-            <SelectFilter
-              label="Contractor"
-              value={filters.contractor}
-              options={["All Contractors", ...unique(mappedProjects.map((p) => p.contractor))]}
-              onChange={(v) => updateFilter("contractor", v)}
-            />
-            <SelectFilter
-              label="Consultant"
-              value={filters.consultant}
-              options={["All Consultants", ...unique(mappedProjects.map((p) => p.consultant))]}
-              onChange={(v) => updateFilter("consultant", v)}
-            />
-            <SelectFilter
-              label="Inspection Status"
-              value={filters.inspection}
-              options={["All Inspection Statuses", ...unique(mappedProjects.map((p) => p.inspectionStatus))]}
-              onChange={(v) => updateFilter("inspection", v)}
-            />
-            <div>
-              <span className="mb-1.5 block text-[9px] font-extrabold uppercase tracking-[0.13em] text-slate-500">Date range</span>
-              <div className="grid grid-cols-2 gap-2">
-                <input type="date" value={filters.from} onChange={(e) => updateFilter("from", e.target.value)} className="h-9 min-w-0 rounded-md border border-slate-200 px-2 text-[9px]" />
-                <input type="date" value={filters.to} onChange={(e) => updateFilter("to", e.target.value)} className="h-9 min-w-0 rounded-md border border-slate-200 px-2 text-[9px]" />
+        ) : (
+          <>
+            <div className="border-b border-slate-200 px-4 py-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-[#128149]">
+                    <Compass className="h-3 w-3" /> Project Map
+                  </p>
+                  <h2 className="mt-1 text-[15px] font-extrabold text-[#173b2a]">Project location explorer</h2>
+                  <p className="mt-1 max-w-[210px] text-[10px] leading-4 text-slate-500">
+                    Drill from Nigeria to state, LGA and individual projects.
+                  </p>
+                </div>
+                <button onClick={onClose} className="rounded-md p-2 text-slate-400 hover:bg-slate-100" aria-label="Close project map">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="relative mt-3">
+                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search project ID or name"
+                  className="h-9 w-full rounded-md border border-slate-200 bg-[#fafcfb] pl-9 pr-3 text-[11px] font-medium outline-none focus:border-[#16824b]"
+                />
               </div>
             </div>
-          </div>
-          <div className="my-4 h-px bg-slate-200" />
-          <div className="mb-2.5 flex items-center gap-2 text-[11px] font-extrabold text-[#173b2a]">
-            <Layers3 className="h-3.5 w-3.5" /> Map layers
-          </div>
-          <div className="space-y-1.5">
-            {layerNames.map((layer) => (
-              <button
-                key={layer}
-                onClick={() => setLayers((c) => ({ ...c, [layer]: !c[layer] }))}
-                className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[10px] font-semibold text-slate-600 hover:bg-slate-50"
-              >
-                <span>{layer}</span>
-                <span className={`relative h-4 w-7 rounded-full transition-colors duration-200 ${layers[layer] ? "bg-[#16824b]" : "bg-slate-200"}`}>
-                  <i className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow-sm transition-all duration-200 ${layers[layer] ? "left-3.5" : "left-0.5"}`} />
+
+            <div className="flex-1 overflow-y-auto px-4 py-4">
+              <div className="mb-3 flex items-center justify-between">
+                <span className="flex items-center gap-2 text-[11px] font-extrabold text-[#173b2a]">
+                  <Filter className="h-3.5 w-3.5" /> Filters
                 </span>
-              </button>
-            ))}
-          </div>
-        </div>
+                <button onClick={resetFilters} className="text-[9px] font-extrabold uppercase tracking-[0.08em] text-[#128149]">
+                  Clear all
+                </button>
+              </div>
+              <div className="space-y-2.5">
+                <SelectFilter label="State" value={filters.state} options={stateOptions} onChange={(v) => updateFilter("state", v)} />
+                <SelectFilter label="LGA" value={filters.lga} options={lgaOptions} onChange={(v) => updateFilter("lga", v)} />
+                <SelectFilter label="Community" value={filters.community} options={communityOptions} onChange={(v) => updateFilter("community", v)} />
+                <SelectFilter
+                  label="Project Type"
+                  value={filters.type}
+                  options={["All Project Types", ...unique(mappedProjects.map((p) => p.projectType))]}
+                  onChange={(v) => updateFilter("type", v)}
+                />
+                <SelectFilter label="Status" value={filters.status} options={["All Statuses", ...statusOrder]} onChange={(v) => updateFilter("status", v)} />
+                <SelectFilter
+                  label="Phase"
+                  value={filters.phase}
+                  options={["All Phases", ...unique(mappedProjects.map((p) => p.phase))]}
+                  onChange={(v) => updateFilter("phase", v)}
+                />
+                <SelectFilter
+                  label="Contractor"
+                  value={filters.contractor}
+                  options={["All Contractors", ...unique(mappedProjects.map((p) => p.contractor))]}
+                  onChange={(v) => updateFilter("contractor", v)}
+                />
+                <SelectFilter
+                  label="Consultant"
+                  value={filters.consultant}
+                  options={["All Consultants", ...unique(mappedProjects.map((p) => p.consultant))]}
+                  onChange={(v) => updateFilter("consultant", v)}
+                />
+                <SelectFilter
+                  label="Inspection Status"
+                  value={filters.inspection}
+                  options={["All Inspection Statuses", ...unique(mappedProjects.map((p) => p.inspectionStatus))]}
+                  onChange={(v) => updateFilter("inspection", v)}
+                />
+                <div>
+                  <span className="mb-1.5 block text-[9px] font-extrabold uppercase tracking-[0.13em] text-slate-500">Date range</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input type="date" value={filters.from} onChange={(e) => updateFilter("from", e.target.value)} className="h-9 min-w-0 rounded-md border border-slate-200 px-2 text-[9px]" />
+                    <input type="date" value={filters.to} onChange={(e) => updateFilter("to", e.target.value)} className="h-9 min-w-0 rounded-md border border-slate-200 px-2 text-[9px]" />
+                  </div>
+                </div>
+              </div>
+              <div className="my-4 h-px bg-slate-200" />
+              <div className="mb-2.5 flex items-center gap-2 text-[11px] font-extrabold text-[#173b2a]">
+                <Layers3 className="h-3.5 w-3.5" /> Map layers
+              </div>
+              <div className="space-y-1.5">
+                {layerNames.map((layer) => (
+                  <button
+                    key={layer}
+                    onClick={() => setLayers((c) => ({ ...c, [layer]: !c[layer] }))}
+                    className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[10px] font-semibold text-slate-600 hover:bg-slate-50"
+                  >
+                    <span>{layer}</span>
+                    <span className={`relative h-4 w-7 rounded-full transition-colors duration-200 ${layers[layer] ? "bg-[#16824b]" : "bg-slate-200"}`}>
+                      <i className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow-sm transition-all duration-200 ${layers[layer] ? "left-3.5" : "left-0.5"}`} />
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </aside>
 
       <section className="relative flex min-w-0 flex-1 flex-col">
@@ -844,6 +927,14 @@ function ProjectMap({ onClose, onOpenSection }: { onClose: () => void; onOpenSec
               </button>
               <button onClick={() => setZoom(1)} className="border-l border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50">
                 <LocateFixed className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={toggleFullscreen}
+                className="border-l border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50"
+                aria-label={isFullscreen ? "Exit full screen" : "View full screen"}
+                title={isFullscreen ? "Exit full screen" : "View full screen"}
+              >
+                {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
               </button>
             </div>
 
