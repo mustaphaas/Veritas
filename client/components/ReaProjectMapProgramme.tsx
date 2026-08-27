@@ -5,7 +5,6 @@ import {
   Filter,
   LocateFixed,
   MapPinned,
-  Menu,
   Minus,
   Plus,
   Search,
@@ -231,6 +230,15 @@ function aggregateBy(projectList: MapProject[], key: "state" | "lga") {
   return map;
 }
 
+function summarizeProjects(projectList: MapProject[]): AreaMetrics {
+  return {
+    projects: projectList.length,
+    verified: projectList.filter((project) => project.verified).length,
+    kw: projectList.reduce((sum, project) => sum + project.kw, 0),
+    households: projectList.reduce((sum, project) => sum + project.households, 0),
+  };
+}
+
 function densityBand(value: number, maximum: number) {
   if (!value) return 0;
   const ratio = maximum ? value / maximum : 0;
@@ -412,15 +420,12 @@ function ProjectMap({
 
   const stateMetrics = useMemo(() => aggregateBy(filteredProjects, "state"), [filteredProjects]);
   const lgaMetrics = useMemo(() => aggregateBy(stateProjects, "lga"), [stateProjects]);
-  const nationalMetrics = useMemo(
-    () => ({
-      projects: filteredProjects.length,
-      verified: filteredProjects.filter((project) => project.verified).length,
-      kw: filteredProjects.reduce((sum, project) => sum + project.kw, 0),
-      households: filteredProjects.reduce((sum, project) => sum + project.households, 0),
-    }),
-    [filteredProjects],
-  );
+  const nationalMetrics = useMemo(() => summarizeProjects(filteredProjects), [filteredProjects]);
+  const displayMetrics = useMemo(() => {
+    if (selectedLga) return summarizeProjects(lgaProjects);
+    if (selectedState) return summarizeProjects(stateProjects);
+    return nationalMetrics;
+  }, [lgaProjects, nationalMetrics, selectedLga, selectedState, stateProjects]);
 
   const stateProjector = useMemo(
     () => makeProjector(stateFeatures, NATIONAL_VIEW.width, NATIONAL_VIEW.height, 34),
@@ -602,16 +607,16 @@ function ProjectMap({
 
           <div className="hidden items-center gap-2 md:flex">
             <span className="rounded-md border border-slate-200 bg-[#fafcfb] px-2.5 py-1.5 text-[9px] font-extrabold text-slate-600">
-              {nationalMetrics.projects.toLocaleString()} Projects
+              {displayMetrics.projects.toLocaleString()} Projects
             </span>
             <span className="rounded-md border border-[#c6e2cf] bg-[#f0f9f3] px-2.5 py-1.5 text-[9px] font-extrabold text-[#138049]">
-              {nationalMetrics.verified.toLocaleString()} Verified
+              {displayMetrics.verified.toLocaleString()} Verified
             </span>
             <span className="rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-[9px] font-extrabold text-blue-700">
-              {formatMw(nationalMetrics.kw)}
+              {formatMw(displayMetrics.kw)}
             </span>
             <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[9px] font-extrabold text-slate-600">
-              {nationalMetrics.households.toLocaleString()} Households
+              {displayMetrics.households.toLocaleString()} Households
             </span>
             <button
               type="button"
@@ -633,11 +638,11 @@ function ProjectMap({
               <button
                 type="button"
                 onClick={() => setFiltersOpen(true)}
-                className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-[10px] font-extrabold text-[#173b2a] shadow-sm transition hover:border-[#9dc9aa] hover:text-[#128149]"
-                aria-label="Open project map menu"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-[#173b2a] shadow-sm transition hover:border-[#9dc9aa] hover:text-[#128149]"
+                aria-label="Open project map panel"
+                title="Open project map panel"
               >
-                <Menu className="h-4 w-4" />
-                Menu
+                <ChevronRight className="h-4 w-4" />
               </button>
               <div className="hidden rounded-lg border border-slate-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur sm:block">
                 <p className="text-[9px] font-black uppercase tracking-[0.13em] text-[#128149]">{mapTitle}</p>
@@ -938,7 +943,7 @@ function ProjectMap({
             type="button"
             className="absolute inset-0 z-30 bg-slate-950/10"
             onClick={() => setFiltersOpen(false)}
-            aria-label="Close project map menu"
+            aria-label="Close project map panel"
           />
           <aside className="absolute bottom-0 left-0 top-0 z-40 flex w-[310px] max-w-[88vw] flex-col border-r border-slate-200 bg-white shadow-[12px_0_30px_rgba(25,50,36,0.12)]">
             <div className="border-b border-slate-200 px-4 py-4">
@@ -948,7 +953,7 @@ function ProjectMap({
                     <MapPinned className="h-4 w-4" /> Project Map
                   </p>
                   <h2 className="mt-1 text-[16px] font-extrabold text-[#173b2a]">Explore & filter</h2>
-                  <p className="mt-1 text-[10px] leading-4 text-slate-500">The map stays full-width until you open this menu.</p>
+                  <p className="mt-1 text-[10px] leading-4 text-slate-500">The map stays full-width until you open this panel.</p>
                 </div>
                 <button
                   type="button"
@@ -1055,19 +1060,19 @@ function ProjectMap({
                 <p className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-500">Current view</p>
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <div className="rounded-md bg-white p-2.5">
-                    <p className="text-lg font-black text-[#173b2a]">{nationalMetrics.projects}</p>
+                    <p className="text-lg font-black text-[#173b2a]">{displayMetrics.projects}</p>
                     <p className="text-[8px] font-bold text-slate-500">Projects</p>
                   </div>
                   <div className="rounded-md bg-white p-2.5">
-                    <p className="text-lg font-black text-[#128149]">{nationalMetrics.verified}</p>
+                    <p className="text-lg font-black text-[#128149]">{displayMetrics.verified}</p>
                     <p className="text-[8px] font-bold text-slate-500">Verified</p>
                   </div>
                   <div className="rounded-md bg-white p-2.5">
-                    <p className="text-sm font-black text-blue-700">{formatMw(nationalMetrics.kw)}</p>
+                    <p className="text-sm font-black text-blue-700">{formatMw(displayMetrics.kw)}</p>
                     <p className="mt-1 text-[8px] font-bold text-slate-500">Capacity</p>
                   </div>
                   <div className="rounded-md bg-white p-2.5">
-                    <p className="text-sm font-black text-[#173b2a]">{compactNumber(nationalMetrics.households)}</p>
+                    <p className="text-sm font-black text-[#173b2a]">{compactNumber(displayMetrics.households)}</p>
                     <p className="mt-1 text-[8px] font-bold text-slate-500">Households</p>
                   </div>
                 </div>
