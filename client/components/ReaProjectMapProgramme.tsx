@@ -22,6 +22,14 @@ type GeoFeature = {
 
 type Point = { x: number; y: number };
 type Projector = (coordinate: number[]) => Point;
+type LayerKey =
+  | "Projects"
+  | "Status"
+  | "Inspections"
+  | "Contractors"
+  | "Critical Findings"
+  | "Corrective Actions"
+  | "Coverage Density";
 
 type MapProject = Project & {
   id: string;
@@ -48,6 +56,24 @@ const programmeColors: Record<string, string> = {
 };
 
 const densityPalette = ["#eef3ef", "#dbece0", "#b9d9c2", "#80bb90", "#2b8b55"];
+const layerNames: LayerKey[] = [
+  "Projects",
+  "Status",
+  "Inspections",
+  "Contractors",
+  "Critical Findings",
+  "Corrective Actions",
+  "Coverage Density",
+];
+const defaultLayers: Record<LayerKey, boolean> = {
+  Projects: true,
+  Status: true,
+  Inspections: false,
+  Contractors: false,
+  "Critical Findings": true,
+  "Corrective Actions": false,
+  "Coverage Density": true,
+};
 const emptyMetrics: AreaMetrics = { projects: 0, verified: 0, kw: 0, households: 0 };
 
 function hashText(value: string) {
@@ -263,6 +289,14 @@ function programmeColor(programme: string) {
   return programmeColors[programme] ?? programmeColors.Others;
 }
 
+function projectMarkerColor(project: MapProject, showStatus: boolean) {
+  if (!showStatus) return programmeColor(project.programme);
+  if (project.verified) return "#159254";
+  if (project.status === "In progress") return "#2d78c4";
+  if (project.status === "Submitted") return "#d4a514";
+  return "#df7b22";
+}
+
 function MetricLabel({
   name,
   metrics,
@@ -344,6 +378,7 @@ function ProjectMap({
   const [lgaFilter, setLgaFilter] = useState("All LGAs");
   const [search, setSearch] = useState("");
   const [zoom, setZoom] = useState(1);
+  const [layers, setLayers] = useState<Record<LayerKey, boolean>>(defaultLayers);
   const [hoveredArea, setHoveredArea] = useState<{
     name: string;
     metrics: AreaMetrics;
@@ -526,6 +561,7 @@ function ProjectMap({
     setSelectedLga(null);
     setSelectedProject(null);
     setZoom(1);
+    setLayers(defaultLayers);
   };
 
   const openState = (state: string) => {
@@ -722,9 +758,9 @@ function ProjectMap({
                       const name = stateName(feature);
                       const metrics = stateMetrics.get(name) ?? emptyMetrics;
                       const centroid = featureCentroid(feature, stateProjector);
-                      const fill = densityPalette[
-                        densityBand(metrics.projects, maximumStateProjects)
-                      ];
+                      const fill = layers["Coverage Density"]
+                        ? densityPalette[densityBand(metrics.projects, maximumStateProjects)]
+                        : "#e8efea";
 
                       return (
                         <g
@@ -750,10 +786,10 @@ function ProjectMap({
                       );
                     })}
 
-                    {filteredProjects.map((project) => {
+                    {layers.Projects && filteredProjects.map((project) => {
                       const position = nationalPoints.get(project.id);
                       if (!position) return null;
-                      const color = programmeColor(project.programme);
+                      const color = projectMarkerColor(project, layers.Status);
                       return (
                         <g
                           key={project.id}
@@ -798,7 +834,9 @@ function ProjectMap({
                     const isSelected = selectedLga === name;
                     const fill = isSelected
                       ? "#dff1e5"
-                      : densityPalette[densityBand(metrics.projects, maximumLgaProjects)];
+                      : layers["Coverage Density"]
+                        ? densityPalette[densityBand(metrics.projects, maximumLgaProjects)]
+                        : "#e8efea";
 
                     return (
                       <g
@@ -828,10 +866,11 @@ function ProjectMap({
                   })}
 
                   {!selectedLga &&
+                    layers.Projects &&
                     stateProjects.map((project) => {
                       const position = statePoints.get(project.id);
                       if (!position) return null;
-                      const color = programmeColor(project.programme);
+                      const color = projectMarkerColor(project, layers.Status);
                       return (
                         <g
                           key={project.id}
@@ -857,10 +896,11 @@ function ProjectMap({
                     })}
 
                   {selectedLga &&
+                    layers.Projects &&
                     lgaProjects.map((project, index) => {
                       const position = lgaPoints.get(project.id);
                       if (!position) return null;
-                      const color = programmeColor(project.programme);
+                      const color = projectMarkerColor(project, layers.Status);
                       const selected = selectedProject?.id === project.id;
                       const radius = 5 + Math.min(4, project.kw / 220);
 
@@ -1087,25 +1127,26 @@ function ProjectMap({
                 </label>
               </div>
 
-              <div className="mt-5 rounded-lg border border-slate-200 bg-[#f8faf8] p-3">
-                <p className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-500">Current view</p>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <div className="rounded-md bg-white p-2.5">
-                    <p className="text-lg font-black text-[#173b2a]">{displayMetrics.projects}</p>
-                    <p className="text-[8px] font-bold text-slate-500">Projects</p>
-                  </div>
-                  <div className="rounded-md bg-white p-2.5">
-                    <p className="text-lg font-black text-[#128149]">{displayMetrics.verified}</p>
-                    <p className="text-[8px] font-bold text-slate-500">Verified</p>
-                  </div>
-                  <div className="rounded-md bg-white p-2.5">
-                    <p className="text-sm font-black text-blue-700">{formatMw(displayMetrics.kw)}</p>
-                    <p className="mt-1 text-[8px] font-bold text-slate-500">Capacity</p>
-                  </div>
-                  <div className="rounded-md bg-white p-2.5">
-                    <p className="text-sm font-black text-[#173b2a]">{compactNumber(displayMetrics.households)}</p>
-                    <p className="mt-1 text-[8px] font-bold text-slate-500">Households</p>
-                  </div>
+              <div className="mt-5 border-t border-slate-200 pt-4">
+                <div className="mb-2.5 flex items-center justify-between">
+                  <p className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-500">Map layers</p>
+                  <span className="text-[8px] font-semibold text-slate-400">Toggle visibility</span>
+                </div>
+                <div className="space-y-1.5">
+                  {layerNames.map((layer) => (
+                    <button
+                      key={layer}
+                      type="button"
+                      onClick={() => setLayers((current) => ({ ...current, [layer]: !current[layer] }))}
+                      className="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-[10px] font-semibold text-slate-600 transition hover:bg-slate-50"
+                      aria-pressed={layers[layer]}
+                    >
+                      <span>{layer}</span>
+                      <span className={`relative h-5 w-9 rounded-full transition-colors duration-200 ${layers[layer] ? "bg-[#16824b]" : "bg-slate-200"}`}>
+                        <i className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all duration-200 ${layers[layer] ? "left-[18px]" : "left-0.5"}`} />
+                      </span>
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
