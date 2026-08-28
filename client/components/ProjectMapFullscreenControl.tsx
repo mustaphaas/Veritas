@@ -56,7 +56,7 @@ export default function ProjectMapFullscreenControl() {
     <button
       type="button"
       onClick={toggle}
-      className="fixed right-8 top-[174px] z-[100] flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-[9px] font-extrabold text-slate-700 shadow-sm transition hover:border-[#9dc9aa] hover:bg-slate-50 hover:text-[#128149]"
+      className="fixed bottom-8 right-8 z-[100] flex h-10 items-center gap-2 rounded-lg border border-[#c9d8cf] bg-white/95 px-3.5 text-[9px] font-extrabold text-slate-700 shadow-[0_8px_24px_rgba(26,55,40,0.14)] backdrop-blur transition hover:-translate-y-0.5 hover:border-[#85b695] hover:text-[#128149]"
       aria-label={expanded ? "Exit full screen map" : "Show full screen map"}
       title={expanded ? "Exit Full Screen" : "Show Full Screen"}
     >
