@@ -71,8 +71,6 @@ type FilterState = {
   state: string;
   lga: string;
   community: string;
-  programme: string;
-  component: string;
   type: string;
   status: string;
   phase: string;
@@ -134,8 +132,6 @@ const defaultFilters: FilterState = {
   state: "All States",
   lga: "All LGAs",
   community: "All Communities",
-  programme: "All Programmes",
-  component: "All Components",
   type: "All Project Types",
   status: "All Statuses",
   phase: "All Phases",
@@ -507,8 +503,6 @@ function ProjectMap({ onClose, onOpenSection }: { onClose: () => void; onOpenSec
         (filters.state === "All States" || project.state === filters.state) &&
         (filters.lga === "All LGAs" || project.lga === filters.lga) &&
         (filters.community === "All Communities" || project.community === filters.community) &&
-        (filters.programme === "All Programmes" || project.programme === filters.programme) &&
-        (filters.component === "All Components" || project.component === filters.component) &&
         (filters.type === "All Project Types" || project.projectType === filters.type) &&
         (filters.status === "All Statuses" || project.mapStatus === filters.status) &&
         (filters.phase === "All Phases" || project.phase === filters.phase) &&
@@ -808,18 +802,6 @@ function ProjectMap({ onClose, onOpenSection }: { onClose: () => void; onOpenSec
                 <SelectFilter label="State" value={filters.state} options={stateOptions} onChange={(v) => updateFilter("state", v)} />
                 <SelectFilter label="LGA" value={filters.lga} options={lgaOptions} onChange={(v) => updateFilter("lga", v)} />
                 <SelectFilter label="Community" value={filters.community} options={communityOptions} onChange={(v) => updateFilter("community", v)} />
-                <SelectFilter
-                  label="Programme"
-                  value={filters.programme}
-                  options={["All Programmes", ...unique(mappedProjects.map((p) => p.programme))]}
-                  onChange={(v) => updateFilter("programme", v)}
-                />
-                <SelectFilter
-                  label="Component"
-                  value={filters.component}
-                  options={["All Components", ...unique(mappedProjects.map((p) => p.component))]}
-                  onChange={(v) => updateFilter("component", v)}
-                />
                 <SelectFilter
                   label="Project Type"
                   value={filters.type}
