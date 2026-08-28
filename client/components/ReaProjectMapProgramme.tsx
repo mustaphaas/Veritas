@@ -76,6 +76,64 @@ const defaultLayers: Record<LayerKey, boolean> = {
 };
 const emptyMetrics: AreaMetrics = { projects: 0, verified: 0, kw: 0, households: 0 };
 
+const MAP_VISUAL_STYLES = `
+@keyframes veritas-map-enter {
+  from { opacity: 0; transform: scale(0.985); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes veritas-area-enter {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes veritas-pin-enter {
+  0% { opacity: 0; transform: translateY(-7px) scale(0.35); }
+  70% { opacity: 1; transform: translateY(1px) scale(1.08); }
+  100% { transform: translateY(0) scale(1); }
+}
+@keyframes veritas-panel-enter {
+  from { opacity: 0; transform: translateX(-18px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes veritas-detail-enter {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes veritas-tooltip-enter {
+  from { opacity: 0; transform: translateY(5px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.veritas-map-canvas {
+  background:
+    radial-gradient(circle at 18% 22%, rgba(22,130,75,0.07), transparent 30%),
+    radial-gradient(circle at 82% 76%, rgba(37,99,235,0.05), transparent 28%),
+    linear-gradient(145deg, #fbfdfc 0%, #f4f8f5 52%, #edf3ef 100%);
+  animation: veritas-map-enter 380ms cubic-bezier(.22,1,.36,1) both;
+}
+.veritas-area {
+  animation: veritas-area-enter 440ms cubic-bezier(.22,1,.36,1) backwards;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.veritas-area path { transition: filter 180ms ease, stroke 180ms ease, opacity 180ms ease; }
+.veritas-area:hover path { filter: brightness(.96) drop-shadow(0 2px 3px rgba(26,55,40,.14)); }
+.veritas-pin {
+  animation: veritas-pin-enter 440ms cubic-bezier(.34,1.56,.64,1) backwards;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: filter 180ms ease, transform 180ms ease;
+}
+.veritas-pin:hover { filter: drop-shadow(0 3px 5px rgba(20,76,48,.28)); transform: scale(1.16); }
+.veritas-filter-panel { animation: veritas-panel-enter 300ms cubic-bezier(.22,1,.36,1) both; }
+.veritas-detail-panel { animation: veritas-detail-enter 320ms cubic-bezier(.22,1,.36,1) both; }
+.veritas-tooltip { animation: veritas-tooltip-enter 160ms ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .veritas-map-canvas, .veritas-area, .veritas-pin, .veritas-filter-panel, .veritas-detail-panel, .veritas-tooltip {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+`;
+
 function hashText(value: string) {
   let hash = 0;
   for (let i = 0; i < value.length; i += 1) {
@@ -632,6 +690,7 @@ function ProjectMap({
 
   return (
     <div className="fixed bottom-0 left-0 right-0 top-[94px] z-[24] overflow-hidden bg-[#edf2ee] lg:left-[190px]">
+      <style>{MAP_VISUAL_STYLES}</style>
       <section className="flex h-full min-w-0 flex-col">
         <header className="flex min-h-[64px] items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 lg:px-5">
           <div className="flex min-w-0 items-center gap-1 overflow-x-auto text-[11px] font-bold text-slate-500">
@@ -699,7 +758,7 @@ function ProjectMap({
         <div className="relative flex-1 overflow-hidden p-3 sm:p-4 lg:p-5">
           <div
             ref={mapShellRef}
-            className="relative h-full overflow-hidden rounded-xl border border-[#d4ded7] bg-[#f9fbfa] shadow-[0_8px_24px_rgba(26,55,40,0.06)]"
+            className="veritas-map-canvas relative h-full overflow-hidden rounded-2xl border border-[#cad8cf] shadow-[0_14px_38px_rgba(26,55,40,0.10)]"
           >
             <div className="absolute left-4 top-4 z-20 flex items-center gap-2">
               <button
@@ -765,7 +824,7 @@ function ProjectMap({
                       return (
                         <g
                           key={`${name}-${index}`}
-                          className="cursor-pointer"
+                          className="veritas-area cursor-pointer"
                           onClick={() => openState(name)}
                           onMouseMove={(event) => showAreaTooltip(event, name, metrics)}
                         >
@@ -793,7 +852,7 @@ function ProjectMap({
                       return (
                         <g
                           key={project.id}
-                          className="cursor-pointer"
+                          className="veritas-pin cursor-pointer"
                           onClick={(event) => {
                             event.stopPropagation();
                             openState(project.state);
@@ -841,7 +900,7 @@ function ProjectMap({
                     return (
                       <g
                         key={`${name}-${index}`}
-                        className="cursor-pointer"
+                        className="veritas-area cursor-pointer"
                         onClick={() => openLga(name)}
                         onMouseMove={(event) => showAreaTooltip(event, name, metrics)}
                       >
@@ -874,7 +933,7 @@ function ProjectMap({
                       return (
                         <g
                           key={project.id}
-                          className="cursor-pointer"
+                          className="veritas-pin cursor-pointer"
                           onClick={(event) => {
                             event.stopPropagation();
                             openLga(project.lga);
@@ -907,7 +966,7 @@ function ProjectMap({
                       return (
                         <g
                           key={project.id}
-                          className="cursor-pointer"
+                          className="veritas-pin cursor-pointer"
                           onClick={(event) => {
                             event.stopPropagation();
                             setSelectedProject(project);
@@ -966,7 +1025,7 @@ function ProjectMap({
 
             {hoveredArea && (
               <div
-                className="pointer-events-none absolute z-30 min-w-[195px] rounded-lg border border-slate-200 bg-[#173b2a] px-3.5 py-3 text-white shadow-lg"
+                className="veritas-tooltip pointer-events-none absolute z-30 min-w-[195px] rounded-lg border border-slate-200 bg-[#173b2a] px-3.5 py-3 text-white shadow-lg"
                 style={{ left: hoveredArea.x, top: hoveredArea.y }}
               >
                 <p className="text-[11px] font-extrabold">{hoveredArea.name}</p>
@@ -1016,7 +1075,7 @@ function ProjectMap({
             onClick={() => setFiltersOpen(false)}
             aria-label="Close project map panel"
           />
-          <aside className="absolute bottom-0 left-0 top-0 z-40 flex w-[310px] max-w-[88vw] flex-col border-r border-slate-200 bg-white shadow-[12px_0_30px_rgba(25,50,36,0.12)]">
+          <aside className="veritas-filter-panel absolute bottom-0 left-0 top-0 z-40 flex w-[310px] max-w-[88vw] flex-col border-r border-slate-200 bg-white shadow-[12px_0_30px_rgba(25,50,36,0.12)]">
             <div className="border-b border-slate-200 px-4 py-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -1155,7 +1214,7 @@ function ProjectMap({
       )}
 
       {selectedProject && (
-        <aside className="absolute bottom-0 right-0 top-0 z-50 w-full max-w-[390px] overflow-y-auto border-l border-slate-200 bg-white shadow-[-14px_0_30px_rgba(31,52,41,0.12)] sm:w-[390px]">
+        <aside className="veritas-detail-panel absolute bottom-0 right-0 top-0 z-50 w-full max-w-[390px] overflow-y-auto border-l border-slate-200 bg-white shadow-[-14px_0_30px_rgba(31,52,41,0.12)] sm:w-[390px]">
           <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 px-5 py-4 backdrop-blur">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
