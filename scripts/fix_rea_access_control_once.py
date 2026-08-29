@@ -82,3 +82,4 @@ index = index.replace('  LogOut,\n  Home,', '  LogOut,\n  LockKeyhole,\n  Home,'
 
 index_path.write_text(index)
 print("REA access control now enforced in session, navigation, and tab rendering")
+# trigger one-time workflow
