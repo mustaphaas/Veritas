@@ -25,6 +25,7 @@ import {
   MapPin,
   LocateFixed,
   LogOut,
+  LockKeyhole,
   Home,
   Maximize2,
   Zap,
@@ -285,9 +286,21 @@ function StatusBadge({ tone, children }: { tone: string; children: string }) {
 
 export default function Index() {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { session, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeNav, setActiveNav] = useState("Overview");
+  const accessKey = session?.access?.join("|") ?? "";
+  const visibleNavigation = useMemo(() => {
+    if (session?.role !== "rea") return navigation;
+    const allowed = new Set(session.access ?? []);
+    return navigation.filter((item) => allowed.has(item.label));
+  }, [session?.role, accessKey]);
+  const resolvedActiveNav = visibleNavigation.some((item) => item.label === activeNav)
+    ? activeNav
+    : visibleNavigation[0]?.label ?? "";
+  useEffect(() => {
+    if (resolvedActiveNav && resolvedActiveNav !== activeNav) setActiveNav(resolvedActiveNav);
+  }, [activeNav, resolvedActiveNav]);
   const [showAllProjects, setShowAllProjects] = useState(false);
   const [boundaries, setBoundaries] = useState<BoundaryFeature[]>([]);
   useEffect(() => {
@@ -361,7 +374,7 @@ export default function Index() {
     <>
       <div className="flex h-[94px] items-center gap-3 px-4"><AtlasMark /><div><p className="text-xl font-bold tracking-tight text-[#153b28]">REA</p><p className="mt-0.5 text-[7px] font-bold leading-[9px] text-[#173b2a]">RURAL ELECTRIFICATION<br />AGENCY</p></div></div>
       <div className="h-px bg-slate-200" />
-      <nav className="flex-1 space-y-2 px-3 py-5">{navigation.map(({ label, icon: Icon }) => <button key={label} onClick={() => { setActiveNav(label); setMobileMenuOpen(false); }} className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium transition-colors ${activeNav === label ? "bg-[#edf9f0] text-[#08733f]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}><Icon className="h-[18px] w-[18px]" strokeWidth={activeNav === label ? 2.5 : 1.8} />{label}</button>)}</nav>
+      <nav className="flex-1 space-y-2 px-3 py-5">{visibleNavigation.map(({ label, icon: Icon }) => <button key={label} onClick={() => { setActiveNav(label); setMobileMenuOpen(false); }} className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium transition-colors ${resolvedActiveNav === label ? "bg-[#edf9f0] text-[#08733f]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}><Icon className="h-[18px] w-[18px]" strokeWidth={resolvedActiveNav === label ? 2.5 : 1.8} />{label}</button>)}</nav>
       <div className="border-t border-slate-200 p-3"><button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"><Settings className="h-[18px] w-[18px]" /> Settings</button></div>
     </>
   );
@@ -371,21 +384,27 @@ export default function Index() {
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[190px] flex-col border-r border-slate-200 bg-white lg:flex">{navContent}</aside>
       <div className={`fixed inset-0 z-50 lg:hidden ${mobileMenuOpen ? "" : "pointer-events-none"}`}><div onClick={() => setMobileMenuOpen(false)} className={`absolute inset-0 bg-slate-900/20 transition-opacity ${mobileMenuOpen ? "opacity-100" : "opacity-0"}`} /><aside className={`absolute inset-y-0 left-0 flex w-72 flex-col bg-white shadow-xl transition-transform ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}><button onClick={() => setMobileMenuOpen(false)} className="absolute right-3 top-4 rounded p-2 text-slate-500"><X className="h-5 w-5" /></button>{navContent}</aside></div>
       <main className="lg:pl-[190px]">
-        <header className="sticky top-0 z-20 flex h-[94px] items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-7 lg:px-8"><div className="flex items-center gap-3"><button onClick={() => setMobileMenuOpen(true)} className="rounded-md p-2 text-slate-600 hover:bg-slate-100" aria-label="Open navigation"><Menu className="h-5 w-5" /></button><div><h1 className="text-lg font-bold tracking-tight text-[#142a1f] sm:text-[22px]">REA Dashboard</h1><p className="mt-1 hidden text-xs text-slate-500 sm:block">Monitor programme delivery and field verification across Nigeria.</p></div></div><div className="flex items-center gap-2 sm:gap-4"><span className="hidden items-center gap-2 text-xs font-semibold text-[#08733f] md:flex"><i className="h-2 w-2 rounded-full bg-[#08733f]" />Live data</span><span className="hidden border-l border-slate-200 pl-4 text-xs text-slate-500 xl:block">Last updated: Today, 10:24 AM</span><button className="relative rounded-md p-2 text-slate-500 hover:bg-slate-100" aria-label="Notifications"><Bell className="h-5 w-5" /><span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full border border-white bg-[#df7d00] px-1 text-[8px] font-bold text-white">3</span></button><div className="hidden items-center gap-2 sm:flex"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500"><UsersRound className="h-5 w-5" /></div><span className="hidden text-xs font-semibold text-[#142a1f] xl:inline">REA Administrator</span></div><button type="button" onClick={() => { logout(); navigate("/login", { replace: true }); }} className="flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-[11px] font-bold text-slate-600 hover:border-[#e2b5b5] hover:bg-red-50 hover:text-red-700"><LogOut className="h-4 w-4" /><span className="hidden xl:inline">Logout</span></button></div></header>
+        <header className="sticky top-0 z-20 flex h-[94px] items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-7 lg:px-8"><div className="flex items-center gap-3"><button onClick={() => setMobileMenuOpen(true)} className="rounded-md p-2 text-slate-600 hover:bg-slate-100" aria-label="Open navigation"><Menu className="h-5 w-5" /></button><div><h1 className="text-lg font-bold tracking-tight text-[#142a1f] sm:text-[22px]">REA Dashboard</h1><p className="mt-1 hidden text-xs text-slate-500 sm:block">Monitor programme delivery and field verification across Nigeria.</p></div></div><div className="flex items-center gap-2 sm:gap-4"><span className="hidden items-center gap-2 text-xs font-semibold text-[#08733f] md:flex"><i className="h-2 w-2 rounded-full bg-[#08733f]" />Live data</span><span className="hidden border-l border-slate-200 pl-4 text-xs text-slate-500 xl:block">Last updated: Today, 10:24 AM</span><button className="relative rounded-md p-2 text-slate-500 hover:bg-slate-100" aria-label="Notifications"><Bell className="h-5 w-5" /><span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full border border-white bg-[#df7d00] px-1 text-[8px] font-bold text-white">3</span></button><div className="hidden items-center gap-2 sm:flex"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500"><UsersRound className="h-5 w-5" /></div><span className="hidden text-xs font-semibold text-[#142a1f] xl:inline">{session?.name ?? "REA Administrator"}</span></div><button type="button" onClick={() => { logout(); navigate("/login", { replace: true }); }} className="flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-[11px] font-bold text-slate-600 hover:border-[#e2b5b5] hover:bg-red-50 hover:text-red-700"><LogOut className="h-4 w-4" /><span className="hidden xl:inline">Logout</span></button></div></header>
         <div className="mx-auto max-w-[1580px] px-4 py-0 sm:px-7 lg:px-7">
-          {activeNav === "Analytics" ? (
+          {!resolvedActiveNav ? (
+            <section className="my-6 rounded-xl border border-amber-200 bg-white p-8 text-center shadow-sm">
+              <LockKeyhole className="mx-auto h-8 w-8 text-amber-600" />
+              <h2 className="mt-3 text-base font-bold text-[#173b2a]">No dashboard access assigned</h2>
+              <p className="mt-2 text-xs text-slate-500">Your account is active, but an REA Administrator has not assigned any dashboard modules.</p>
+            </section>
+          ) : resolvedActiveNav === "Analytics" ? (
             <TabErrorBoundary key="Analytics" tab="Analytics"><ReaAnalyticsDashboard projects={projects} /></TabErrorBoundary>
-          ) : activeNav === "Users" ? (
+          ) : resolvedActiveNav === "Users" ? (
             <TabErrorBoundary key="Users" tab="Users"><ReaUserManagement /></TabErrorBoundary>
-          ) : activeNav === "Audit Trail" ? (
+          ) : resolvedActiveNav === "Audit Trail" ? (
             <TabErrorBoundary key="Audit Trail" tab="Audit Trail"><ReaAuditTrail /></TabErrorBoundary>
-          ) : activeNav === "Consultants" ? (
+          ) : resolvedActiveNav === "Consultants" ? (
             <TabErrorBoundary key="Consultants" tab="Consultants"><ReaConsultantsManagement /></TabErrorBoundary>
-          ) : activeNav === "Claims" ? (
+          ) : resolvedActiveNav === "Claims" ? (
             <TabErrorBoundary key="Claims" tab="Claims"><ReaClaimsManagement /></TabErrorBoundary>
-          ) : activeNav === "Verification" ? (
+          ) : resolvedActiveNav === "Verification" ? (
             <ReaVerificationManagement />
-          ) : activeNav === "Reports" ? (
+          ) : resolvedActiveNav === "Reports" ? (
             <TabErrorBoundary key="Reports" tab="Reports"><ReaReportsManagement projects={projects} /></TabErrorBoundary>
           ) : (
             <>

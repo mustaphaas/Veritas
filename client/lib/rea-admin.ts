@@ -29,7 +29,17 @@ export type AuditEvent = {
 export const REA_STAFF_STORAGE_KEY = "veritas-rea-staff-accounts";
 export const REA_AUDIT_STORAGE_KEY = "veritas-rea-audit-trail";
 
-export const reaAccessModules = ["Overview", "Claims", "Verification", "Contractors", "Analytics", "Reports", "Users", "Audit Trail"];
+export const reaAccessModules = ["Overview", "Claims", "Verification", "Consultants", "Analytics", "Reports", "Users", "Audit Trail"];
+
+export function normalizeReaAccess(value: unknown, fallback: string[] = []): string[] {
+  const source = Array.isArray(value) ? value : fallback;
+  return [...new Set(
+    source
+      .filter((module): module is string => typeof module === "string")
+      .map((module) => module === "Contractors" ? "Consultants" : module)
+      .filter((module) => reaAccessModules.includes(module)),
+  )];
+}
 
 export const defaultReaStaff: ReaStaffAccount[] = [
   {
@@ -54,7 +64,7 @@ export const defaultReaStaff: ReaStaffAccount[] = [
     password: "ChangeMe2026!",
     lastLogin: "Yesterday, 4:18 PM",
     createdAt: "2026-03-03T09:00:00.000Z",
-    access: ["Overview", "Claims", "Verification", "Contractors", "Analytics", "Reports"],
+    access: ["Overview", "Claims", "Verification", "Consultants", "Analytics", "Reports"],
   },
   {
     id: "rea-ver-003",
@@ -123,7 +133,7 @@ export function readReaStaff(): ReaStaffAccount[] {
         password: typeof value.password === "string" ? value.password : "",
         lastLogin: typeof value.lastLogin === "string" ? value.lastLogin : undefined,
         createdAt: typeof value.createdAt === "string" ? value.createdAt : new Date().toISOString(),
-        access: Array.isArray(value.access) ? value.access.filter((module): module is string => typeof module === "string") : [...fallback.access],
+        access: normalizeReaAccess(value.access, fallback.access),
       }];
     });
     return accounts.length ? accounts : cloneDefaultStaff();
@@ -135,7 +145,12 @@ export function readReaStaff(): ReaStaffAccount[] {
 export function writeReaStaff(accounts: ReaStaffAccount[]) {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(REA_STAFF_STORAGE_KEY, JSON.stringify(accounts));
+    const normalized = accounts.map((account) => ({
+      ...account,
+      access: normalizeReaAccess(account.access),
+    }));
+    window.localStorage.setItem(REA_STAFF_STORAGE_KEY, JSON.stringify(normalized));
+    window.dispatchEvent(new CustomEvent("veritas-rea-staff-updated"));
   } catch {
     // Keep the current in-memory view usable when browser storage is unavailable.
   }
