@@ -14,7 +14,6 @@ import {
   useLocation,
 } from "react-router-dom";
 import Index from "./pages/Index";
-import ExecutiveDashboard from "./pages/ExecutiveDashboard";
 import FieldOfficerDashboard from "./pages/FieldOfficerDashboard";
 import ConsultantAdminDashboard from "./pages/ConsultantAdminDashboard";
 import Login from "./pages/Login";
@@ -23,7 +22,6 @@ import VeritasAssistant from "./components/VeritasAssistant";
 import VeritasFooter from "./components/VeritasFooter";
 import ReaProjectMapHost from "./components/ReaProjectMapProgramme";
 import ProjectMapFullscreenControl from "./components/ProjectMapFullscreenControl";
-import ExecutiveNavLauncher from "./components/ExecutiveNavLauncher";
 import { AuthProvider, RequireRole, useAuth } from "./lib/auth";
 import { InspectionWorkflowProvider } from "./lib/inspection-workflow";
 
@@ -61,15 +59,6 @@ function ProjectMapGate() {
   );
 }
 
-function ExecutiveNavGate() {
-  const { session } = useAuth();
-  const location = useLocation();
-  if (!session || session.role !== "rea" || location.pathname !== "/") {
-    return null;
-  }
-  return <ExecutiveNavLauncher />;
-}
-
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -85,14 +74,6 @@ const App = () => (
                 element={
                   <RequireRole role="rea">
                     <Index />
-                  </RequireRole>
-                }
-              />
-              <Route
-                path="/executive"
-                element={
-                  <RequireRole role="rea">
-                    <ExecutiveDashboard />
                   </RequireRole>
                 }
               />
@@ -115,7 +96,6 @@ const App = () => (
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
-            <ExecutiveNavGate />
             <ProjectMapGate />
             <VeritasFooterGate />
             <VeritasGate />
