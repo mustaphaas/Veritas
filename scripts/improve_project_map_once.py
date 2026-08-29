@@ -4,7 +4,7 @@ import re
 path = Path("client/components/ReaProjectMapProgramme.tsx")
 s = path.read_text()
 
-# 1. Replace dense metric labels with cleaner labels that remain readable for every state/LGA.
+# Cleaner, always-visible labels for states and LGAs.
 metric_start = s.index("function MetricLabel({")
 metric_end = s.index("\nfunction ProjectMap({", metric_start)
 area_label = r'''function AreaLabel({
@@ -64,7 +64,7 @@ area_label = r'''function AreaLabel({
 '''
 s = s[:metric_start] + area_label + s[metric_end:]
 
-# 2. Add geographic coverage counts and drill-down instructions.
+# Coverage counts and contextual guidance.
 display_block = '''  const displayMetrics = useMemo(() => {
     if (selectedLga) return summarizeProjects(lgaProjects);
     if (selectedState) return summarizeProjects(stateProjects);
@@ -86,45 +86,46 @@ s = s.replace(display_block, display_block + '''
       : `${lgaProjects.length} project${lgaProjects.length === 1 ? "" : "s"} in ${selectedLga} · all ${selectedStateLgas.length} LGAs remain visible`;
 ''')
 
-# 3. Remove point caches only used to draw premature pins at national/state level.
-s = re.sub(
-    r'''\n  const stateFeatureByName = useMemo\(.*?\n  const selectedLgaFeature = useMemo\(''',
+# Remove caches used only by national/state project dots; retain selected-LGA geometry.
+s, count = re.subn(
+    r'\n  const stateFeatureByName = useMemo\(.*?\n  const selectedLgaFeature = useMemo\(',
     '\n  const selectedLgaFeature = useMemo(',
     s,
     count=1,
     flags=re.S,
 )
-s = re.sub(
-    r'''\n  const nationalPoints = useMemo\(.*?\n  const lgaPoints = useMemo\(''',
+if count != 1:
+    raise RuntimeError("state/LGA feature cache pattern changed")
+s, count = re.subn(
+    r'\n  const nationalPoints = useMemo\(.*?\n  const lgaPoints = useMemo\(',
     '\n  const lgaPoints = useMemo(',
     s,
     count=1,
     flags=re.S,
 )
+if count != 1:
+    raise RuntimeError("national/state point cache pattern changed")
 
-# 4. Use the new label component nationally.
-s = s.replace("<MetricLabel\n                            name={name}", "<AreaLabel\n                            name={name}")
+# National labels use the new component.
+s = s.replace("<MetricLabel\n                            name={name}", "<AreaLabel\n                            name={name}", 1)
 
-# 5. National view: show every state and its label/density, but no project pins.
-s = re.sub(
-    r'''\n\s*\{layers\.Projects && filteredProjects\.map\(\(project\) => \{.*?\n\s*\}\)\}''',
+# National view is state-only: all state polygons and labels remain visible; no project pins yet.
+s, count = re.subn(
+    r'\n\s*\{layers\.Projects && filteredProjects\.map\(\(project\) => \{.*?\n\s*\}\)\}',
     '',
     s,
     count=1,
     flags=re.S,
 )
+if count != 1:
+    raise RuntimeError("national project pin block changed")
 
-# 6. State view: keep every LGA label visible, even after an LGA is selected.
-lga_label_old = '''                        {!selectedLga && (
-                          <MetricLabel
-                            name={name}
-                            metrics={metrics}
-                            x={centroid.x}
-                            y={centroid.y}
-                            compact
-                          />
-                        )}'''
-lga_label_new = '''                        <AreaLabel
+# Keep every LGA label visible before and after selecting one.
+lga_pattern = re.compile(
+    r'\{!selectedLga\s*&&\s*\(\s*<MetricLabel\s+name=\{name\}\s+metrics=\{metrics\}\s+x=\{centroid\.x\}\s+y=\{centroid\.y\}\s+compact\s*/>\s*\)\}',
+    re.S,
+)
+lga_replacement = '''<AreaLabel
                           name={name}
                           metrics={metrics}
                           x={centroid.x}
@@ -132,32 +133,36 @@ lga_label_new = '''                        <AreaLabel
                           compact
                           selected={isSelected}
                         />'''
-if lga_label_old not in s:
+s, count = lga_pattern.subn(lga_replacement, s, count=1)
+if count != 1:
     raise RuntimeError("LGA label block changed")
-s = s.replace(lga_label_old, lga_label_new)
 
-# 7. State view: remove project pins until a specific LGA is selected.
-s = re.sub(
-    r'''\n\s*\{!selectedLga &&\n\s*layers\.Projects &&\n\s*stateProjects\.map\(\(project\) => \{.*?\n\s*\}\)\}''',
+# State view is boundary/LGA-only; project pins appear only once an LGA is selected.
+s, count = re.subn(
+    r'\n\s*\{!selectedLga\s*&&\s*layers\.Projects\s*&&\s*stateProjects\.map\(\(project\) => \{.*?\n\s*\}\)\}',
     '',
     s,
     count=1,
     flags=re.S,
 )
+if count != 1:
+    raise RuntimeError("state project pin block changed")
 
-# 8. Stronger selected-LGA focus without hiding neighbouring LGAs.
-s = s.replace('strokeWidth={isSelected ? "2" : "1.2"}', 'strokeWidth={isSelected ? "2.4" : "1.1"}')
-lga_path = '''                          vectorEffect="non-scaling-stroke"
-                        />
-                        <AreaLabel'''
-lga_path_new = '''                          vectorEffect="non-scaling-stroke"
-                          opacity={selectedLga && !isSelected ? 0.78 : 1}
-                        />
-                        <AreaLabel'''
-if lga_path in s:
-    s = s.replace(lga_path, lga_path_new, 1)
+# Strong selected-LGA focus while neighbouring LGAs remain visible.
+s = s.replace('strokeWidth={isSelected ? "2" : "1.2"}', 'strokeWidth={isSelected ? "2.4" : "1.1"}', 1)
+lga_path_pattern = re.compile(
+    r'(strokeWidth=\{isSelected \? "2\.4" : "1\.1"\}\s+vectorEffect="non-scaling-stroke")\s*/>',
+    re.S,
+)
+s, count = lga_path_pattern.subn(
+    r'\1\n                          opacity={selectedLga && !isSelected ? 0.78 : 1}\n                        />',
+    s,
+    count=1,
+)
+if count != 1:
+    raise RuntimeError("LGA path styling changed")
 
-# 9. Header coverage chip.
+# Geography chip in header.
 header_metrics = '''          <div className="hidden items-center gap-2 md:flex">
             <span className="rounded-md border border-slate-200 bg-[#fafcfb] px-2.5 py-1.5 text-[9px] font-extrabold text-slate-600">
               {displayMetrics.projects.toLocaleString()} Projects
@@ -171,15 +176,16 @@ header_metrics_new = '''          <div className="hidden items-center gap-2 md:f
             </span>'''
 if header_metrics not in s:
     raise RuntimeError("header metrics changed")
-s = s.replace(header_metrics, header_metrics_new)
+s = s.replace(header_metrics, header_metrics_new, 1)
 
-# 10. Contextual subtitle replaces the old all-level dot description.
+# Contextual helper text.
 s = s.replace(
     '<p className="mt-0.5 text-[9px] text-slate-500">Dots are projects; colour identifies programme.</p>',
     '<p className="mt-0.5 max-w-[470px] text-[9px] text-slate-500">{mapInstruction}</p>',
+    1,
 )
 
-# 11. Add subtle pulsing animation for verified/selected LGA pins.
+# Pulse animation for verified/selected projects at LGA level.
 style_anchor = '''@keyframes veritas-tooltip-enter {
   from { opacity: 0; transform: translateY(5px) scale(0.97); }
   to { opacity: 1; transform: translateY(0) scale(1); }
@@ -190,14 +196,16 @@ if style_anchor in s:
   0% { opacity: .58; transform: scale(.9); }
   70%, 100% { opacity: 0; transform: scale(2); }
 }
-''')
+''', 1)
     s = s.replace(
         '.veritas-tooltip { animation: veritas-tooltip-enter 160ms ease-out both; }',
         '.veritas-tooltip { animation: veritas-tooltip-enter 160ms ease-out both; }\n.veritas-pulse-ring { animation: veritas-pulse-ring 2.2s cubic-bezier(.16,1,.3,1) infinite; transform-box: fill-box; transform-origin: center; }',
+        1,
     )
     s = s.replace(
         '.veritas-map-canvas, .veritas-area, .veritas-pin, .veritas-filter-panel, .veritas-detail-panel, .veritas-tooltip {',
         '.veritas-map-canvas, .veritas-area, .veritas-pin, .veritas-filter-panel, .veritas-detail-panel, .veritas-tooltip, .veritas-pulse-ring {',
+        1,
     )
 
 pin_anchor = '''                        >
@@ -205,8 +213,9 @@ pin_anchor = '''                        >
                             cx={position.x}
                             cy={position.y}
                             r={radius + 2}'''
-if pin_anchor in s:
-    s = s.replace(pin_anchor, '''                        >
+if pin_anchor not in s:
+    raise RuntimeError("LGA pin block changed")
+s = s.replace(pin_anchor, '''                        >
                           {(selected || project.verified) && (
                             <circle
                               cx={position.x}
@@ -223,19 +232,22 @@ if pin_anchor in s:
                             cy={position.y}
                             r={radius + 2}''', 1)
 
-# 12. Filter-panel explanation and stage-aware bottom legend.
+# More accurate explanation in Explore & filter.
 s = s.replace(
     'The map stays full-width until you open this panel.',
     'National → State → LGA → Project. Pins appear only after an LGA is selected.',
+    1,
 )
 
+# Stage-aware legend.
 legend_start = s.find('            <div className="absolute bottom-3 left-3 z-20 flex flex-wrap items-center gap-3 rounded-lg')
-if legend_start != -1:
-    legend_end = s.find('            </div>\n          </div>\n        </div>\n      </section>', legend_start)
-    if legend_end == -1:
-        raise RuntimeError("legend end not found")
-    legend_end += len('            </div>')
-    legend = '''            <div className="absolute bottom-3 left-3 z-20 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur">
+if legend_start == -1:
+    raise RuntimeError("legend start not found")
+legend_end = s.find('            </div>\n          </div>\n        </div>\n      </section>', legend_start)
+if legend_end == -1:
+    raise RuntimeError("legend end not found")
+legend_end += len('            </div>')
+legend = '''            <div className="absolute bottom-3 left-3 z-20 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur">
               {!selectedLga ? (
                 <>
                   <span className="text-[8px] font-extrabold uppercase tracking-[0.09em] text-[#128149]">
@@ -267,9 +279,7 @@ if legend_start != -1:
                 </>
               )}
             </div>'''
-    s = s[:legend_start] + legend + s[legend_end:]
-else:
-    raise RuntimeError("legend start not found")
+s = s[:legend_start] + legend + s[legend_end:]
 
 path.write_text(s)
 print("Project map improved")
