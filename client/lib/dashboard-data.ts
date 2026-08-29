@@ -10,6 +10,8 @@ export type Project = {
   kw: number;
   households: number;
   verified: boolean;
+  latitude?: number;
+  longitude?: number;
   x: number;
   y: number;
 };

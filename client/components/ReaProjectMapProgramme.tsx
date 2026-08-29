@@ -34,6 +34,9 @@ type LayerKey =
 type MapProject = Project & {
   id: string;
   lga: string;
+  latitude: number;
+  longitude: number;
+  coordinateSource: "Project GPS" | "LGA centroid";
 };
 
 type AreaMetrics = {
@@ -55,7 +58,7 @@ const programmeColors: Record<string, string> = {
   Others: "#64748b",
 };
 
-const densityPalette = ["#eef3ef", "#dbece0", "#b9d9c2", "#80bb90", "#2b8b55"];
+const densityPalette = ["#103830", "#145042", "#17664a", "#1d8254", "#24ad68"];
 const layerNames: LayerKey[] = [
   "Projects",
   "Status",
@@ -104,9 +107,9 @@ const MAP_VISUAL_STYLES = `
 }
 .veritas-map-canvas {
   background:
-    radial-gradient(circle at 18% 22%, rgba(22,130,75,0.07), transparent 30%),
-    radial-gradient(circle at 82% 76%, rgba(37,99,235,0.05), transparent 28%),
-    linear-gradient(145deg, #fbfdfc 0%, #f4f8f5 52%, #edf3ef 100%);
+    radial-gradient(circle at 48% 44%, rgba(36,173,104,0.10), transparent 34%),
+    radial-gradient(circle at 12% 86%, rgba(18,92,72,0.15), transparent 30%),
+    linear-gradient(145deg, #08131c 0%, #0c1922 52%, #0a161e 100%);
   animation: veritas-map-enter 380ms cubic-bezier(.22,1,.36,1) both;
 }
 .veritas-area {
@@ -115,7 +118,7 @@ const MAP_VISUAL_STYLES = `
   transform-origin: center;
 }
 .veritas-area path { transition: filter 180ms ease, stroke 180ms ease, opacity 180ms ease; }
-.veritas-area:hover path { filter: brightness(.96) drop-shadow(0 2px 3px rgba(26,55,40,.14)); }
+.veritas-area:hover path { filter: brightness(1.12) drop-shadow(0 3px 6px rgba(13,219,119,.18)); }
 .veritas-pin {
   animation: veritas-pin-enter 440ms cubic-bezier(.34,1.56,.64,1) backwards;
   transform-box: fill-box;
@@ -250,6 +253,31 @@ function featureCentroid(feature: GeoFeature, projector: Projector) {
   );
 }
 
+function featureGeoCentroid(feature: GeoFeature): [number, number] {
+  const ring = largestRing(feature);
+  if (!ring.length) return [8.6753, 9.082];
+
+  let twiceArea = 0;
+  let x = 0;
+  let y = 0;
+  for (let i = 0; i < ring.length - 1; i += 1) {
+    const [x0, y0] = ring[i];
+    const [x1, y1] = ring[i + 1];
+    const cross = x0 * y1 - x1 * y0;
+    twiceArea += cross;
+    x += (x0 + x1) * cross;
+    y += (y0 + y1) * cross;
+  }
+
+  if (Math.abs(twiceArea) < 1e-10) {
+    const lon = ring.reduce((sum, coordinate) => sum + coordinate[0], 0) / ring.length;
+    const lat = ring.reduce((sum, coordinate) => sum + coordinate[1], 0) / ring.length;
+    return [lon, lat];
+  }
+
+  return [x / (3 * twiceArea), y / (3 * twiceArea)];
+}
+
 function jitterWithin(
   feature: GeoFeature,
   seed: number,
@@ -285,17 +313,31 @@ function enrichProjects(lgaFeatures: GeoFeature[]): MapProject[] {
     existing.push(feature);
     byState.set(state, existing);
   });
+  byState.forEach((features) => features.sort((a, b) => lgaName(a).localeCompare(lgaName(b))));
 
+  const stateCursor = new Map<string, number>();
   return projects.map((project, index) => {
-    const seed = hashText(`${project.state}-${project.name}-${index}`);
     const available = byState.get(project.state) ?? [];
-    const feature = available.length ? available[seed % available.length] : undefined;
+    const cursor = stateCursor.get(project.state) ?? 0;
+    stateCursor.set(project.state, cursor + 1);
+    const feature = available.length ? available[cursor % available.length] : undefined;
     const lga = feature ? lgaName(feature) : `${project.state} LGA`;
+    const [fallbackLongitude, fallbackLatitude] = feature
+      ? featureGeoCentroid(feature)
+      : [8.6753, 9.082];
+    const hasProjectGps =
+      Number.isFinite(project.latitude) &&
+      Number.isFinite(project.longitude) &&
+      Math.abs(project.latitude ?? 0) <= 90 &&
+      Math.abs(project.longitude ?? 0) <= 180;
 
     return {
       ...project,
       id: `REA-${project.programme}-${project.state.slice(0, 3).toUpperCase()}-${String(index + 1).padStart(4, "0")}`,
       lga,
+      latitude: hasProjectGps ? project.latitude! : fallbackLatitude,
+      longitude: hasProjectGps ? project.longitude! : fallbackLongitude,
+      coordinateSource: hasProjectGps ? "Project GPS" : "LGA centroid",
     };
   });
 }
@@ -369,45 +411,45 @@ function MetricLabel({
   compact?: boolean;
 }) {
   const title = compact && name.length > 18 ? `${name.slice(0, 17)}…` : name;
-  const titleSize = compact ? 7.2 : 7.5;
-  const metricSize = compact ? 5.6 : 5.8;
+  const titleSize = compact ? 7 : 7.5;
+  const metricSize = compact ? 5.3 : 5.7;
   return (
     <g pointerEvents="none">
       <text
         x={x}
-        y={y - 7}
+        y={y - 6}
         textAnchor="middle"
-        fill="#203c2d"
+        fill="#effff5"
         fontSize={titleSize}
-        fontWeight="800"
-        stroke="#f9fbfa"
-        strokeWidth="2.4"
+        fontWeight="850"
+        stroke="#091a16"
+        strokeWidth="2.6"
         paintOrder="stroke"
       >
         {title}
       </text>
       <text
         x={x}
-        y={y + 1}
+        y={y + 2}
         textAnchor="middle"
-        fill="#315344"
+        fill="#b9dfc8"
         fontSize={metricSize}
         fontWeight="800"
-        stroke="#f9fbfa"
-        strokeWidth="2.1"
+        stroke="#091a16"
+        strokeWidth="2.2"
         paintOrder="stroke"
       >
         P {metrics.projects} · V {metrics.verified}
       </text>
       <text
         x={x}
-        y={y + 8}
+        y={y + 9}
         textAnchor="middle"
-        fill="#128149"
+        fill="#55d98b"
         fontSize={metricSize}
         fontWeight="850"
-        stroke="#f9fbfa"
-        strokeWidth="2.1"
+        stroke="#091a16"
+        strokeWidth="2.2"
         paintOrder="stroke"
       >
         {formatMw(metrics.kw)} · {compactNumber(metrics.households)} HH
@@ -541,63 +583,29 @@ function ProjectMap({
     [selectedStateLgas],
   );
 
-  const stateFeatureByName = useMemo(
-    () => new Map(stateFeatures.map((feature) => [stateName(feature), feature])),
-    [stateFeatures],
-  );
-  const lgaFeatureByName = useMemo(
-    () => new Map(selectedStateLgas.map((feature) => [lgaName(feature), feature])),
-    [selectedStateLgas],
-  );
-
-  const selectedLgaFeature = useMemo(
-    () => selectedStateLgas.find((feature) => lgaName(feature) === selectedLga),
-    [selectedLga, selectedStateLgas],
-  );
-
   const nationalPoints = useMemo(() => {
     const positions = new Map<string, Point>();
     filteredProjects.forEach((project) => {
-      const feature = stateFeatureByName.get(project.state);
-      if (!feature) return;
-      positions.set(
-        project.id,
-        jitterWithin(feature, hashText(project.id), stateProjector, 0.58),
-      );
+      positions.set(project.id, stateProjector([project.longitude, project.latitude]));
     });
     return positions;
-  }, [filteredProjects, stateFeatureByName, stateProjector]);
+  }, [filteredProjects, stateProjector]);
 
   const statePoints = useMemo(() => {
     const positions = new Map<string, Point>();
     stateProjects.forEach((project) => {
-      const feature = lgaFeatureByName.get(project.lga);
-      if (!feature) return;
-      positions.set(
-        project.id,
-        jitterWithin(feature, hashText(project.id), lgaProjector, 0.62),
-      );
+      positions.set(project.id, lgaProjector([project.longitude, project.latitude]));
     });
     return positions;
-  }, [lgaFeatureByName, lgaProjector, stateProjects]);
+  }, [lgaProjector, stateProjects]);
 
   const lgaPoints = useMemo(() => {
     const positions = new Map<string, Point>();
-    if (!selectedLgaFeature) return positions;
-    lgaProjects.forEach((project, index) => {
-      positions.set(
-        project.id,
-        jitterWithin(
-          selectedLgaFeature,
-          hashText(project.id),
-          lgaProjector,
-          0.76,
-          (index % 3) * 2.5,
-        ),
-      );
+    lgaProjects.forEach((project) => {
+      positions.set(project.id, lgaProjector([project.longitude, project.latitude]));
     });
     return positions;
-  }, [lgaProjector, lgaProjects, selectedLgaFeature]);
+  }, [lgaProjector, lgaProjects]);
 
   const maximumStateProjects = Math.max(
     0,
@@ -770,17 +778,17 @@ function ProjectMap({
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
-              <div className="hidden rounded-lg border border-slate-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur sm:block">
-                <p className="text-[9px] font-black uppercase tracking-[0.13em] text-[#128149]">{mapTitle}</p>
-                <p className="mt-0.5 text-[9px] text-slate-500">Dots are projects; colour identifies programme.</p>
+              <div className="hidden rounded-lg border border-[#29483e] bg-[#0b171f]/95 px-3 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur sm:block">
+                <p className="text-[9px] font-black uppercase tracking-[0.13em] text-[#64d993]">{mapTitle}</p>
+                <p className="mt-0.5 text-[9px] text-slate-300">Green shading = Overview project density · pins use project GPS when available.</p>
               </div>
             </div>
 
-            <div className="absolute right-4 top-4 z-20 flex overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
+            <div className="absolute right-4 top-4 z-20 flex overflow-hidden rounded-md border border-[#29483e] bg-[#0b171f]/95 shadow-lg backdrop-blur">
               <button
                 type="button"
                 onClick={() => setZoom((value) => Math.min(1.85, Number((value + 0.15).toFixed(2))))}
-                className="p-2 text-slate-500 transition hover:bg-slate-50"
+                className="p-2 text-slate-300 transition hover:bg-white/10 hover:text-white"
                 aria-label="Zoom in"
               >
                 <Plus className="h-3.5 w-3.5" />
@@ -788,7 +796,7 @@ function ProjectMap({
               <button
                 type="button"
                 onClick={() => setZoom((value) => Math.max(0.85, Number((value - 0.15).toFixed(2))))}
-                className="border-l border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50"
+                className="border-l border-[#29483e] p-2 text-slate-300 transition hover:bg-white/10 hover:text-white"
                 aria-label="Zoom out"
               >
                 <Minus className="h-3.5 w-3.5" />
@@ -796,7 +804,7 @@ function ProjectMap({
               <button
                 type="button"
                 onClick={() => setZoom(1)}
-                className="border-l border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50"
+                className="border-l border-[#29483e] p-2 text-slate-300 transition hover:bg-white/10 hover:text-white"
                 aria-label="Reset zoom"
               >
                 <LocateFixed className="h-3.5 w-3.5" />
@@ -819,7 +827,7 @@ function ProjectMap({
                       const centroid = featureCentroid(feature, stateProjector);
                       const fill = layers["Coverage Density"]
                         ? densityPalette[densityBand(metrics.projects, maximumStateProjects)]
-                        : "#e8efea";
+                        : "#173f37";
 
                       return (
                         <g
@@ -831,8 +839,8 @@ function ProjectMap({
                           <path
                             d={geometryPath(feature.geometry, stateProjector)}
                             fill={fill}
-                            stroke="#ffffff"
-                            strokeWidth="1.35"
+                            stroke="#315f54"
+                            strokeWidth="1.1"
                             vectorEffect="non-scaling-stroke"
                           />
                           <MetricLabel
@@ -892,7 +900,7 @@ function ProjectMap({
                     const centroid = featureCentroid(feature, lgaProjector);
                     const isSelected = selectedLga === name;
                     const fill = isSelected
-                      ? "#dff1e5"
+                      ? "#2ac879"
                       : layers["Coverage Density"]
                         ? densityPalette[densityBand(metrics.projects, maximumLgaProjects)]
                         : "#e8efea";
@@ -907,7 +915,7 @@ function ProjectMap({
                         <path
                           d={geometryPath(feature.geometry, lgaProjector)}
                           fill={fill}
-                          stroke={isSelected ? "#117a44" : "#ffffff"}
+                          stroke={isSelected ? "#72f1a6" : "#315f54"}
                           strokeWidth={isSelected ? "2" : "1.2"}
                           vectorEffect="non-scaling-stroke"
                         />
@@ -1043,14 +1051,14 @@ function ProjectMap({
               </div>
             )}
 
-            <div className="absolute bottom-3 left-3 z-20 flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur">
-              <span className="text-[8px] font-extrabold uppercase tracking-[0.09em] text-slate-500">Programme</span>
+            <div className="absolute bottom-3 left-3 z-20 flex flex-wrap items-center gap-3 rounded-lg border border-[#29483e] bg-[#09141c]/95 px-3 py-2 shadow-lg backdrop-blur">
+              <span className="text-[8px] font-extrabold uppercase tracking-[0.09em] text-slate-300">Programme</span>
               {[
                 ["NEP", programmeColors.NEP],
                 ["DARES", programmeColors.DARES],
                 ["AMP", programmeColors.AMP],
               ].map(([name, color]) => (
-                <span key={name} className="flex items-center gap-1.5 text-[8px] font-bold text-slate-600">
+                <span key={name} className="flex items-center gap-1.5 text-[8px] font-bold text-slate-300">
                   <i className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
                   {name}
                 </span>
@@ -1061,7 +1069,7 @@ function ProjectMap({
                   Other
                 </span>
               )}
-              <span className="border-l border-slate-200 pl-3 text-[8px] font-semibold text-slate-400">Each dot = project</span>
+              <span className="border-l border-slate-200 pl-3 text-[8px] font-semibold text-slate-400">Same 412-project dataset as Overview</span>
             </div>
           </div>
         </div>
@@ -1259,6 +1267,8 @@ function ProjectMap({
               {[
                 ["State", selectedProject.state],
                 ["Local Government", selectedProject.lga],
+                ["GPS Coordinates", `${selectedProject.latitude.toFixed(5)}, ${selectedProject.longitude.toFixed(5)}`],
+                ["Coordinate Source", selectedProject.coordinateSource],
                 ["Programme", selectedProject.programme],
                 ["Component", selectedProject.component],
                 ["Contractor", selectedProject.contractor],
