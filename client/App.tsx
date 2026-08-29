@@ -23,6 +23,7 @@ import VeritasAssistant from "./components/VeritasAssistant";
 import VeritasFooter from "./components/VeritasFooter";
 import ReaProjectMapHost from "./components/ReaProjectMapProgramme";
 import ProjectMapFullscreenControl from "./components/ProjectMapFullscreenControl";
+import ExecutiveNavLauncher from "./components/ExecutiveNavLauncher";
 import { AuthProvider, RequireRole, useAuth } from "./lib/auth";
 import { InspectionWorkflowProvider } from "./lib/inspection-workflow";
 
@@ -58,6 +59,15 @@ function ProjectMapGate() {
       <ProjectMapFullscreenControl />
     </>
   );
+}
+
+function ExecutiveNavGate() {
+  const { session } = useAuth();
+  const location = useLocation();
+  if (!session || session.role !== "rea" || location.pathname !== "/") {
+    return null;
+  }
+  return <ExecutiveNavLauncher />;
 }
 
 const App = () => (
@@ -105,6 +115,7 @@ const App = () => (
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            <ExecutiveNavGate />
             <ProjectMapGate />
             <VeritasFooterGate />
             <VeritasGate />
