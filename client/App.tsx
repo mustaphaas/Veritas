@@ -14,6 +14,7 @@ import {
   useLocation,
 } from "react-router-dom";
 import Index from "./pages/Index";
+import ExecutiveDashboard from "./pages/ExecutiveDashboard";
 import FieldOfficerDashboard from "./pages/FieldOfficerDashboard";
 import ConsultantAdminDashboard from "./pages/ConsultantAdminDashboard";
 import Login from "./pages/Login";
@@ -74,6 +75,14 @@ const App = () => (
                 element={
                   <RequireRole role="rea">
                     <Index />
+                  </RequireRole>
+                }
+              />
+              <Route
+                path="/executive"
+                element={
+                  <RequireRole role="rea">
+                    <ExecutiveDashboard />
                   </RequireRole>
                 }
               />
