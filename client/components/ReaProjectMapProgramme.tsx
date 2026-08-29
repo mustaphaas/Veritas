@@ -102,10 +102,6 @@ const MAP_VISUAL_STYLES = `
   from { opacity: 0; transform: translateY(5px) scale(0.97); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
-@keyframes veritas-pulse-ring {
-  0% { opacity: .58; transform: scale(.9); }
-  70%, 100% { opacity: 0; transform: scale(2); }
-}
 .veritas-map-canvas {
   background:
     radial-gradient(circle at 18% 22%, rgba(22,130,75,0.07), transparent 30%),
@@ -130,9 +126,8 @@ const MAP_VISUAL_STYLES = `
 .veritas-filter-panel { animation: veritas-panel-enter 300ms cubic-bezier(.22,1,.36,1) both; }
 .veritas-detail-panel { animation: veritas-detail-enter 320ms cubic-bezier(.22,1,.36,1) both; }
 .veritas-tooltip { animation: veritas-tooltip-enter 160ms ease-out both; }
-.veritas-pulse-ring { animation: veritas-pulse-ring 2.2s cubic-bezier(.16,1,.3,1) infinite; transform-box: fill-box; transform-origin: center; }
 @media (prefers-reduced-motion: reduce) {
-  .veritas-map-canvas, .veritas-area, .veritas-pin, .veritas-filter-panel, .veritas-detail-panel, .veritas-tooltip, .veritas-pulse-ring {
+  .veritas-map-canvas, .veritas-area, .veritas-pin, .veritas-filter-panel, .veritas-detail-panel, .veritas-tooltip {
     animation: none !important;
     transition: none !important;
   }
@@ -360,56 +355,62 @@ function projectMarkerColor(project: MapProject, showStatus: boolean) {
   return "#df7b22";
 }
 
-function AreaLabel({
+function MetricLabel({
   name,
   metrics,
   x,
   y,
   compact = false,
-  selected = false,
 }: {
   name: string;
   metrics: AreaMetrics;
   x: number;
   y: number;
   compact?: boolean;
-  selected?: boolean;
 }) {
-  const maxLength = compact ? 15 : 18;
-  const title = name.length > maxLength ? `${name.slice(0, maxLength - 1)}…` : name;
-  const titleSize = compact ? (selected ? 7.2 : 6.3) : 7.7;
-  const metricSize = compact ? (selected ? 5.8 : 5.1) : 5.8;
-  const metricText = compact
-    ? `${metrics.projects} project${metrics.projects === 1 ? "" : "s"}`
-    : `P ${metrics.projects} · V ${metrics.verified}`;
-
+  const title = compact && name.length > 18 ? `${name.slice(0, 17)}…` : name;
+  const titleSize = compact ? 7.2 : 7.5;
+  const metricSize = compact ? 5.6 : 5.8;
   return (
-    <g pointerEvents="none" opacity={selected ? 1 : 0.94}>
+    <g pointerEvents="none">
       <text
         x={x}
-        y={y - 3}
+        y={y - 7}
         textAnchor="middle"
-        fill={selected ? "#0b6d3d" : "#203c2d"}
+        fill="#203c2d"
         fontSize={titleSize}
-        fontWeight="850"
-        stroke="#fbfdfc"
-        strokeWidth={compact ? "2.2" : "2.6"}
+        fontWeight="800"
+        stroke="#f9fbfa"
+        strokeWidth="2.4"
         paintOrder="stroke"
       >
         {title}
       </text>
       <text
         x={x}
-        y={y + 5}
+        y={y + 1}
         textAnchor="middle"
-        fill={selected ? "#128149" : "#496357"}
+        fill="#315344"
         fontSize={metricSize}
         fontWeight="800"
-        stroke="#fbfdfc"
-        strokeWidth="2"
+        stroke="#f9fbfa"
+        strokeWidth="2.1"
         paintOrder="stroke"
       >
-        {metricText}
+        P {metrics.projects} · V {metrics.verified}
+      </text>
+      <text
+        x={x}
+        y={y + 8}
+        textAnchor="middle"
+        fill="#128149"
+        fontSize={metricSize}
+        fontWeight="850"
+        stroke="#f9fbfa"
+        strokeWidth="2.1"
+        paintOrder="stroke"
+      >
+        {formatMw(metrics.kw)} · {compactNumber(metrics.households)} HH
       </text>
     </g>
   );
@@ -531,17 +532,6 @@ function ProjectMap({
     return nationalMetrics;
   }, [lgaProjects, nationalMetrics, selectedLga, selectedState, stateProjects]);
 
-  const stateBoundaryCount = useMemo(
-    () => unique(stateFeatures.map((feature) => stateName(feature))).length,
-    [stateFeatures],
-  );
-  const lgaBoundaryCount = lgaFeatures.length;
-  const mapInstruction = !selectedState
-    ? `${stateBoundaryCount || 37} state areas visible · ${lgaBoundaryCount || 774} LGAs available · select a state to drill down`
-    : !selectedLga
-      ? `${selectedStateLgas.length} LGAs visible in ${selectedState} · select any LGA to view projects`
-      : `${lgaProjects.length} project${lgaProjects.length === 1 ? "" : "s"} in ${selectedLga} · all ${selectedStateLgas.length} LGAs remain visible`;
-
   const stateProjector = useMemo(
     () => makeProjector(stateFeatures, NATIONAL_VIEW.width, NATIONAL_VIEW.height, 34),
     [stateFeatures],
@@ -551,10 +541,45 @@ function ProjectMap({
     [selectedStateLgas],
   );
 
+  const stateFeatureByName = useMemo(
+    () => new Map(stateFeatures.map((feature) => [stateName(feature), feature])),
+    [stateFeatures],
+  );
+  const lgaFeatureByName = useMemo(
+    () => new Map(selectedStateLgas.map((feature) => [lgaName(feature), feature])),
+    [selectedStateLgas],
+  );
+
   const selectedLgaFeature = useMemo(
     () => selectedStateLgas.find((feature) => lgaName(feature) === selectedLga),
     [selectedLga, selectedStateLgas],
   );
+
+  const nationalPoints = useMemo(() => {
+    const positions = new Map<string, Point>();
+    filteredProjects.forEach((project) => {
+      const feature = stateFeatureByName.get(project.state);
+      if (!feature) return;
+      positions.set(
+        project.id,
+        jitterWithin(feature, hashText(project.id), stateProjector, 0.58),
+      );
+    });
+    return positions;
+  }, [filteredProjects, stateFeatureByName, stateProjector]);
+
+  const statePoints = useMemo(() => {
+    const positions = new Map<string, Point>();
+    stateProjects.forEach((project) => {
+      const feature = lgaFeatureByName.get(project.lga);
+      if (!feature) return;
+      positions.set(
+        project.id,
+        jitterWithin(feature, hashText(project.id), lgaProjector, 0.62),
+      );
+    });
+    return positions;
+  }, [lgaFeatureByName, lgaProjector, stateProjects]);
 
   const lgaPoints = useMemo(() => {
     const positions = new Map<string, Point>();
@@ -707,9 +732,6 @@ function ProjectMap({
           </div>
 
           <div className="hidden items-center gap-2 md:flex">
-            <span className="rounded-md border border-[#d8e7dc] bg-[#f5faf7] px-2.5 py-1.5 text-[9px] font-extrabold text-[#3b6350]">
-              {!selectedState ? `${stateBoundaryCount || 37} State Areas` : `${selectedStateLgas.length} LGAs`}
-            </span>
             <span className="rounded-md border border-slate-200 bg-[#fafcfb] px-2.5 py-1.5 text-[9px] font-extrabold text-slate-600">
               {displayMetrics.projects.toLocaleString()} Projects
             </span>
@@ -750,7 +772,7 @@ function ProjectMap({
               </button>
               <div className="hidden rounded-lg border border-slate-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur sm:block">
                 <p className="text-[9px] font-black uppercase tracking-[0.13em] text-[#128149]">{mapTitle}</p>
-                <p className="mt-0.5 max-w-[470px] text-[9px] text-slate-500">{mapInstruction}</p>
+                <p className="mt-0.5 text-[9px] text-slate-500">Dots are projects; colour identifies programme.</p>
               </div>
             </div>
 
@@ -813,12 +835,40 @@ function ProjectMap({
                             strokeWidth="1.35"
                             vectorEffect="non-scaling-stroke"
                           />
-                          <AreaLabel
+                          <MetricLabel
                             name={name}
                             metrics={metrics}
                             x={centroid.x}
                             y={centroid.y}
                           />
+                        </g>
+                      );
+                    })}
+
+                    {layers.Projects && filteredProjects.map((project) => {
+                      const position = nationalPoints.get(project.id);
+                      if (!position) return null;
+                      const color = projectMarkerColor(project, layers.Status);
+                      return (
+                        <g
+                          key={project.id}
+                          className="veritas-pin cursor-pointer"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openState(project.state);
+                          }}
+                        >
+                          <circle
+                            cx={position.x}
+                            cy={position.y}
+                            r="2.8"
+                            fill={color}
+                            stroke="#ffffff"
+                            strokeWidth="0.95"
+                            vectorEffect="non-scaling-stroke"
+                          >
+                            <title>{`${project.name} · ${project.programme}`}</title>
+                          </circle>
                         </g>
                       );
                     })}
@@ -858,21 +908,51 @@ function ProjectMap({
                           d={geometryPath(feature.geometry, lgaProjector)}
                           fill={fill}
                           stroke={isSelected ? "#117a44" : "#ffffff"}
-                          strokeWidth={isSelected ? "2.4" : "1.1"}
+                          strokeWidth={isSelected ? "2" : "1.2"}
                           vectorEffect="non-scaling-stroke"
-                          opacity={selectedLga && !isSelected ? 0.78 : 1}
                         />
-                        <AreaLabel
-                          name={name}
-                          metrics={metrics}
-                          x={centroid.x}
-                          y={centroid.y}
-                          compact
-                          selected={isSelected}
-                        />
+                        {!selectedLga && (
+                          <MetricLabel
+                            name={name}
+                            metrics={metrics}
+                            x={centroid.x}
+                            y={centroid.y}
+                            compact
+                          />
+                        )}
                       </g>
                     );
                   })}
+
+                  {!selectedLga &&
+                    layers.Projects &&
+                    stateProjects.map((project) => {
+                      const position = statePoints.get(project.id);
+                      if (!position) return null;
+                      const color = projectMarkerColor(project, layers.Status);
+                      return (
+                        <g
+                          key={project.id}
+                          className="veritas-pin cursor-pointer"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openLga(project.lga);
+                          }}
+                        >
+                          <circle
+                            cx={position.x}
+                            cy={position.y}
+                            r="3.1"
+                            fill={color}
+                            stroke="#ffffff"
+                            strokeWidth="1"
+                            vectorEffect="non-scaling-stroke"
+                          >
+                            <title>{`${project.name} · ${project.programme}`}</title>
+                          </circle>
+                        </g>
+                      );
+                    })}
 
                   {selectedLga &&
                     layers.Projects &&
@@ -892,17 +972,6 @@ function ProjectMap({
                             setSelectedProject(project);
                           }}
                         >
-                          {(selected || project.verified) && (
-                            <circle
-                              cx={position.x}
-                              cy={position.y}
-                              r={radius}
-                              fill="none"
-                              stroke={color}
-                              strokeWidth="2"
-                              className="veritas-pulse-ring"
-                            />
-                          )}
                           <circle
                             cx={position.x}
                             cy={position.y}
@@ -974,37 +1043,25 @@ function ProjectMap({
               </div>
             )}
 
-            <div className="absolute bottom-3 left-3 z-20 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur">
-              {!selectedLga ? (
-                <>
-                  <span className="text-[8px] font-extrabold uppercase tracking-[0.09em] text-[#128149]">
-                    {!selectedState ? "National coverage" : `${selectedState} LGAs`}
-                  </span>
-                  <span className="flex items-center gap-1.5 text-[8px] font-semibold text-slate-500">
-                    <i className="h-2.5 w-2.5 rounded-sm bg-[#80bb90] shadow-[0_0_0_3px_rgba(128,187,144,0.16)]" />
-                    Density = project concentration
-                  </span>
-                  <span className="border-l border-slate-200 pl-3 text-[8px] font-semibold text-slate-400">
-                    {!selectedState ? "All state areas stay visible" : `All ${selectedStateLgas.length} LGAs stay visible`}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="text-[8px] font-extrabold uppercase tracking-[0.09em] text-slate-500">Project status</span>
-                  {[
-                    ["Verified", "#159254"],
-                    ["Active", "#2d78c4"],
-                    ["Submitted", "#d4a514"],
-                    ["Pending", "#df7b22"],
-                  ].map(([name, color]) => (
-                    <span key={name} className="flex items-center gap-1.5 text-[8px] font-bold text-slate-600">
-                      <i className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color, boxShadow: `0 0 0 3px ${color}22` }} />
-                      {name}
-                    </span>
-                  ))}
-                  <span className="border-l border-slate-200 pl-3 text-[8px] font-semibold text-slate-400">Pins appear only at LGA level</span>
-                </>
+            <div className="absolute bottom-3 left-3 z-20 flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur">
+              <span className="text-[8px] font-extrabold uppercase tracking-[0.09em] text-slate-500">Programme</span>
+              {[
+                ["NEP", programmeColors.NEP],
+                ["DARES", programmeColors.DARES],
+                ["AMP", programmeColors.AMP],
+              ].map(([name, color]) => (
+                <span key={name} className="flex items-center gap-1.5 text-[8px] font-bold text-slate-600">
+                  <i className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
+                  {name}
+                </span>
+              ))}
+              {mappedProjects.some((project) => project.programme === "Others") && (
+                <span className="flex items-center gap-1.5 text-[8px] font-bold text-slate-400">
+                  <i className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: programmeColors.Others }} />
+                  Other
+                </span>
               )}
+              <span className="border-l border-slate-200 pl-3 text-[8px] font-semibold text-slate-400">Each dot = project</span>
             </div>
           </div>
         </div>
@@ -1026,7 +1083,7 @@ function ProjectMap({
                     <MapPinned className="h-4 w-4" /> Project Map
                   </p>
                   <h2 className="mt-1 text-[16px] font-extrabold text-[#173b2a]">Explore & filter</h2>
-                  <p className="mt-1 text-[10px] leading-4 text-slate-500">National → State → LGA → Project. Pins appear only after an LGA is selected.</p>
+                  <p className="mt-1 text-[10px] leading-4 text-slate-500">The map stays full-width until you open this panel.</p>
                 </div>
                 <button
                   type="button"
