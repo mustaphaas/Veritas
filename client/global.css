@@ -489,11 +489,3 @@ section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(3) { background: #f0ea
 section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(4) { background: #e4f8f6 !important; border-color: #9bd8d1 !important; }
 section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(5) { background: #fff1d6 !important; border-color: #e9c46a !important; }
 section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > button:last-child:nth-child(5) { background: #fff1d6 !important; border-color: #e9c46a !important; }
-
-@media (min-width: 1024px) {
-  .compact-map-row > aside { overflow-y: auto; }
-  div.compact-map-row > div:has(> svg[aria-label^="Interactive Nigeria state map"]) {
-    height: 320px !important;
-    min-height: 320px !important;
-  }
-}
