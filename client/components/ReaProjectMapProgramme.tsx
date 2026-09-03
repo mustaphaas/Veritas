@@ -689,7 +689,7 @@ function ProjectMap({
       : `${selectedLga} · Project Locations`;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 top-[94px] z-[24] overflow-hidden bg-[#edf2ee] lg:left-[190px]">
+    <div className="fixed bottom-0 left-0 right-0 top-[94px] z-[24] overflow-hidden bg-[#edf2ee] lg:left-[72px]">
       <style>{MAP_VISUAL_STYLES}</style>
       <section className="flex h-full min-w-0 flex-col">
         <header className="flex min-h-[64px] items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 lg:px-5">
@@ -1307,6 +1307,17 @@ function ProjectMap({
 
 export default function ReaProjectMapProgrammeHost() {
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    document.querySelectorAll<HTMLElement>('[data-veritas-project-map="true"]').forEach((button) => {
+      button.className = open
+        ? "veritas-rail-link is-active flex w-full items-center gap-3 rounded-md bg-[#edf9f0] px-3 py-2.5 text-left text-sm font-medium text-[#08733f] transition-colors"
+        : "veritas-rail-link flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900";
+      button.setAttribute("aria-current", open ? "page" : "false");
+      const icon = button.querySelector("svg");
+      if (icon) icon.setAttribute("stroke-width", open ? "2.5" : "1.8");
+    });
+  }, [open]);
 
   useEffect(() => {
     const sync = () => {
