@@ -1309,6 +1309,11 @@ export default function ReaProjectMapProgrammeHost() {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
+    document.body.classList.toggle("veritas-project-map-open", open);
+    return () => document.body.classList.remove("veritas-project-map-open");
+  }, [open]);
+
+  useEffect(() => {
     document.querySelectorAll<HTMLElement>('[data-veritas-project-map="true"]').forEach((button) => {
       button.className = open
         ? "veritas-rail-link is-active flex w-full items-center gap-3 rounded-md bg-[#edf9f0] px-3 py-2.5 text-left text-sm font-medium text-[#08733f] transition-colors"
