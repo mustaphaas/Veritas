@@ -546,3 +546,10 @@ body.veritas-project-map-open button[aria-label="Open Veritas and ask a question
   visibility: hidden !important;
   pointer-events: none !important;
 }
+
+body.veritas-project-map-open nav button[data-label="Overview"],
+body.veritas-project-map-open nav button[aria-label="Overview"] {
+  background: transparent !important;
+  color: #64748b !important;
+  box-shadow: none !important;
+}
