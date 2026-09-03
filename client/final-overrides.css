@@ -6,6 +6,158 @@ section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:first-c
   display: none !important;
 }
 
+/* Executive national-map treatment. */
+.rea-national-map-card {
+  border-color: #d5e5db !important;
+  border-radius: 16px !important;
+  box-shadow: 0 12px 32px rgba(21, 59, 40, .07) !important;
+}
+
+.rea-national-map-header {
+  min-height: 74px;
+  padding: 14px 18px !important;
+  border-color: #dce9e0 !important;
+  background: linear-gradient(105deg, #fff 0%, #f5fff8 100%);
+}
+
+.rea-map-eyebrow {
+  margin-bottom: 3px;
+  color: #159455;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.rea-national-map-header small {
+  display: block;
+  margin-top: 3px;
+  color: #718078;
+  font-size: 10px;
+}
+
+.rea-national-map-header [aria-label="Map viewing mode"] {
+  margin-top: 0 !important;
+  border-color: #d2e5d8 !important;
+  border-radius: 9px !important;
+  background: #f5fbf7 !important;
+  padding: 3px !important;
+}
+
+.rea-national-map-header [aria-label="Map viewing mode"] button {
+  min-height: 30px;
+  border-radius: 7px !important;
+  padding-inline: 13px !important;
+}
+
+.rea-national-map-shell {
+  height: 470px !important;
+  min-height: 470px !important;
+  background: #f1faf4 !important;
+  isolation: isolate;
+}
+
+.rea-national-map-shell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: .3;
+  background-image: linear-gradient(rgba(116, 151, 128, .07) 1px, transparent 1px), linear-gradient(90deg, rgba(116, 151, 128, .07) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.rea-national-map-shell svg {
+  box-sizing: border-box;
+  padding: 28px 46px 36px !important;
+  transform: none !important;
+  filter: drop-shadow(0 13px 14px rgba(22, 77, 45, .10));
+}
+
+.rea-national-map-shell svg path {
+  transition: filter .16s ease, opacity .16s ease, stroke-width .16s ease;
+}
+
+.rea-national-map-shell svg path[role="button"]:hover {
+  filter: saturate(1.1) brightness(.98);
+}
+
+.rea-map-controls {
+  flex-direction: row !important;
+  gap: 2px;
+  overflow: visible !important;
+  padding: 3px;
+  border-color: #d3e4d9 !important;
+  border-radius: 11px !important;
+  background: rgba(255, 255, 255, .94) !important;
+  box-shadow: 0 8px 20px rgba(21, 59, 40, .10) !important;
+  backdrop-filter: blur(10px);
+}
+
+.rea-map-controls button {
+  border: 0 !important;
+  border-radius: 8px !important;
+  padding: 8px !important;
+}
+
+.rea-map-controls button:hover {
+  background: #dff9e9 !important;
+  color: #08733f !important;
+}
+
+.rea-map-legend {
+  right: 14px !important;
+  bottom: 14px !important;
+  left: auto !important;
+  width: 228px !important;
+  border-color: #d0e2d6 !important;
+  border-radius: 12px !important;
+  background: rgba(255, 255, 255, .94) !important;
+  box-shadow: 0 10px 26px rgba(21, 59, 40, .11) !important;
+}
+
+[aria-label$="state details"] {
+  border-color: #dbe9df !important;
+  background: linear-gradient(180deg, #fff 0%, #f7fff9 100%) !important;
+}
+
+.rea-map-caption {
+  min-height: 44px;
+  border-color: #dbe9df !important;
+  background: #f2fff6 !important;
+  color: #64756b !important;
+}
+
+@media (max-width: 767px) {
+  .rea-national-map-header {
+    align-items: flex-start !important;
+    padding: 13px 14px !important;
+  }
+
+  .rea-national-map-header [aria-label="Map viewing mode"] {
+    width: 100%;
+    margin-left: 0 !important;
+  }
+
+  .rea-national-map-shell {
+    height: 420px !important;
+    min-height: 420px !important;
+  }
+
+  .rea-national-map-shell svg {
+    padding: 44px 10px 78px !important;
+  }
+
+  .rea-map-legend {
+    right: 10px !important;
+    bottom: 10px !important;
+    width: calc(100% - 20px) !important;
+    max-width: 228px !important;
+  }
+}
+
 section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:first-child::before {
   content: "" !important;
   display: block !important;
@@ -374,5 +526,119 @@ aside > div.flex.h-\[94px\].items-center.gap-3.px-4 > div:first-child img {
 
   .veritas-side-rail .veritas-rail-footer > button {
     position: relative;
+  }
+}
+
+/* Authoritative desktop rail alignment; kept last so older experiments cannot
+   displace the portable holder or its shared icon grid. */
+@media (min-width: 1024px) {
+  .veritas-side-rail {
+    top: 18px !important;
+    left: 14px !important;
+    bottom: auto !important;
+    width: 58px !important;
+    height: auto !important;
+    max-height: calc(100vh - 36px) !important;
+    align-items: center !important;
+    border: 1px solid #d6e7dc !important;
+    border-radius: 16px !important;
+    background: #fff !important;
+    box-shadow: 0 12px 32px rgba(14, 55, 32, .11) !important;
+  }
+
+  .veritas-side-rail .veritas-rail-brand {
+    width: 100% !important;
+    height: 58px !important;
+    min-height: 58px !important;
+    display: grid !important;
+    place-items: center !important;
+    gap: 0 !important;
+    padding: 0 !important;
+    border-radius: 16px 16px 0 0 !important;
+  }
+
+  .veritas-side-rail .veritas-rail-brand > div:first-child {
+    width: 36px !important;
+    height: 36px !important;
+    flex: 0 0 36px !important;
+    display: grid !important;
+    place-items: center !important;
+    margin: 0 !important;
+    border: 1px solid #bfe7cf !important;
+    border-radius: 11px !important;
+    background: #effdf4 !important;
+    box-shadow: 0 4px 12px rgba(18, 134, 75, .10) !important;
+  }
+
+  .veritas-side-rail .veritas-rail-brand > div:first-child img {
+    width: 31px !important;
+    height: 31px !important;
+  }
+
+  .veritas-side-rail .veritas-rail-separator {
+    width: 32px !important;
+    margin: 0 auto !important;
+  }
+
+  .veritas-side-rail .veritas-rail-nav {
+    width: 100% !important;
+    flex: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 5px !important;
+    padding: 9px !important;
+  }
+
+  .veritas-side-rail .veritas-rail-link,
+  .veritas-side-rail .veritas-rail-footer > button {
+    width: 40px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    display: grid !important;
+    place-items: center !important;
+    gap: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 10px !important;
+  }
+
+  .veritas-side-rail .veritas-rail-link.is-active {
+    background: #dff9e9 !important;
+    color: #08733f !important;
+    box-shadow: inset 0 0 0 1px #bfe7cf, 0 4px 12px rgba(18, 134, 75, .10) !important;
+  }
+
+  .veritas-side-rail .veritas-rail-link.is-active::before {
+    left: -9px !important;
+    top: 10px !important;
+    width: 3px !important;
+    height: 20px !important;
+    background: #16a15a !important;
+  }
+
+  .veritas-side-rail .veritas-rail-footer {
+    width: 100% !important;
+    flex: none !important;
+    display: flex !important;
+    justify-content: center !important;
+    padding: 9px !important;
+    border-radius: 0 0 16px 16px !important;
+  }
+
+  .veritas-side-rail [data-label]::after {
+    left: 48px !important;
+  }
+
+  .veritas-side-rail .veritas-rail-link svg,
+  .veritas-side-rail .veritas-rail-footer svg {
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  .veritas-side-rail .veritas-rail-link:hover,
+  .veritas-side-rail .veritas-rail-footer > button:hover {
+    background: #effdf4 !important;
+    color: #08733f !important;
   }
 }
