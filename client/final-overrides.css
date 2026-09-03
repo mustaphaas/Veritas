@@ -82,3 +82,128 @@ aside > div.flex.h-\[94px\].items-center.gap-3.px-4 > div:first-child img {
   object-fit: contain !important;
   border-radius: 9999px !important;
 }
+
+/* Compact desktop icon rail, matched to the supplied sidebar reference. */
+@media (min-width: 1024px) {
+  .veritas-side-rail {
+    width: 78px !important;
+    align-items: stretch;
+    border-right: 1px solid #e4e9e6 !important;
+    background: #ffffff !important;
+    box-shadow: 5px 0 24px rgba(22, 59, 38, .045);
+  }
+
+  .veritas-side-rail .veritas-rail-brand {
+    height: 86px !important;
+    min-height: 86px;
+    justify-content: center !important;
+    padding: 14px !important;
+  }
+
+  .veritas-side-rail .veritas-rail-brand > div:first-child {
+    width: 45px !important;
+    height: 45px !important;
+    flex: 0 0 45px !important;
+    display: grid;
+    place-items: center;
+    border: 1px solid #dce7e0 !important;
+    border-radius: 50% !important;
+    background: #fff !important;
+    box-shadow: 0 5px 14px rgba(18, 74, 42, .08) !important;
+  }
+
+  .veritas-side-rail .veritas-rail-brand > div:first-child img {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .veritas-side-rail .veritas-rail-brand > div:last-child {
+    display: none !important;
+  }
+
+  .veritas-side-rail .veritas-rail-separator {
+    width: 34px;
+    align-self: center;
+    background: #e7ece9 !important;
+  }
+
+  .veritas-side-rail .veritas-rail-nav {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 9px;
+    padding: 22px 12px !important;
+  }
+
+  .veritas-side-rail .veritas-rail-link {
+    position: relative;
+    width: 46px !important;
+    height: 46px;
+    min-height: 46px;
+    justify-content: center;
+    gap: 0 !important;
+    border: 1px solid transparent;
+    border-radius: 12px !important;
+    padding: 0 !important;
+    color: #7c8982 !important;
+  }
+
+  .veritas-side-rail .veritas-rail-link:hover {
+    border-color: #dce8e0;
+    background: #f6faf7 !important;
+    color: #08733f !important;
+  }
+
+  .veritas-side-rail .veritas-rail-link.is-active {
+    border-color: #cfe4d6;
+    background: #edf8f1 !important;
+    color: #08733f !important;
+    box-shadow: 0 6px 15px rgba(8, 115, 63, .08);
+  }
+
+  .veritas-side-rail .veritas-rail-link.is-active::before {
+    content: "";
+    position: absolute;
+    left: -13px;
+    top: 11px;
+    width: 3px;
+    height: 24px;
+    border-radius: 0 4px 4px 0;
+    background: #08733f;
+  }
+
+  .veritas-side-rail .veritas-rail-link svg {
+    width: 19px !important;
+    height: 19px !important;
+  }
+
+  .veritas-side-rail .veritas-rail-link > span,
+  .veritas-side-rail .veritas-rail-footer span {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+    clip: rect(0 0 0 0) !important;
+    white-space: nowrap !important;
+  }
+
+  .veritas-side-rail .veritas-rail-footer {
+    display: flex;
+    justify-content: center;
+    padding: 14px 12px 18px !important;
+  }
+
+  .veritas-side-rail .veritas-rail-footer > button {
+    width: 46px !important;
+    height: 46px;
+    justify-content: center;
+    gap: 0 !important;
+    border-radius: 12px !important;
+    padding: 0 !important;
+  }
+
+  .veritas-side-rail .veritas-rail-footer > button:hover {
+    background: #f6faf7 !important;
+    color: #08733f !important;
+  }
+}
