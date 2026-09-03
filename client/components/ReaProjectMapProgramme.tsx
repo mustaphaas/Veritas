@@ -1320,8 +1320,10 @@ export default function ReaProjectMapProgrammeHost() {
         const button = document.createElement("button");
         button.type = "button";
         button.dataset.veritasProjectMap = "true";
+        button.dataset.label = "Project Map";
+        button.setAttribute("aria-label", "Project Map");
         button.className =
-          "flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900";
+          "veritas-rail-link flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900";
         button.innerHTML =
           '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21 3 6"></polygon><line x1="9" y1="3" x2="9" y2="18"></line><line x1="15" y1="6" x2="15" y2="21"></line></svg><span>Project Map</span>';
         button.addEventListener("click", () => setOpen(true));
