@@ -207,3 +207,101 @@ aside > div.flex.h-\[94px\].items-center.gap-3.px-4 > div:first-child img {
     color: #08733f !important;
   }
 }
+
+/* Floating portable rail with hover-reveal labels. */
+@media (min-width: 1024px) {
+  .veritas-side-rail {
+    top: 20px !important;
+    bottom: auto !important;
+    left: 18px !important;
+    width: 66px !important;
+    height: auto !important;
+    max-height: calc(100vh - 40px);
+    overflow: visible !important;
+    border: 1px solid #dfe7e2 !important;
+    border-radius: 19px !important;
+    box-shadow: 0 14px 36px rgba(18, 55, 34, .11) !important;
+  }
+
+  .veritas-side-rail .veritas-rail-brand {
+    height: 68px !important;
+    min-height: 68px !important;
+    padding: 11px !important;
+    border-radius: 19px 19px 0 0;
+  }
+
+  .veritas-side-rail .veritas-rail-brand > div:first-child {
+    width: 40px !important;
+    height: 40px !important;
+    flex-basis: 40px !important;
+    box-shadow: none !important;
+  }
+
+  .veritas-side-rail .veritas-rail-brand > div:first-child img {
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  .veritas-side-rail .veritas-rail-separator {
+    width: 30px !important;
+  }
+
+  .veritas-side-rail .veritas-rail-nav {
+    flex: none !important;
+    gap: 5px !important;
+    padding: 11px 9px !important;
+  }
+
+  .veritas-side-rail .veritas-rail-link,
+  .veritas-side-rail .veritas-rail-footer > button {
+    width: 46px !important;
+    height: 42px !important;
+    min-height: 42px !important;
+    border-radius: 11px !important;
+  }
+
+  .veritas-side-rail .veritas-rail-link.is-active::before {
+    left: -10px !important;
+    top: 10px !important;
+    height: 22px !important;
+  }
+
+  .veritas-side-rail .veritas-rail-footer {
+    flex: none !important;
+    padding: 9px 9px 11px !important;
+    border-radius: 0 0 19px 19px;
+  }
+
+  .veritas-side-rail [data-label]::after {
+    content: attr(data-label);
+    position: absolute;
+    left: 58px;
+    top: 50%;
+    z-index: 60;
+    transform: translate(6px, -50%) scale(.96);
+    pointer-events: none;
+    opacity: 0;
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 8px;
+    background: #163c29;
+    padding: 7px 10px;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 650;
+    line-height: 1;
+    letter-spacing: .01em;
+    white-space: nowrap;
+    box-shadow: 0 8px 20px rgba(11, 43, 26, .18);
+    transition: opacity .14s ease, transform .14s ease;
+  }
+
+  .veritas-side-rail [data-label]:hover::after,
+  .veritas-side-rail [data-label]:focus-visible::after {
+    transform: translate(0, -50%) scale(1);
+    opacity: 1;
+  }
+
+  .veritas-side-rail .veritas-rail-footer > button {
+    position: relative;
+  }
+}
