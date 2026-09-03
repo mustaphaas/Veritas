@@ -433,14 +433,14 @@ aside > div.flex.h-\[94px\].items-center.gap-3.px-4 > div:first-child img {
     flex: none !important;
     display: flex !important;
     flex-direction: column !important;
-    align-items: center !important;
+    align-items: stretch !important;
     gap: 5px !important;
     padding: 9px !important;
   }
 
   .veritas-side-rail .veritas-rail-link,
   .veritas-side-rail .veritas-rail-footer > button {
-    width: 40px !important;
+    width: 100% !important;
     height: 40px !important;
     min-height: 40px !important;
     display: grid !important;
@@ -469,7 +469,8 @@ aside > div.flex.h-\[94px\].items-center.gap-3.px-4 > div:first-child img {
     width: 100% !important;
     flex: none !important;
     display: flex !important;
-    justify-content: center !important;
+    align-items: stretch !important;
+    justify-content: stretch !important;
     padding: 9px !important;
     border-radius: 0 0 16px 16px !important;
   }
