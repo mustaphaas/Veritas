@@ -517,3 +517,24 @@ section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button):hover > div 
   background: rgba(255, 255, 255, 0.18) !important;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28) !important;
 }
+
+/* Explicit selectors override the earlier executive KPI background rules. */
+body main section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > article:nth-child(1):hover { background: #3772ad !important; border-color: #3772ad !important; }
+body main section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > article:nth-child(2):hover { background: #08733f !important; border-color: #08733f !important; }
+body main section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > article:nth-child(3):hover { background: #7452bd !important; border-color: #7452bd !important; }
+body main section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > article:nth-child(4):hover { background: #168f83 !important; border-color: #168f83 !important; }
+body main section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > button:nth-child(5):hover { background: #d28a00 !important; border-color: #d28a00 !important; }
+
+body main section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > article:hover p,
+body main section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > article:hover svg,
+body main section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > button:hover p,
+body main section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > button:hover svg {
+  color: #ffffff !important;
+  fill: none;
+}
+
+body main section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > article:hover > div > div:first-child,
+body main section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > button:hover > div > div:first-child {
+  background: rgba(255, 255, 255, 0.18) !important;
+  color: #ffffff !important;
+}
