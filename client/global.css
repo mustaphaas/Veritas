@@ -538,3 +538,11 @@ body main section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > button:hover > div > di
   background: rgba(255, 255, 255, 0.18) !important;
   color: #ffffff !important;
 }
+
+/* Project Map is a dedicated workspace: keep the shared shell, hide Overview. */
+body.veritas-project-map-open main > div,
+body.veritas-project-map-open > #root > footer,
+body.veritas-project-map-open button[aria-label="Open Veritas and ask a question"] {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
