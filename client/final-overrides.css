@@ -6,6 +6,16 @@ section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:first-c
   display: none !important;
 }
 
+/* Project Map owns the active state while its dedicated workspace is open. */
+body.veritas-project-map-open .veritas-side-rail nav button[data-label="Overview"],
+body.veritas-project-map-open .veritas-side-rail nav button[aria-label="Overview"],
+body.veritas-project-map-open aside nav button[data-label="Overview"],
+body.veritas-project-map-open aside nav button[aria-label="Overview"] {
+  background: transparent !important;
+  color: #64748b !important;
+  box-shadow: none !important;
+}
+
 section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:first-child::before {
   content: "" !important;
   display: block !important;
