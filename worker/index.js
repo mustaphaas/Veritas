@@ -1,4 +1,4 @@
-const BUILD_ID = "veritas-2026-08-22-gemini-r36";
+const BUILD_ID = "veritas-2026-09-03-ui-cache-r1";
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -230,6 +230,22 @@ export default {
       });
     }
 
-    return env.ASSETS.fetch(request);
+    const assetResponse = await env.ASSETS.fetch(request);
+    const contentType = assetResponse.headers.get("Content-Type") || "";
+
+    if (contentType.includes("text/html")) {
+      const headers = new Headers(assetResponse.headers);
+      headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+      headers.set("Pragma", "no-cache");
+      headers.set("Expires", "0");
+      headers.set("X-Veritas-Build", BUILD_ID);
+      return new Response(assetResponse.body, {
+        status: assetResponse.status,
+        statusText: assetResponse.statusText,
+        headers,
+      });
+    }
+
+    return assetResponse;
   },
 };
