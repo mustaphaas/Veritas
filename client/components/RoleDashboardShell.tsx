@@ -30,7 +30,7 @@ type RoleDashboardShellProps = {
 
 function ReaBrand() {
   return (
-    <div className="flex h-[94px] items-center gap-3 px-4">
+    <div className="veritas-rail-brand flex h-[94px] items-center gap-3 px-4">
       <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white">
         <img src="/rea-brand-mark.svg" alt="REA" className="h-11 w-11 object-contain" />
       </div>
@@ -76,15 +76,17 @@ export default function RoleDashboardShell({
       >
         <ReaBrand />
       </button>
-      <div className="h-px bg-slate-200" />
-      <nav className="flex-1 space-y-2 px-3 py-5">
+      <div className="veritas-rail-separator h-px bg-slate-200" />
+      <nav className="veritas-rail-nav flex-1 space-y-2 px-3 py-5">
         {navigation.map(({ label, icon: Icon, href }) => {
           const active = activeNav === label;
-          const className = `flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium transition-colors ${active ? "bg-[#edf9f0] text-[#08733f]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`;
+          const className = `veritas-rail-link flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium transition-colors ${active ? "is-active bg-[#edf9f0] text-[#08733f]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`;
           return href ? (
             <Link
               key={label}
               to={href}
+              data-label={label}
+              aria-label={label}
               onClick={() => {
                 setInternalActiveNav(label);
                 onNavigationChange?.(label);
@@ -92,13 +94,15 @@ export default function RoleDashboardShell({
               }}
               className={className}
             >
-              <Icon className="h-[18px] w-[18px]" />
-              {label}
+              <Icon className="h-[18px] w-[18px]" strokeWidth={active ? 2.5 : 1.8} />
+              <span>{label}</span>
             </Link>
           ) : (
             <button
               key={label}
               type="button"
+              data-label={label}
+              aria-label={label}
               onClick={() => {
                 setInternalActiveNav(label);
                 onNavigationChange?.(label);
@@ -106,23 +110,26 @@ export default function RoleDashboardShell({
               }}
               className={className}
             >
-              <Icon className="h-[18px] w-[18px]" />
-              {label}
+              <Icon className="h-[18px] w-[18px]" strokeWidth={active ? 2.5 : 1.8} />
+              <span>{label}</span>
             </button>
           );
         })}
       </nav>
-      <div className="border-t border-slate-200 p-3">
+      <div className="veritas-rail-footer border-t border-slate-200 p-3">
         <button
           type="button"
+          data-label="Settings"
+          aria-label="Settings"
           onClick={() => {
             setInternalActiveNav("Settings");
             onNavigationChange?.("Settings");
             setMobileMenuOpen(false);
           }}
-          className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium ${activeNav === "Settings" ? "bg-[#edf9f0] text-[#08733f]" : "text-slate-600 hover:bg-slate-50"}`}
+          className={`veritas-rail-link flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium ${activeNav === "Settings" ? "is-active bg-[#edf9f0] text-[#08733f]" : "text-slate-600 hover:bg-slate-50"}`}
         >
-          <Settings className="h-[18px] w-[18px]" /> Settings
+          <Settings className="h-[18px] w-[18px]" strokeWidth={activeNav === "Settings" ? 2.5 : 1.8} />
+          <span>Settings</span>
         </button>
       </div>
     </>
@@ -130,7 +137,7 @@ export default function RoleDashboardShell({
 
   return (
     <div className="min-h-screen bg-[#f6f8f6] text-slate-900">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[190px] flex-col border-r border-slate-200 bg-white lg:flex">
+      <aside className="veritas-side-rail fixed inset-y-0 left-0 z-30 hidden w-[58px] flex-col border-r border-slate-200 bg-white lg:flex">
         {navContent}
       </aside>
       <div
@@ -157,7 +164,7 @@ export default function RoleDashboardShell({
         </aside>
       </div>
 
-      <main className="lg:pl-[190px]">
+      <main className="lg:pl-[72px]">
         <header className="sticky top-0 z-20 flex h-[94px] items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-7 lg:px-8">
           <div className="flex min-w-0 items-center gap-3">
             <button
