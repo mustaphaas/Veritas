@@ -310,5 +310,42 @@ article:has(> p.text-4xl) > div.mt-5.grid.grid-cols-3 > div p:last-child {
   font-weight: 500 !important;
 }
 
-/* Footer layout and colours are owned by VeritasFooter.tsx. */
-.veritas-footer { font-family: var(--veritas-font) !important; }
+/* NEP-like institutional footer: light neutral grey with REA green accents. */
+.veritas-footer {
+  margin-top: 2.5rem !important;
+  background: #e7e8e5 !important;
+  color: #3e4742 !important;
+  border-top: 1px solid #d0d3cf !important;
+  font-family: var(--veritas-font) !important;
+}
+.veritas-footer > div:first-child {
+  height: 2px !important;
+  border: 0 !important;
+  background: #08733f !important;
+}
+.veritas-footer a {
+  color: #525d57 !important;
+}
+.veritas-footer a:hover {
+  color: #08733f !important;
+}
+.veritas-footer svg {
+  color: #08733f !important;
+}
+.veritas-footer [class*="text-white"],
+.veritas-footer [class*="text-\[\#91dbaa\]"] {
+  color: #4b5750 !important;
+}
+.veritas-footer [class*="border-white"] {
+  border-color: #c9ceca !important;
+}
+.veritas-footer [class*="bg-white"] {
+  background-color: #f4f5f3 !important;
+}
+.veritas-footer > div:last-child {
+  border-top: 1px solid #cbd0cc !important;
+  background: #d9dbd8 !important;
+}
+.veritas-footer > div:last-child p {
+  color: #68716c !important;
+}

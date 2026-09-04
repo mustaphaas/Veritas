@@ -1,10 +1,48 @@
 .veritas-footer {
-  box-sizing: border-box;
+  position: relative !important;
+  overflow: hidden !important;
+  background: #eef9f1 !important;
+  color: #405b4a !important;
+  border-top-color: #cfe8d6 !important;
+}
+.veritas-footer > div:first-child {
+  background: transparent !important;
+}
+.veritas-footer a {
+  color: #587363 !important;
+}
+.veritas-footer a:hover {
+  color: #08733f !important;
+}
+.veritas-footer svg {
+  color: #08733f !important;
+}
+.veritas-footer [class*="text-white"],
+.veritas-footer [class*="text-\[\#91dbaa\]"] {
+  color: #3f5d49 !important;
+}
+.veritas-footer [class*="border-white"] {
+  border-color: #b9dbc3 !important;
+}
+.veritas-footer [class*="bg-white"] {
+  background-color: rgba(255, 255, 255, 0.76) !important;
+}
+.veritas-footer > div:last-child {
+  border-top-color: #cfe4d5 !important;
+  background: rgba(228, 244, 233, 0.92) !important;
+}
+.veritas-footer > div:last-child p {
+  color: #5a7463 !important;
 }
 
 @media (min-width: 1024px) {
   .veritas-footer {
     margin-left: 72px !important;
     width: calc(100% - 72px) !important;
+  }
+  .veritas-footer > div:nth-child(2),
+  .veritas-footer > div:last-child > div {
+    max-width: 1580px !important;
+    width: 100% !important;
   }
 }
