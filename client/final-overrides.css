@@ -262,11 +262,4 @@ aside > div.flex.h-\[94px\].items-center.gap-3.px-4 > div:first-child img {
     border-top: 1px solid #eef3ef !important;
     border-radius: 0 !important;
   }
-
-  /* Consultant Admin and Field Officer shells wrap the brand in a button.
-     Keep their navigation high on the rail, matching the REA Admin rhythm. */
-  .veritas-side-rail > button:first-child + .veritas-rail-separator + .veritas-rail-nav {
-    justify-content: flex-start !important;
-    padding-top: 12px !important;
-  }
 }
