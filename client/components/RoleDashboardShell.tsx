@@ -99,9 +99,12 @@ function SyncQueueDemo() {
           </span>
           <div className="min-w-0 pt-0.5">
             <div className="flex flex-wrap items-center gap-2.5">
-              <h2 className="text-[18px] font-bold tracking-tight text-[#173b2a] sm:text-xl">Sync Queue</h2>
+              <h2 className="text-[18px] font-bold tracking-tight text-[#173b2a] sm:text-xl">Offline Sync Queue</h2>
               <span className="inline-flex h-6 items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 text-[10px] font-bold text-slate-600">
                 4 records
+              </span>
+              <span className="inline-flex h-6 items-center rounded-full border border-[#b9dfc5] bg-[#eff9f2] px-2.5 text-[9px] font-bold text-[#08733f]">
+                Sequential upload
               </span>
             </div>
             <p className="mt-1.5 max-w-3xl text-[11px] leading-5 text-slate-500 sm:text-xs">
@@ -249,8 +252,11 @@ export default function RoleDashboardShell({
   const navigate = useNavigate();
   const location = useLocation();
   const { logout } = useAuth();
+  const normalizedPath = location.pathname.replace(/\/+$/, "") || "/";
   const showFieldSyncQueue =
-    title === "Field Officer Dashboard" && location.pathname === "/field-officer/sync";
+    title === "Field Officer Dashboard" &&
+    (normalizedPath === "/field-officer/sync" ||
+      normalizedPath.startsWith("/field-officer/sync/"));
 
   const displayedNavigation =
     title === "Field Officer Dashboard"
@@ -436,7 +442,7 @@ export default function RoleDashboardShell({
           </div>
         </header>
         <div className="mx-auto max-w-[1580px] px-4 py-4 sm:px-7">
-          {showFieldSyncQueue ? <SyncQueueDemo /> : children}
+          {showFieldSyncQueue ? <SyncQueueDemo key={normalizedPath} /> : children}
         </div>
       </main>
     </div>
