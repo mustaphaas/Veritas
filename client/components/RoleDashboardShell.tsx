@@ -62,6 +62,22 @@ export default function RoleDashboardShell({
   const navigate = useNavigate();
   const { logout } = useAuth();
 
+  const displayedNavigation =
+    title === "Field Officer Dashboard"
+      ? navigation
+          .filter((item) => item.label !== "Inspections")
+          .map((item) =>
+            item.label === "My Assignments"
+              ? {
+                  ...item,
+                  label: "Projects & Inspections",
+                  href: "/field-officer/inspections",
+                  sourceLabel: "Inspections",
+                }
+              : { ...item, sourceLabel: item.label },
+          )
+      : navigation.map((item) => ({ ...item, sourceLabel: item.label }));
+
   const navContent = (
     <>
       <button
@@ -78,8 +94,11 @@ export default function RoleDashboardShell({
       </button>
       <div className="veritas-rail-separator h-px bg-slate-200" />
       <nav className="veritas-rail-nav flex-1 space-y-2 px-3 py-5">
-        {navigation.map(({ label, icon: Icon, href }) => {
-          const active = activeNav === label;
+        {displayedNavigation.map(({ label, icon: Icon, href, sourceLabel }) => {
+          const active =
+            activeNav === sourceLabel ||
+            (label === "Projects & Inspections" &&
+              (activeNav === "My Assignments" || activeNav === "Inspections"));
           const className = `veritas-rail-link flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-medium transition-colors ${active ? "is-active bg-[#edf9f0] text-[#08733f]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`;
           return href ? (
             <Link
@@ -88,8 +107,8 @@ export default function RoleDashboardShell({
               data-label={label}
               aria-label={label}
               onClick={() => {
-                setInternalActiveNav(label);
-                onNavigationChange?.(label);
+                setInternalActiveNav(sourceLabel);
+                onNavigationChange?.(sourceLabel);
                 setMobileMenuOpen(false);
               }}
               className={className}
@@ -104,8 +123,8 @@ export default function RoleDashboardShell({
               data-label={label}
               aria-label={label}
               onClick={() => {
-                setInternalActiveNav(label);
-                onNavigationChange?.(label);
+                setInternalActiveNav(sourceLabel);
+                onNavigationChange?.(sourceLabel);
                 setMobileMenuOpen(false);
               }}
               className={className}
