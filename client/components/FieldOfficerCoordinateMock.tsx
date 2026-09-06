@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 
 const STORAGE_KEY = "rea-inspection-workflow-v4";
 const MOCK_ID = "REA-FCT-GPS-0001";
-const REFRESH_KEY = "rea-field-demo-panama-refresh-v1";
+const REFRESH_KEY = "rea-field-demo-panama-refresh-v2";
 
 export default function FieldOfficerCoordinateMock() {
   const location = useLocation();
@@ -38,14 +38,17 @@ export default function FieldOfficerCoordinateMock() {
         latitude: 9.101435,
         longitude: 7.4936936,
         geofenceRadius: 250,
-        status: existing?.status ?? "Assigned",
-        syncStatus: existing?.syncStatus ?? "synced",
-        audit: existing?.audit ?? [
+        status: "Assigned",
+        routeStartedAt: undefined,
+        arrival: undefined,
+        report: undefined,
+        syncStatus: "synced",
+        audit: [
           {
             id: `audit-${Date.now().toString(36)}`,
             at: now,
             actor: "Consultant Admin",
-            action: "Assigned Panama Abuja GPS field demo to Amina Yusuf",
+            action: "Reset Panama Abuja GPS demo for live arrival verification",
             deviceId: "REA-DEMO-DEVICE",
             deviceType: "Mobile phone",
           },
@@ -59,17 +62,19 @@ export default function FieldOfficerCoordinateMock() {
         updated.unshift(mockAssignment);
       }
 
-      const newValue = JSON.stringify(updated);
-      const alreadyCorrect =
-        existing?.projectName === "Panama Abuja GPS Field Demo" &&
-        existing?.community === "Panama, Abuja" &&
-        existing?.lga === "Abuja Municipal Area Council" &&
-        existing?.latitude === 9.101435 &&
-        existing?.longitude === 7.4936936;
+      const shouldReset =
+        !existing ||
+        existing.projectName !== "Panama Abuja GPS Field Demo" ||
+        existing.community !== "Panama, Abuja" ||
+        existing.lga !== "Abuja Municipal Area Council" ||
+        existing.latitude !== 9.101435 ||
+        existing.longitude !== 7.4936936 ||
+        existing.status !== "Assigned" ||
+        Boolean(existing.arrival) ||
+        Boolean(existing.routeStartedAt);
 
-      if (!alreadyCorrect) {
-        window.localStorage.setItem(STORAGE_KEY, newValue);
-
+      if (shouldReset) {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
         if (window.sessionStorage.getItem(REFRESH_KEY) !== "done") {
           window.sessionStorage.setItem(REFRESH_KEY, "done");
           window.location.reload();
