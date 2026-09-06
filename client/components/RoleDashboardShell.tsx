@@ -91,66 +91,70 @@ const syncQueueDemo = [
 
 function SyncQueueDemo() {
   return (
-    <section className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_26px_rgba(15,23,42,0.06)]">
-      <div className="flex flex-col gap-4 border-b border-slate-100 px-5 py-5 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#d5eadc] bg-[#edf8f0] text-[#08733f]">
+    <section className="w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_12px_34px_rgba(15,23,42,0.06)]">
+      <div className="flex flex-col gap-5 border-b border-slate-100 px-5 py-5 sm:px-6 sm:py-6 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex min-w-0 items-start gap-4">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-[#d4e9db] bg-[#eef8f1] text-[#08733f] shadow-sm">
             <CloudUpload className="h-5 w-5" />
           </span>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-lg font-bold tracking-tight text-[#173b2a]">Sync Queue</h2>
-              <span className="rounded-full bg-slate-100 px-2 py-1 text-[9px] font-bold text-slate-500">4 records</span>
+          <div className="min-w-0 pt-0.5">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h2 className="text-[18px] font-bold tracking-tight text-[#173b2a] sm:text-xl">Sync Queue</h2>
+              <span className="inline-flex h-6 items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 text-[10px] font-bold text-slate-600">
+                4 records
+              </span>
             </div>
-            <p className="mt-1 max-w-2xl text-[11px] leading-5 text-slate-500">
-              Field inspection records waiting to upload. Records remain stored safely on the device until synchronization succeeds.
+            <p className="mt-1.5 max-w-3xl text-[11px] leading-5 text-slate-500 sm:text-xs">
+              Field inspection records waiting to upload. Records remain securely stored on the device until synchronization succeeds.
             </p>
           </div>
         </div>
+
         <button
           type="button"
-          className="inline-flex h-10 w-fit items-center justify-center gap-2 rounded-lg bg-[#08733f] px-4 text-[10px] font-bold text-white shadow-sm transition hover:bg-[#066535]"
+          className="inline-flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[#08733f] px-4 text-[10px] font-bold text-white shadow-[0_4px_12px_rgba(8,115,63,0.18)] transition hover:bg-[#066535] sm:w-fit"
         >
-          <RefreshCw className="h-3.5 w-3.5" /> Sync all records
+          <RefreshCw className="h-3.5 w-3.5" />
+          Sync all records
         </button>
       </div>
 
-      <div className="grid gap-3 border-b border-slate-100 bg-[#f8fbf9] p-4 sm:grid-cols-3 sm:p-5">
-        <div className="flex min-h-[96px] items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-          <div>
+      <div className="grid gap-3 border-b border-slate-100 bg-[#f7faf8] p-4 sm:grid-cols-3 sm:p-5 lg:p-6">
+        <div className="flex min-h-[108px] items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-[0_3px_12px_rgba(15,23,42,0.035)] sm:px-5">
+          <div className="min-w-0">
             <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Queued</p>
-            <p className="mt-1 text-2xl font-bold text-[#173b2a]">4</p>
-            <p className="mt-1 text-[9px] text-slate-400">46.9 MB pending</p>
+            <p className="mt-1 text-[26px] font-bold leading-none text-[#173b2a]">4</p>
+            <p className="mt-2 text-[9px] font-medium text-slate-400">46.9 MB pending</p>
           </div>
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
             <CloudUpload className="h-4 w-4" />
           </span>
         </div>
 
-        <div className="flex min-h-[96px] items-center justify-between rounded-xl border border-[#b9dfc5] bg-white px-4 py-3 shadow-sm">
-          <div>
+        <div className="flex min-h-[108px] items-center justify-between rounded-xl border border-[#b9dfc5] bg-white px-4 py-4 shadow-[0_3px_12px_rgba(15,23,42,0.035)] sm:px-5">
+          <div className="min-w-0">
             <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#5e8069]">Ready</p>
-            <p className="mt-1 text-2xl font-bold text-[#08733f]">2</p>
-            <p className="mt-1 text-[9px] text-[#6e8b76]">Ready to synchronize</p>
+            <p className="mt-1 text-[26px] font-bold leading-none text-[#08733f]">2</p>
+            <p className="mt-2 text-[9px] font-medium text-[#6e8b76]">Ready to synchronize</p>
           </div>
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#edf8f0] text-[#08733f]">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#edf8f0] text-[#08733f]">
             <CheckCircle2 className="h-4 w-4" />
           </span>
         </div>
 
-        <div className="flex min-h-[96px] items-center justify-between rounded-xl border border-[#f0d88d] bg-white px-4 py-3 shadow-sm">
-          <div>
+        <div className="flex min-h-[108px] items-center justify-between rounded-xl border border-[#f0d88d] bg-white px-4 py-4 shadow-[0_3px_12px_rgba(15,23,42,0.035)] sm:px-5">
+          <div className="min-w-0">
             <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#8d6a1e]">Attention</p>
-            <p className="mt-1 text-2xl font-bold text-[#a56c00]">2</p>
-            <p className="mt-1 text-[9px] text-[#8d764c]">Waiting or retry required</p>
+            <p className="mt-1 text-[26px] font-bold leading-none text-[#a56c00]">2</p>
+            <p className="mt-2 text-[9px] font-medium text-[#8d764c]">Waiting or retry required</p>
           </div>
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#fff8e5] text-[#a56c00]">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#fff8e5] text-[#a56c00]">
             <Signal className="h-4 w-4" />
           </span>
         </div>
       </div>
 
-      <div className="hidden grid-cols-[minmax(0,1.45fr)_minmax(220px,.75fr)_minmax(210px,.6fr)] items-center gap-6 border-b border-slate-100 bg-white px-6 py-3 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-400 lg:grid">
+      <div className="hidden grid-cols-[minmax(0,1.45fr)_minmax(250px,.85fr)_240px] items-center gap-8 border-b border-slate-100 bg-slate-50/60 px-6 py-3.5 text-[9px] font-bold uppercase tracking-[0.13em] text-slate-400 lg:grid">
         <span>Inspection record</span>
         <span>Package details</span>
         <span className="text-right">Sync status</span>
@@ -158,59 +162,70 @@ function SyncQueueDemo() {
 
       <div className="divide-y divide-slate-100">
         {syncQueueDemo.map((item) => (
-          <div
+          <article
             key={item.id}
-            className="grid gap-4 px-5 py-5 transition-colors hover:bg-[#fbfdfb] sm:px-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(220px,.75fr)_minmax(210px,.6fr)] lg:items-center lg:gap-6"
+            className="grid gap-4 px-5 py-5 transition-colors hover:bg-[#fbfdfb] sm:px-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(250px,.85fr)_240px] lg:items-center lg:gap-8 lg:py-5"
           >
             <div className="min-w-0">
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-3.5">
                 <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#d5eadc] bg-[#edf8f0] text-[#08733f]">
                   <Signal className="h-4 w-4" />
                 </span>
-                <div className="min-w-0">
-                  <p className="truncate text-xs font-bold text-[#173b2a]">{item.project}</p>
-                  <p className="mt-1 text-[9px] font-medium text-slate-500">{item.id}</p>
-                  <p className="mt-2 text-[9px] text-slate-400">{item.location}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[12px] font-bold leading-5 text-[#173b2a]">{item.project}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[9px] font-medium text-slate-500">
+                    <span>{item.id}</span>
+                    <span className="text-slate-300">•</span>
+                    <span>{item.location}</span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="min-w-0 rounded-lg bg-slate-50 px-3 py-2.5 lg:bg-transparent lg:px-0 lg:py-0">
-              <p className="text-[10px] font-semibold leading-4 text-slate-600">{item.type}</p>
-              <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[9px] text-slate-400">
-                <Clock3 className="h-3 w-3 shrink-0" />
-                <span>{item.queued}</span>
-                <span>·</span>
-                <span>{item.size}</span>
-              </p>
+            <div className="min-w-0 rounded-xl border border-slate-100 bg-slate-50/80 px-3.5 py-3 lg:border-0 lg:bg-transparent lg:px-0 lg:py-0">
+              <p className="mb-1.5 text-[8px] font-bold uppercase tracking-[0.12em] text-slate-400 lg:hidden">Package details</p>
+              <p className="truncate text-[10px] font-semibold leading-4 text-slate-600">{item.type}</p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[9px] text-slate-400">
+                <span className="inline-flex items-center gap-1.5">
+                  <Clock3 className="h-3 w-3 shrink-0" />
+                  {item.queued}
+                </span>
+                <span className="hidden text-slate-300 sm:inline">•</span>
+                <span className="font-medium text-slate-500">{item.size}</span>
+              </div>
             </div>
 
-            <div className="flex items-center justify-between gap-3 lg:justify-end">
-              <span
-                className={`rounded-full border px-2.5 py-1 text-[9px] font-bold ${
-                  item.state === "Ready to sync"
-                    ? "border-[#b9dfc5] bg-[#eff9f2] text-[#08733f]"
-                    : item.state === "Retry required"
-                      ? "border-red-200 bg-red-50 text-red-700"
-                      : "border-[#f0d88d] bg-[#fff8e5] text-[#956300]"
-                }`}
-              >
-                {item.state}
-              </span>
+            <div className="flex min-w-0 items-center justify-between gap-3 lg:justify-end">
+              <div className="min-w-0 lg:text-right">
+                <p className="mb-1.5 text-left text-[8px] font-bold uppercase tracking-[0.12em] text-slate-400 lg:hidden">Sync status</p>
+                <span
+                  className={`inline-flex whitespace-nowrap rounded-full border px-2.5 py-1 text-[9px] font-bold ${
+                    item.state === "Ready to sync"
+                      ? "border-[#b9dfc5] bg-[#eff9f2] text-[#08733f]"
+                      : item.state === "Retry required"
+                        ? "border-red-200 bg-red-50 text-red-700"
+                        : "border-[#f0d88d] bg-[#fff8e5] text-[#956300]"
+                  }`}
+                >
+                  {item.state}
+                </span>
+              </div>
               <button
                 type="button"
-                className="inline-flex h-9 items-center justify-center rounded-lg border border-[#8bcba0] bg-white px-3.5 text-[9px] font-bold text-[#08733f] transition hover:bg-[#eff9f2]"
+                className="inline-flex h-9 min-w-[70px] shrink-0 items-center justify-center rounded-lg border border-[#9bcfab] bg-white px-3 text-[9px] font-bold text-[#08733f] shadow-sm transition hover:border-[#08733f] hover:bg-[#eff9f2]"
               >
                 Sync
               </button>
             </div>
-          </div>
+          </article>
         ))}
       </div>
 
       <div className="flex items-start gap-3 border-t border-[#d7e9dc] bg-[#f4faf6] px-5 py-4 sm:px-6">
-        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#08733f]" />
-        <p className="text-[10px] leading-5 text-[#4d745d]">
+        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-[#08733f] shadow-sm ring-1 ring-[#d5eadc]">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+        </span>
+        <p className="max-w-4xl text-[10px] leading-5 text-[#4d745d]">
           GPS coordinates, timestamps, evidence and signatures stay attached to each inspection package until the upload is completed successfully.
         </p>
       </div>
