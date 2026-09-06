@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 
 const STORAGE_KEY = "rea-inspection-workflow-v4";
 const MOCK_ID = "REA-FCT-GPS-0001";
+const REFRESH_KEY = "rea-field-demo-panama-refresh-v1";
 
 export default function FieldOfficerCoordinateMock() {
   const location = useLocation();
@@ -58,19 +59,25 @@ export default function FieldOfficerCoordinateMock() {
         updated.unshift(mockAssignment);
       }
 
-      const oldValue = raw;
       const newValue = JSON.stringify(updated);
-      if (oldValue === newValue) return;
+      const alreadyCorrect =
+        existing?.projectName === "Panama Abuja GPS Field Demo" &&
+        existing?.community === "Panama, Abuja" &&
+        existing?.lga === "Abuja Municipal Area Council" &&
+        existing?.latitude === 9.101435 &&
+        existing?.longitude === 7.4936936;
 
-      window.localStorage.setItem(STORAGE_KEY, newValue);
-      window.dispatchEvent(
-        new StorageEvent("storage", {
-          key: STORAGE_KEY,
-          oldValue,
-          newValue,
-          storageArea: window.localStorage,
-        }),
-      );
+      if (!alreadyCorrect) {
+        window.localStorage.setItem(STORAGE_KEY, newValue);
+
+        if (window.sessionStorage.getItem(REFRESH_KEY) !== "done") {
+          window.sessionStorage.setItem(REFRESH_KEY, "done");
+          window.location.reload();
+          return;
+        }
+      }
+
+      window.sessionStorage.removeItem(REFRESH_KEY);
     } catch {
       // Demo data injection should never block the field officer page.
     }
