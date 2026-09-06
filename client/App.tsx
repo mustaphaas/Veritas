@@ -25,6 +25,7 @@ import ReaProjectMapHost from "./components/ReaProjectMapProgramme";
 import ProjectMapFullscreenControl from "./components/ProjectMapFullscreenControl";
 import ConsultantCoverageMapEnhancer from "./components/ConsultantCoverageMapEnhancer";
 import ConsultantProjectLgaDrilldown from "./components/ConsultantProjectLgaDrilldown";
+import FieldOfficerOfflineSyncTab from "./components/FieldOfficerOfflineSyncTab";
 import { AuthProvider, RequireRole, useAuth } from "./lib/auth";
 import { InspectionWorkflowProvider } from "./lib/inspection-workflow";
 
@@ -102,6 +103,7 @@ const App = () => (
             <ProjectMapGate />
             <ConsultantCoverageMapEnhancer />
             <ConsultantProjectLgaDrilldown />
+            <FieldOfficerOfflineSyncTab />
             <VeritasFooterGate />
             <VeritasGate />
           </BrowserRouter>
