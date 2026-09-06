@@ -91,72 +91,116 @@ const syncQueueDemo = [
 
 function SyncQueueDemo() {
   return (
-    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#edf8f0] text-[#08733f]">
-              <CloudUpload className="h-4 w-4" />
-            </span>
-            <div>
-              <h2 className="text-base font-bold text-[#173b2a]">Sync Queue</h2>
-              <p className="mt-0.5 text-[10px] text-slate-500">
-                Field records waiting to upload when connectivity is available
-              </p>
+    <section className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_26px_rgba(15,23,42,0.06)]">
+      <div className="flex flex-col gap-4 border-b border-slate-100 px-5 py-5 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#d5eadc] bg-[#edf8f0] text-[#08733f]">
+            <CloudUpload className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-bold tracking-tight text-[#173b2a]">Sync Queue</h2>
+              <span className="rounded-full bg-slate-100 px-2 py-1 text-[9px] font-bold text-slate-500">4 records</span>
             </div>
+            <p className="mt-1 max-w-2xl text-[11px] leading-5 text-slate-500">
+              Field inspection records waiting to upload. Records remain stored safely on the device until synchronization succeeds.
+            </p>
           </div>
         </div>
         <button
           type="button"
-          className="flex items-center gap-2 rounded-md bg-[#08733f] px-4 py-2.5 text-[10px] font-bold text-white"
+          className="inline-flex h-10 w-fit items-center justify-center gap-2 rounded-lg bg-[#08733f] px-4 text-[10px] font-bold text-white shadow-sm transition hover:bg-[#066535]"
         >
-          <RefreshCw className="h-3.5 w-3.5" /> Sync all
+          <RefreshCw className="h-3.5 w-3.5" /> Sync all records
         </button>
       </div>
 
-      <div className="grid gap-3 border-b border-slate-100 bg-[#f8fbf9] p-4 sm:grid-cols-3">
-        <div className="rounded-lg border border-slate-200 bg-white p-3">
-          <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500">Queued</p>
-          <p className="mt-1 text-xl font-bold text-[#173b2a]">4</p>
-          <p className="mt-1 text-[9px] text-slate-400">46.9 MB pending upload</p>
+      <div className="grid gap-3 border-b border-slate-100 bg-[#f8fbf9] p-4 sm:grid-cols-3 sm:p-5">
+        <div className="flex min-h-[96px] items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <div>
+            <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">Queued</p>
+            <p className="mt-1 text-2xl font-bold text-[#173b2a]">4</p>
+            <p className="mt-1 text-[9px] text-slate-400">46.9 MB pending</p>
+          </div>
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+            <CloudUpload className="h-4 w-4" />
+          </span>
         </div>
-        <div className="rounded-lg border border-[#b9dfc5] bg-[#f2fbf5] p-3">
-          <p className="text-[9px] font-bold uppercase tracking-wide text-[#4d745d]">Ready</p>
-          <p className="mt-1 text-xl font-bold text-[#08733f]">2</p>
-          <p className="mt-1 text-[9px] text-[#5f846b]">Can synchronize now</p>
+
+        <div className="flex min-h-[96px] items-center justify-between rounded-xl border border-[#b9dfc5] bg-white px-4 py-3 shadow-sm">
+          <div>
+            <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#5e8069]">Ready</p>
+            <p className="mt-1 text-2xl font-bold text-[#08733f]">2</p>
+            <p className="mt-1 text-[9px] text-[#6e8b76]">Ready to synchronize</p>
+          </div>
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#edf8f0] text-[#08733f]">
+            <CheckCircle2 className="h-4 w-4" />
+          </span>
         </div>
-        <div className="rounded-lg border border-[#f1dfaf] bg-[#fffaf0] p-3">
-          <p className="text-[9px] font-bold uppercase tracking-wide text-[#8d6a1e]">Attention</p>
-          <p className="mt-1 text-xl font-bold text-[#a56c00]">2</p>
-          <p className="mt-1 text-[9px] text-[#8d764c]">Waiting or retry required</p>
+
+        <div className="flex min-h-[96px] items-center justify-between rounded-xl border border-[#f0d88d] bg-white px-4 py-3 shadow-sm">
+          <div>
+            <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#8d6a1e]">Attention</p>
+            <p className="mt-1 text-2xl font-bold text-[#a56c00]">2</p>
+            <p className="mt-1 text-[9px] text-[#8d764c]">Waiting or retry required</p>
+          </div>
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#fff8e5] text-[#a56c00]">
+            <Signal className="h-4 w-4" />
+          </span>
         </div>
+      </div>
+
+      <div className="hidden grid-cols-[minmax(0,1.45fr)_minmax(220px,.75fr)_minmax(210px,.6fr)] items-center gap-6 border-b border-slate-100 bg-white px-6 py-3 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-400 lg:grid">
+        <span>Inspection record</span>
+        <span>Package details</span>
+        <span className="text-right">Sync status</span>
       </div>
 
       <div className="divide-y divide-slate-100">
         {syncQueueDemo.map((item) => (
-          <div key={item.id} className="grid gap-3 px-5 py-4 lg:grid-cols-[1.4fr_1fr_auto] lg:items-center">
+          <div
+            key={item.id}
+            className="grid gap-4 px-5 py-5 transition-colors hover:bg-[#fbfdfb] sm:px-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(220px,.75fr)_minmax(210px,.6fr)] lg:items-center lg:gap-6"
+          >
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#edf8f0] text-[#08733f]">
-                  <Signal className="h-3.5 w-3.5" />
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#d5eadc] bg-[#edf8f0] text-[#08733f]">
+                  <Signal className="h-4 w-4" />
                 </span>
                 <div className="min-w-0">
                   <p className="truncate text-xs font-bold text-[#173b2a]">{item.project}</p>
-                  <p className="mt-1 text-[9px] text-slate-500">{item.id} · {item.location}</p>
+                  <p className="mt-1 text-[9px] font-medium text-slate-500">{item.id}</p>
+                  <p className="mt-2 text-[9px] text-slate-400">{item.location}</p>
                 </div>
               </div>
             </div>
-            <div>
-              <p className="text-[10px] font-semibold text-slate-600">{item.type}</p>
-              <p className="mt-1 flex items-center gap-1 text-[9px] text-slate-400">
-                <Clock3 className="h-3 w-3" /> {item.queued} · {item.size}
+
+            <div className="min-w-0 rounded-lg bg-slate-50 px-3 py-2.5 lg:bg-transparent lg:px-0 lg:py-0">
+              <p className="text-[10px] font-semibold leading-4 text-slate-600">{item.type}</p>
+              <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[9px] text-slate-400">
+                <Clock3 className="h-3 w-3 shrink-0" />
+                <span>{item.queued}</span>
+                <span>·</span>
+                <span>{item.size}</span>
               </p>
             </div>
-            <div className="flex items-center gap-3 lg:justify-end">
-              <span className={`rounded-full border px-2.5 py-1 text-[9px] font-bold ${item.state === "Ready to sync" ? "border-[#b9dfc5] bg-[#eff9f2] text-[#08733f]" : item.state === "Retry required" ? "border-red-200 bg-red-50 text-red-700" : "border-[#f0d88d] bg-[#fff8e5] text-[#956300]"}`}>
+
+            <div className="flex items-center justify-between gap-3 lg:justify-end">
+              <span
+                className={`rounded-full border px-2.5 py-1 text-[9px] font-bold ${
+                  item.state === "Ready to sync"
+                    ? "border-[#b9dfc5] bg-[#eff9f2] text-[#08733f]"
+                    : item.state === "Retry required"
+                      ? "border-red-200 bg-red-50 text-red-700"
+                      : "border-[#f0d88d] bg-[#fff8e5] text-[#956300]"
+                }`}
+              >
                 {item.state}
               </span>
-              <button type="button" className="rounded-md border border-[#8bcba0] bg-white px-3 py-2 text-[9px] font-bold text-[#08733f]">
+              <button
+                type="button"
+                className="inline-flex h-9 items-center justify-center rounded-lg border border-[#8bcba0] bg-white px-3.5 text-[9px] font-bold text-[#08733f] transition hover:bg-[#eff9f2]"
+              >
                 Sync
               </button>
             </div>
@@ -164,10 +208,10 @@ function SyncQueueDemo() {
         ))}
       </div>
 
-      <div className="flex items-start gap-3 border-t border-[#d7e9dc] bg-[#f4faf6] px-5 py-4">
+      <div className="flex items-start gap-3 border-t border-[#d7e9dc] bg-[#f4faf6] px-5 py-4 sm:px-6">
         <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#08733f]" />
         <p className="text-[10px] leading-5 text-[#4d745d]">
-          Records remain safely stored on the officer device until upload succeeds. GPS, timestamps, evidence and signatures remain attached to each inspection package.
+          GPS coordinates, timestamps, evidence and signatures stay attached to each inspection package until the upload is completed successfully.
         </p>
       </div>
     </section>
