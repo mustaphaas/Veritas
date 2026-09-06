@@ -1,11 +1,15 @@
 import { useState, type ReactNode } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Bell,
+  CheckCircle2,
+  Clock3,
+  CloudUpload,
   LogOut,
   Menu,
+  RefreshCw,
   Settings,
-  UsersRound,
+  Signal,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -46,6 +50,130 @@ function ReaBrand() {
   );
 }
 
+const syncQueueDemo = [
+  {
+    project: "DARES Kaduna Grid Extension",
+    id: "REA-KAD-0214",
+    location: "Kawo, Kaduna North",
+    type: "Inspection report + 8 photos",
+    queued: "Today, 8:42 AM",
+    size: "18.4 MB",
+    state: "Waiting for network",
+  },
+  {
+    project: "NEP Kano Mini Grid",
+    id: "REA-KAN-0187",
+    location: "Kofar Ruwa, Kano Municipal",
+    type: "Inspection report + signatures",
+    queued: "Today, 8:18 AM",
+    size: "6.7 MB",
+    state: "Ready to sync",
+  },
+  {
+    project: "AMP Katsina SAS Verification",
+    id: "REA-KAT-0096",
+    location: "Kofar Sauri, Katsina",
+    type: "GPS record + 5 photos",
+    queued: "Yesterday, 5:36 PM",
+    size: "12.1 MB",
+    state: "Ready to sync",
+  },
+  {
+    project: "NEP Sokoto Mini Grid",
+    id: "REA-SOK-0068",
+    location: "Gagi, Sokoto South",
+    type: "Inspection draft + evidence",
+    queued: "Yesterday, 4:11 PM",
+    size: "9.8 MB",
+    state: "Retry required",
+  },
+];
+
+function SyncQueueDemo() {
+  return (
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#edf8f0] text-[#08733f]">
+              <CloudUpload className="h-4 w-4" />
+            </span>
+            <div>
+              <h2 className="text-base font-bold text-[#173b2a]">Sync Queue</h2>
+              <p className="mt-0.5 text-[10px] text-slate-500">
+                Field records waiting to upload when connectivity is available
+              </p>
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          className="flex items-center gap-2 rounded-md bg-[#08733f] px-4 py-2.5 text-[10px] font-bold text-white"
+        >
+          <RefreshCw className="h-3.5 w-3.5" /> Sync all
+        </button>
+      </div>
+
+      <div className="grid gap-3 border-b border-slate-100 bg-[#f8fbf9] p-4 sm:grid-cols-3">
+        <div className="rounded-lg border border-slate-200 bg-white p-3">
+          <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500">Queued</p>
+          <p className="mt-1 text-xl font-bold text-[#173b2a]">4</p>
+          <p className="mt-1 text-[9px] text-slate-400">46.9 MB pending upload</p>
+        </div>
+        <div className="rounded-lg border border-[#b9dfc5] bg-[#f2fbf5] p-3">
+          <p className="text-[9px] font-bold uppercase tracking-wide text-[#4d745d]">Ready</p>
+          <p className="mt-1 text-xl font-bold text-[#08733f]">2</p>
+          <p className="mt-1 text-[9px] text-[#5f846b]">Can synchronize now</p>
+        </div>
+        <div className="rounded-lg border border-[#f1dfaf] bg-[#fffaf0] p-3">
+          <p className="text-[9px] font-bold uppercase tracking-wide text-[#8d6a1e]">Attention</p>
+          <p className="mt-1 text-xl font-bold text-[#a56c00]">2</p>
+          <p className="mt-1 text-[9px] text-[#8d764c]">Waiting or retry required</p>
+        </div>
+      </div>
+
+      <div className="divide-y divide-slate-100">
+        {syncQueueDemo.map((item) => (
+          <div key={item.id} className="grid gap-3 px-5 py-4 lg:grid-cols-[1.4fr_1fr_auto] lg:items-center">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#edf8f0] text-[#08733f]">
+                  <Signal className="h-3.5 w-3.5" />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-bold text-[#173b2a]">{item.project}</p>
+                  <p className="mt-1 text-[9px] text-slate-500">{item.id} · {item.location}</p>
+                </div>
+              </div>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold text-slate-600">{item.type}</p>
+              <p className="mt-1 flex items-center gap-1 text-[9px] text-slate-400">
+                <Clock3 className="h-3 w-3" /> {item.queued} · {item.size}
+              </p>
+            </div>
+            <div className="flex items-center gap-3 lg:justify-end">
+              <span className={`rounded-full border px-2.5 py-1 text-[9px] font-bold ${item.state === "Ready to sync" ? "border-[#b9dfc5] bg-[#eff9f2] text-[#08733f]" : item.state === "Retry required" ? "border-red-200 bg-red-50 text-red-700" : "border-[#f0d88d] bg-[#fff8e5] text-[#956300]"}`}>
+                {item.state}
+              </span>
+              <button type="button" className="rounded-md border border-[#8bcba0] bg-white px-3 py-2 text-[9px] font-bold text-[#08733f]">
+                Sync
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-start gap-3 border-t border-[#d7e9dc] bg-[#f4faf6] px-5 py-4">
+        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#08733f]" />
+        <p className="text-[10px] leading-5 text-[#4d745d]">
+          Records remain safely stored on the officer device until upload succeeds. GPS, timestamps, evidence and signatures remain attached to each inspection package.
+        </p>
+      </div>
+    </section>
+  );
+}
+
 export default function RoleDashboardShell({
   title,
   subtitle,
@@ -60,7 +188,10 @@ export default function RoleDashboardShell({
   const [internalActiveNav, setInternalActiveNav] = useState("Overview");
   const activeNav = activeNavigation ?? internalActiveNav;
   const navigate = useNavigate();
+  const location = useLocation();
   const { logout } = useAuth();
+  const showFieldSyncQueue =
+    title === "Field Officer Dashboard" && location.pathname === "/field-officer/sync";
 
   const displayedNavigation =
     title === "Field Officer Dashboard"
@@ -246,7 +377,7 @@ export default function RoleDashboardShell({
           </div>
         </header>
         <div className="mx-auto max-w-[1580px] px-4 py-4 sm:px-7">
-          {children}
+          {showFieldSyncQueue ? <SyncQueueDemo /> : children}
         </div>
       </main>
     </div>
