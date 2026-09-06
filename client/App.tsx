@@ -27,7 +27,6 @@ import ConsultantCoverageMapEnhancer from "./components/ConsultantCoverageMapEnh
 import ConsultantProjectLgaDrilldown from "./components/ConsultantProjectLgaDrilldown";
 import FieldOfficerOfflineSyncTab from "./components/FieldOfficerOfflineSyncTab";
 import FieldOfficerPendingUploads from "./components/FieldOfficerPendingUploads";
-import FieldOfficerSequentialUploadQueue from "./components/FieldOfficerSequentialUploadQueue";
 import { AuthProvider, RequireRole, useAuth } from "./lib/auth";
 import { InspectionWorkflowProvider } from "./lib/inspection-workflow";
 
@@ -107,7 +106,6 @@ const App = () => (
             <ConsultantProjectLgaDrilldown />
             <FieldOfficerOfflineSyncTab />
             <FieldOfficerPendingUploads />
-            <FieldOfficerSequentialUploadQueue />
             <VeritasFooterGate />
             <VeritasGate />
           </BrowserRouter>
