@@ -2,12 +2,9 @@ import { useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Bell,
-  ClipboardCheck,
   LogOut,
   Menu,
-  Navigation,
   Settings,
-  ShieldCheck,
   UsersRound,
   X,
   type LucideIcon,
@@ -64,13 +61,14 @@ export default function RoleDashboardShell({
   const activeNav = activeNavigation ?? internalActiveNav;
   const navigate = useNavigate();
   const { logout } = useAuth();
-  const isFieldInspections =
-    title === "Field Officer Dashboard" && activeNav === "Inspections";
 
   const displayedNavigation =
     title === "Field Officer Dashboard"
       ? navigation
-          .filter((item) => item.label !== "Inspections")
+          .filter(
+            (item) =>
+              item.label !== "Inspections" && item.label !== "Draft Reports",
+          )
           .map((item) =>
             item.label === "My Assignments"
               ? {
@@ -248,53 +246,7 @@ export default function RoleDashboardShell({
           </div>
         </header>
         <div className="mx-auto max-w-[1580px] px-4 py-4 sm:px-7">
-          {isFieldInspections ? (
-            <div className="space-y-4 [&>section>div:first-child]:hidden [&>section]:overflow-hidden [&>section]:rounded-xl [&>section]:border-slate-200 [&>section]:shadow-sm">
-              <section className="relative overflow-hidden rounded-2xl border border-[#cae4d2] bg-gradient-to-br from-[#f7fcf8] via-white to-[#edf8f0] p-5 shadow-sm sm:p-6">
-                <div className="absolute -right-12 -top-16 h-44 w-44 rounded-full bg-[#dff3e5]/70 blur-2xl" />
-                <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="flex items-start gap-4">
-                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#08733f] text-white shadow-sm">
-                      <ClipboardCheck className="h-6 w-6" />
-                    </span>
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="text-xl font-bold tracking-tight text-[#153b28]">
-                          My Inspections
-                        </h2>
-                        <span className="rounded-full border border-[#b9dfc5] bg-white px-2.5 py-1 text-[9px] font-bold uppercase tracking-wide text-[#08733f]">
-                          Field operations
-                        </span>
-                      </div>
-                      <p className="mt-2 max-w-2xl text-xs leading-5 text-slate-500">
-                        Manage assigned site visits from navigation and GPS arrival verification through field data capture, evidence and submission.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 sm:min-w-[430px]">
-                    <div className="rounded-xl border border-[#d7e9dc] bg-white/90 p-3">
-                      <Navigation className="h-4 w-4 text-[#08733f]" />
-                      <p className="mt-2 text-[10px] font-bold text-[#173b2a]">Navigate</p>
-                      <p className="mt-1 text-[8px] leading-3 text-slate-400">Open assigned site route</p>
-                    </div>
-                    <div className="rounded-xl border border-[#d7e9dc] bg-white/90 p-3">
-                      <ShieldCheck className="h-4 w-4 text-[#08733f]" />
-                      <p className="mt-2 text-[10px] font-bold text-[#173b2a]">Verify GPS</p>
-                      <p className="mt-1 text-[8px] leading-3 text-slate-400">Confirm approved geofence</p>
-                    </div>
-                    <div className="rounded-xl border border-[#d7e9dc] bg-white/90 p-3">
-                      <ClipboardCheck className="h-4 w-4 text-[#08733f]" />
-                      <p className="mt-2 text-[10px] font-bold text-[#173b2a]">Complete</p>
-                      <p className="mt-1 text-[8px] leading-3 text-slate-400">Capture and submit inspection</p>
-                    </div>
-                  </div>
-                </div>
-              </section>
-              {children}
-            </div>
-          ) : (
-            children
-          )}
+          {children}
         </div>
       </main>
     </div>
