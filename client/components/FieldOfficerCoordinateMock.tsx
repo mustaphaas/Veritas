@@ -15,44 +15,53 @@ export default function FieldOfficerCoordinateMock() {
       const assignments = raw ? JSON.parse(raw) : [];
       if (!Array.isArray(assignments)) return;
 
-      const exists = assignments.some((item) => item?.id === MOCK_ID);
-      if (exists) return;
-
       const due = new Date();
       due.setDate(due.getDate() + 3);
       const now = new Date().toISOString();
 
+      const existingIndex = assignments.findIndex((item) => item?.id === MOCK_ID);
+      const existing = existingIndex >= 0 ? assignments[existingIndex] : null;
+
       const mockAssignment = {
+        ...(existing ?? {}),
         id: MOCK_ID,
-        projectName: "FCT GPS Field Demo",
+        projectName: "Panama Abuja GPS Field Demo",
         programme: "DARES",
         component: "Mini Grid",
         contractor: "Veritas Demo Contractor",
         state: "FCT",
         lga: "Abuja Municipal Area Council",
-        community: "Abuja Field Test Location",
+        community: "Panama, Abuja",
         officer: "Amina Yusuf",
-        dueDate: due.toISOString(),
+        dueDate: existing?.dueDate ?? due.toISOString(),
         latitude: 9.101435,
         longitude: 7.4936936,
         geofenceRadius: 250,
-        status: "Assigned",
-        syncStatus: "synced",
-        audit: [
+        status: existing?.status ?? "Assigned",
+        syncStatus: existing?.syncStatus ?? "synced",
+        audit: existing?.audit ?? [
           {
             id: `audit-${Date.now().toString(36)}`,
             at: now,
             actor: "Consultant Admin",
-            action: "Assigned GPS field demo to Amina Yusuf",
+            action: "Assigned Panama Abuja GPS field demo to Amina Yusuf",
             deviceId: "REA-DEMO-DEVICE",
             deviceType: "Mobile phone",
           },
         ],
       };
 
-      const updated = [mockAssignment, ...assignments];
+      const updated = [...assignments];
+      if (existingIndex >= 0) {
+        updated[existingIndex] = mockAssignment;
+      } else {
+        updated.unshift(mockAssignment);
+      }
+
       const oldValue = raw;
       const newValue = JSON.stringify(updated);
+      if (oldValue === newValue) return;
+
       window.localStorage.setItem(STORAGE_KEY, newValue);
       window.dispatchEvent(
         new StorageEvent("storage", {
