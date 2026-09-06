@@ -24,6 +24,7 @@ import VeritasFooter from "./components/VeritasFooter";
 import ReaProjectMapHost from "./components/ReaProjectMapProgramme";
 import ProjectMapFullscreenControl from "./components/ProjectMapFullscreenControl";
 import ConsultantCoverageMapEnhancer from "./components/ConsultantCoverageMapEnhancer";
+import FieldOfficerArrivalControls from "./components/FieldOfficerArrivalControls";
 import { AuthProvider, RequireRole, useAuth } from "./lib/auth";
 import { InspectionWorkflowProvider } from "./lib/inspection-workflow";
 
@@ -100,6 +101,7 @@ const App = () => (
             </Routes>
             <ProjectMapGate />
             <ConsultantCoverageMapEnhancer />
+            <FieldOfficerArrivalControls />
             <VeritasFooterGate />
             <VeritasGate />
           </BrowserRouter>
