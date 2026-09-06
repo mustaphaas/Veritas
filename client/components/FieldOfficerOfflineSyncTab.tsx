@@ -18,15 +18,29 @@ export default function FieldOfficerOfflineSyncTab() {
       elements.forEach((element) => {
         const text = element.textContent?.trim();
 
-        if (text === "Draft Reports") {
-          element.textContent = "Offline Sync";
-          if (element.closest("nav") || element.closest("aside")) {
+        if (text === "Draft Reports" || text === "Offline Sync") {
+          const inNavigation = Boolean(element.closest("nav") || element.closest("aside"));
+
+          if (inNavigation) {
             const clickable = element.closest<HTMLElement>("button, a") ?? element;
+            const label = clickable.querySelector<HTMLElement>("span");
+
+            clickable.setAttribute("aria-label", "Offline Sync");
+            clickable.setAttribute("title", "Offline Sync");
+            clickable.dataset.label = "Offline Sync";
+            clickable.classList.add("justify-center");
             clickable.onclick = (event) => {
               event.preventDefault();
               event.stopPropagation();
               navigate("/field-officer/sync");
             };
+
+            if (label) {
+              label.textContent = "Offline Sync";
+              label.className = "sr-only";
+            }
+          } else if (text === "Draft Reports") {
+            element.textContent = "Offline Saved";
           }
         }
 
@@ -34,15 +48,9 @@ export default function FieldOfficerOfflineSyncTab() {
           const clickable = element.closest<HTMLElement>("button, a");
           if (clickable && (clickable.closest("nav") || clickable.closest("aside"))) {
             clickable.style.display = "none";
+          } else if (location.pathname === "/field-officer/sync") {
+            element.textContent = "Offline Sync";
           }
-        }
-
-        if (text === "Sync Queue" && location.pathname === "/field-officer/sync") {
-          element.textContent = "Offline Sync";
-        }
-
-        if (text === "Draft Reports" && !element.closest("nav") && !element.closest("aside")) {
-          element.textContent = "Offline Saved";
         }
       });
 
