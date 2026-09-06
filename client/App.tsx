@@ -23,7 +23,6 @@ import VeritasAssistant from "./components/VeritasAssistant";
 import VeritasFooter from "./components/VeritasFooter";
 import ReaProjectMapHost from "./components/ReaProjectMapProgramme";
 import ProjectMapFullscreenControl from "./components/ProjectMapFullscreenControl";
-import ConsultantProjectLocationMap from "./components/ConsultantProjectLocationMap";
 import { AuthProvider, RequireRole, useAuth } from "./lib/auth";
 import { InspectionWorkflowProvider } from "./lib/inspection-workflow";
 
@@ -99,7 +98,6 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
             <ProjectMapGate />
-            <ConsultantProjectLocationMap />
             <VeritasFooterGate />
             <VeritasGate />
           </BrowserRouter>
