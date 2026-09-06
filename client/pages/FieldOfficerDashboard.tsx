@@ -625,12 +625,11 @@ function InspectionModal({
               {!locked && (
                 <button
                   type="button"
-                  disabled={routeStarted}
                   onClick={() => {
                     startRoute(assignment.id);
                     setRouteStarted(true);
                     setGpsMessage(
-                      "Optional Google Map navigation enabled. GPS verification is available independently.",
+                      "Google Map navigation opened. GPS verification remains available independently.",
                     );
                     window.open(
                       `https://www.google.com/maps/dir/?api=1&destination=${assignment.latitude},${assignment.longitude}`,
@@ -638,12 +637,10 @@ function InspectionModal({
                       "noopener,noreferrer",
                     );
                   }}
-                  className="flex h-11 w-full items-center justify-center gap-2 rounded-md border border-[#8bcba0] bg-white text-xs font-bold text-[#08733f] disabled:opacity-50"
+                  className="flex h-11 w-full items-center justify-center gap-2 rounded-md border border-[#8bcba0] bg-white text-xs font-bold text-[#08733f]"
                 >
                   <Navigation className="h-4 w-4" />{" "}
-                  {routeStarted
-                    ? "Google Map navigation active"
-                    : "Optional: navigate in Google Map"}
+                  {routeStarted ? "Open Google Map again" : "Navigate in Google Map"}
                 </button>
               )}
               <button
@@ -1029,7 +1026,7 @@ function InlineInspectionWorkspace({
   const beginRoute = () => {
     startRoute(selected.id);
     setLocationMessage(
-      "Optional Google Map navigation enabled inside the app. GPS verification remains available independently.",
+      "Google Map navigation opened. GPS verification remains available independently.",
     );
     window.open(
       `https://www.google.com/maps/dir/?api=1&destination=${selected.latitude},${selected.longitude}`,
@@ -1162,30 +1159,30 @@ function InlineInspectionWorkspace({
             </div>
           </div>
 
-          {!completed && !selected.arrival && (
+          {!completed && (
             <div className="mt-3 flex flex-col gap-3 rounded-lg border border-[#eed89c] bg-[#fff9e9] p-3 sm:flex-row sm:items-center">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#fff0bf] text-[#a36b00]">
                 <LocateFixed className="h-4 w-4" />
               </span>
               <div className="flex-1">
                 <strong className="text-[10px] text-[#5f4615]">
-                  Verify arrival before data entry
+                  {selected.arrival
+                    ? "GPS verified — re-check or navigate again if needed"
+                    : "Verify arrival before data entry"}
                 </strong>
                 <p className="mt-1 text-[9px] text-[#8b7548]">
-                  The inspection form remains locked until the officer is within
-                  the approved project geofence.
+                  {selected.arrival
+                    ? "GPS verification, demo mode and project navigation remain available for this active inspection."
+                    : "The inspection form remains locked until the officer is within the approved project geofence."}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  disabled={routeReady}
                   onClick={beginRoute}
-                  className="rounded-md border border-[#8bcba0] bg-white px-3 py-2.5 text-[9px] font-bold text-[#08733f] disabled:opacity-50"
+                  className="rounded-md border border-[#8bcba0] bg-white px-3 py-2.5 text-[9px] font-bold text-[#08733f]"
                 >
-                  {routeReady
-                    ? "Google Map navigation active"
-                    : "Optional: start navigation"}
+                  {routeReady ? "Open navigation again" : "Navigate"}
                 </button>
                 <button
                   type="button"
@@ -1197,7 +1194,7 @@ function InlineInspectionWorkspace({
                 </button>
                 <button
                   type="button"
-                  disabled={false}
+                  disabled={locating}
                   onClick={() => verify(true)}
                   className="rounded-md border border-[#d9bd77] bg-white px-3 py-2.5 text-[9px] font-bold text-[#8b650e] disabled:cursor-not-allowed disabled:opacity-40"
                 >
