@@ -6,18 +6,10 @@ import {
   distanceMeters,
   isArrivalFresh,
   useInspectionWorkflow,
-  type InspectionAssignment,
 } from "../lib/inspection-workflow";
 
 type BrowserWindow = typeof window & {
   webkitAudioContext?: typeof AudioContext;
-};
-
-type GpsFix = {
-  latitude: number;
-  longitude: number;
-  accuracy: number;
-  timestamp: number;
 };
 
 let arrivalAudioContext: AudioContext | null = null;
@@ -97,45 +89,12 @@ function showArrivalConfirmation(projectName: string, distance: number) {
   window.setTimeout(() => toast.remove(), 5000);
 }
 
-function showGpsStatus(message: string, tone: "info" | "error" = "info") {
-  document.querySelector("[data-gps-fix-status]")?.remove();
-  const toast = document.createElement("div");
-  toast.dataset.gpsFixStatus = "true";
-  toast.setAttribute("role", "status");
-  toast.style.cssText = [
-    "position:fixed",
-    "left:50%",
-    "bottom:18px",
-    "transform:translateX(-50%)",
-    "z-index:10000",
-    "max-width:520px",
-    `border:1px solid ${tone === "error" ? "#f3b5b5" : "#b9dfc5"}`,
-    "border-radius:12px",
-    `background:${tone === "error" ? "#fff4f4" : "#ffffff"}`,
-    "box-shadow:0 14px 35px rgba(23,59,42,.15)",
-    "padding:12px 14px",
-    `color:${tone === "error" ? "#9f1d1d" : "#173b2a"}`,
-    "font-size:11px",
-    "font-weight:600",
-    "font-family:inherit",
-  ].join(";");
-  toast.textContent = message;
-  document.body.appendChild(toast);
-  window.setTimeout(() => toast.remove(), tone === "error" ? 8000 : 5000);
-}
-
-function bestFixMessage(fix: GpsFix, assignment: InspectionAssignment) {
-  const distance = distanceMeters(fix, assignment);
-  return `Detected GPS ${fix.latitude.toFixed(6)}, ${fix.longitude.toFixed(6)} · accuracy ±${Math.round(fix.accuracy)} m · ${distance.toLocaleString()} m from project centre.`;
-}
-
 export default function FieldOfficerOfflineSyncTab() {
   const location = useLocation();
   const navigate = useNavigate();
   const { session } = useAuth();
   const { assignments, verifyArrival } = useInspectionWorkflow();
   const autoVerified = useRef(new Set<string>());
-  const manualWatch = useRef<number | null>(null);
 
   useEffect(() => {
     if (!location.pathname.startsWith("/field-officer")) return;
@@ -225,116 +184,6 @@ export default function FieldOfficerOfflineSyncTab() {
       observer?.disconnect();
     };
   }, [location.pathname, navigate]);
-
-  useEffect(() => {
-    if (!location.pathname.startsWith("/field-officer")) return;
-    if (!navigator.geolocation) return;
-
-    const onVerifyClick = (event: MouseEvent) => {
-      const target = event.target as HTMLElement | null;
-      const button = target?.closest<HTMLButtonElement>("button");
-      const text = button?.textContent?.trim() ?? "";
-      if (!button || !/verify arrival with gps/i.test(text)) return;
-
-      const container = button.closest<HTMLElement>("section") ?? document.body;
-      const assignment = assignments.find((item) =>
-        container.textContent?.includes(item.projectName),
-      );
-      if (!assignment) return;
-
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation();
-
-      if (manualWatch.current !== null) {
-        navigator.geolocation.clearWatch(manualWatch.current);
-        manualWatch.current = null;
-      }
-
-      button.disabled = true;
-      const originalText = button.textContent;
-      button.textContent = "Acquiring precise GPS…";
-      showGpsStatus("Acquiring a fresh high-accuracy GPS fix. Keep the device still for a few seconds.");
-
-      let best: GpsFix | null = null;
-      const startedAt = Date.now();
-      const finish = (success: boolean, fix?: GpsFix) => {
-        if (manualWatch.current !== null) {
-          navigator.geolocation.clearWatch(manualWatch.current);
-          manualWatch.current = null;
-        }
-        button.disabled = false;
-        button.textContent = originalText;
-
-        if (!success && fix) {
-          showGpsStatus(
-            `${bestFixMessage(fix, assignment)} GPS has not yet confirmed that you are inside the ${assignment.geofenceRadius} m project geofence.`,
-            "error",
-          );
-        }
-      };
-
-      manualWatch.current = navigator.geolocation.watchPosition(
-        (position) => {
-          const fix: GpsFix = {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-            accuracy: Number.isFinite(position.coords.accuracy)
-              ? position.coords.accuracy
-              : 9999,
-            timestamp: position.timestamp,
-          };
-
-          if (!best || fix.accuracy < best.accuracy) best = fix;
-
-          const distance = distanceMeters(fix, assignment);
-          const fresh = Date.now() - fix.timestamp < 15000;
-          const accurateEnough = fix.accuracy <= 100;
-
-          if (fresh && accurateEnough && distance <= assignment.geofenceRadius) {
-            const result = verifyArrival(
-              assignment.id,
-              fix.latitude,
-              fix.longitude,
-            );
-            if (result.allowed) {
-              autoVerified.current.add(assignment.id);
-              void playArrivalConfirmation();
-              showArrivalConfirmation(assignment.projectName, result.distance);
-              showGpsStatus(bestFixMessage(fix, assignment));
-              finish(true);
-              return;
-            }
-          }
-
-          if (Date.now() - startedAt >= 20000) {
-            finish(false, best ?? fix);
-          }
-        },
-        () => {
-          showGpsStatus(
-            "Unable to obtain precise GPS. Enable Precise Location/GPS for this browser and try again.",
-            "error",
-          );
-          finish(false, best ?? undefined);
-        },
-        {
-          enableHighAccuracy: true,
-          maximumAge: 0,
-          timeout: 20000,
-        },
-      );
-    };
-
-    document.addEventListener("click", onVerifyClick, true);
-    return () => {
-      document.removeEventListener("click", onVerifyClick, true);
-      if (manualWatch.current !== null) {
-        navigator.geolocation.clearWatch(manualWatch.current);
-        manualWatch.current = null;
-      }
-    };
-  }, [assignments, location.pathname, verifyArrival]);
 
   useEffect(() => {
     if (!location.pathname.startsWith("/field-officer")) return;
