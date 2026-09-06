@@ -985,10 +985,15 @@ function InlineInspectionWorkspace({
   onOpen: (assignment: InspectionAssignment) => void;
 }) {
   const { startRoute, verifyArrival } = useInspectionWorkflow();
-  const orderedAssignments = [...assignments].sort(
-    (left, right) =>
-      assignmentDisplayRank(left.status) - assignmentDisplayRank(right.status),
-  );
+  const orderedAssignments = assignments
+    .filter((item) => {
+      const status = getAssignmentDisplayStatus(item.status);
+      return status === "Assigned" || status === "Draft";
+    })
+    .sort(
+      (left, right) =>
+        assignmentDisplayRank(left.status) - assignmentDisplayRank(right.status),
+    );
   const actionable =
     orderedAssignments.find(
       (item) => getAssignmentDisplayStatus(item.status) === "Assigned",
@@ -997,7 +1002,7 @@ function InlineInspectionWorkspace({
   const [locationMessage, setLocationMessage] = useState("");
   const [locating, setLocating] = useState(false);
   const selected =
-    assignments.find((item) => item.id === selectedId) ?? actionable;
+    orderedAssignments.find((item) => item.id === selectedId) ?? actionable;
 
   if (!selected) return null;
   const locked =
@@ -1083,7 +1088,7 @@ function InlineInspectionWorkspace({
             Assigned projects
           </h2>
           <p className="mt-1 text-[10px] text-slate-500">
-            Select an assignment to continue its inspection workflow
+            Assigned and draft inspections requiring field action
           </p>
         </div>
         <div className="max-h-[390px] space-y-2 overflow-y-auto p-3 sm:p-4">
@@ -1591,6 +1596,14 @@ export default function FieldOfficerDashboard() {
       ),
     [mine, stateFilter, statusFilter],
   );
+  const overviewAssignments = useMemo(
+    () =>
+      filtered.filter((item) => {
+        const status = getAssignmentDisplayStatus(item.status);
+        return status === "Assigned" || status === "Draft";
+      }),
+    [filtered],
+  );
   const completed = mine.filter((item) => item.status === "Approved").length;
   const drafts = mine.filter(
     (item) => getAssignmentDisplayStatus(item.status) === "Draft",
@@ -1599,10 +1612,7 @@ export default function FieldOfficerDashboard() {
   const due = mine.filter(
     (item) => !["Approved", "Submitted", "Verified"].includes(item.status),
   ).length;
-  const next =
-    filtered.find(
-      (item) => !["Approved", "Submitted", "Verified"].includes(item.status),
-    ) ?? filtered[0];
+  const next = overviewAssignments[0];
   const openRoute = (assignment: InspectionAssignment) => {
     startRoute(assignment.id);
     window.open(
@@ -1698,11 +1708,9 @@ export default function FieldOfficerDashboard() {
                     className={fieldClass}
                   >
                     <option>All Statuses</option>
-                    {["Assigned", "Draft", "Approved", "Verified"].map(
-                      (status) => (
-                        <option key={status}>{status}</option>
-                      ),
-                    )}
+                    {["Assigned", "Draft"].map((status) => (
+                      <option key={status}>{status}</option>
+                    ))}
                   </select>
                 </label>
                 <label className="flex flex-col gap-1.5">
@@ -1728,8 +1736,8 @@ export default function FieldOfficerDashboard() {
             <section className="mt-3 flex gap-3 overflow-x-auto pb-1">
               <MetricCard
                 label="Assigned Projects"
-                value={mine.length}
-                detail="Received from Consultant Admin"
+                value={overviewAssignments.length}
+                detail="Assigned or draft inspections"
                 icon={FolderKanban}
               />
               <MetricCard
@@ -1761,7 +1769,7 @@ export default function FieldOfficerDashboard() {
               />
             </section>
             <InlineInspectionWorkspace
-              assignments={filtered}
+              assignments={overviewAssignments}
               onOpen={setSelected}
             />
             <div className="hidden">
@@ -1776,7 +1784,7 @@ export default function FieldOfficerDashboard() {
                     </p>
                   </div>
                   <span className="rounded-full bg-[#edf8f0] px-2.5 py-1 text-[10px] font-bold text-[#08733f]">
-                    {filtered.length} projects
+                    {overviewAssignments.length} projects
                   </span>
                 </div>
                 <div className="overflow-x-auto">
@@ -1791,7 +1799,7 @@ export default function FieldOfficerDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filtered.map((assignment) => (
+                      {overviewAssignments.map((assignment) => (
                         <tr
                           key={assignment.id}
                           className="border-t border-slate-100"
@@ -1819,13 +1827,9 @@ export default function FieldOfficerDashboard() {
                               onClick={() => setSelected(assignment)}
                               className="rounded-md border border-[#8bcba0] px-3 py-2 text-[10px] font-bold text-[#08733f]"
                             >
-                              {["Submitted", "Approved", "Verified"].includes(
-                                assignment.status,
-                              )
-                                ? "View report"
-                                : assignment.status === "Assigned"
-                                  ? "Open assignment"
-                                  : "Continue inspection"}
+                              {assignment.status === "Assigned"
+                                ? "Open assignment"
+                                : "Continue inspection"}
                             </button>
                           </td>
                         </tr>
