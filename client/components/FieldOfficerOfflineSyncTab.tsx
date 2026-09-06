@@ -8,30 +8,59 @@ import {
   useInspectionWorkflow,
 } from "../lib/inspection-workflow";
 
-function playArrivalConfirmation() {
-  try {
-    const AudioContextClass =
-      window.AudioContext ||
-      (window as typeof window & { webkitAudioContext?: typeof AudioContext })
-        .webkitAudioContext;
+type BrowserWindow = typeof window & {
+  webkitAudioContext?: typeof AudioContext;
+};
 
-    if (AudioContextClass) {
-      const context = new AudioContextClass();
-      const oscillator = context.createOscillator();
-      const gain = context.createGain();
-      oscillator.type = "sine";
-      oscillator.frequency.setValueAtTime(880, context.currentTime);
-      gain.gain.setValueAtTime(0.0001, context.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.18, context.currentTime + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.24);
-      oscillator.connect(gain);
-      gain.connect(context.destination);
-      oscillator.start();
-      oscillator.stop(context.currentTime + 0.25);
-      oscillator.addEventListener("ended", () => void context.close());
+let arrivalAudioContext: AudioContext | null = null;
+
+function getArrivalAudioContext() {
+  const AudioContextClass =
+    window.AudioContext || (window as BrowserWindow).webkitAudioContext;
+  if (!AudioContextClass) return null;
+
+  if (!arrivalAudioContext || arrivalAudioContext.state === "closed") {
+    arrivalAudioContext = new AudioContextClass();
+  }
+  return arrivalAudioContext;
+}
+
+async function unlockArrivalAudio() {
+  try {
+    const context = getArrivalAudioContext();
+    if (context?.state === "suspended") await context.resume();
+  } catch {
+    // Audio remains optional if the browser or device blocks it.
+  }
+}
+
+async function playArrivalConfirmation() {
+  try {
+    const context = getArrivalAudioContext();
+    if (context) {
+      if (context.state === "suspended") await context.resume();
+
+      const now = context.currentTime;
+      const playTone = (frequency: number, start: number, duration: number) => {
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        oscillator.type = "sine";
+        oscillator.frequency.setValueAtTime(frequency, start);
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(0.28, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+        oscillator.connect(gain);
+        gain.connect(context.destination);
+        oscillator.start(start);
+        oscillator.stop(start + duration + 0.02);
+      };
+
+      // Two-note confirmation is easier to hear on laptop speakers than a short single beep.
+      playTone(784, now, 0.22);
+      playTone(1046, now + 0.24, 0.32);
     }
   } catch {
-    // Some mobile browsers require a prior user interaction before audio can play.
+    // The visual confirmation still appears if sound cannot be played.
   }
 
   if ("vibrate" in navigator) navigator.vibrate(140);
@@ -67,6 +96,22 @@ export default function FieldOfficerOfflineSyncTab() {
   const { session } = useAuth();
   const { assignments, verifyArrival } = useInspectionWorkflow();
   const autoVerified = useRef(new Set<string>());
+
+  useEffect(() => {
+    if (!location.pathname.startsWith("/field-officer")) return;
+
+    // Desktop browsers commonly block audio until the user interacts with the page.
+    // Prime/resume the shared audio context on the first click, tap or key press so
+    // the later automatic geofence confirmation can sound without another action.
+    const unlock = () => void unlockArrivalAudio();
+    window.addEventListener("pointerdown", unlock, { passive: true });
+    window.addEventListener("keydown", unlock);
+
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
+  }, [location.pathname]);
 
   useEffect(() => {
     if (!location.pathname.startsWith("/field-officer")) return;
@@ -176,8 +221,8 @@ export default function FieldOfficerOfflineSyncTab() {
               }),
             ),
           }))
-          .filter(({ assignment, distance }) =>
-            distance <= assignment.geofenceRadius,
+          .filter(
+            ({ assignment, distance }) => distance <= assignment.geofenceRadius,
           )
           .sort((left, right) => {
             const leftActive = left.assignment.routeStartedAt ? 0 : 1;
@@ -196,7 +241,7 @@ export default function FieldOfficerOfflineSyncTab() {
 
         if (!result.allowed) return;
         autoVerified.current.add(nearest.assignment.id);
-        playArrivalConfirmation();
+        void playArrivalConfirmation();
         showArrivalConfirmation(nearest.assignment.projectName, result.distance);
       },
       () => {
