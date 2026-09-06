@@ -26,6 +26,7 @@ import ProjectMapFullscreenControl from "./components/ProjectMapFullscreenContro
 import ConsultantCoverageMapEnhancer from "./components/ConsultantCoverageMapEnhancer";
 import ConsultantProjectLgaDrilldown from "./components/ConsultantProjectLgaDrilldown";
 import FieldOfficerOfflineSyncTab from "./components/FieldOfficerOfflineSyncTab";
+import FieldOfficerPendingUploads from "./components/FieldOfficerPendingUploads";
 import { AuthProvider, RequireRole, useAuth } from "./lib/auth";
 import { InspectionWorkflowProvider } from "./lib/inspection-workflow";
 
@@ -104,6 +105,7 @@ const App = () => (
             <ConsultantCoverageMapEnhancer />
             <ConsultantProjectLgaDrilldown />
             <FieldOfficerOfflineSyncTab />
+            <FieldOfficerPendingUploads />
             <VeritasFooterGate />
             <VeritasGate />
           </BrowserRouter>
