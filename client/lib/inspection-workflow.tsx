@@ -308,18 +308,52 @@ function projectId(project: Project, index: number) {
   return `REA-${project.state.slice(0, 3).toUpperCase()}-${String(index + 1).padStart(4, "0")}`;
 }
 
+/**
+ * Deterministic (not random) small offset derived from the project's own
+ * identity, used only when a project has no real recorded coordinates. This
+ * exists so demo/placeholder pins don't all stack on the exact state
+ * capital, without making the offset grow with the project's position in
+ * whatever list happens to be passed in (which previously caused the
+ * geofence target to drift further and further from any real site the
+ * further down the list a project sat).
+ */
+function placeholderOffset(seed: string): { dLat: number; dLon: number } {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  const dLat = ((hash % 1000) / 1000 - 0.5) * 0.02; // ~±1.1 km
+  const dLon = (((hash >>> 10) % 1000) / 1000 - 0.5) * 0.02;
+  return { dLat, dLon };
+}
+
 export function createAssignment(
   project: Project,
   officer: string,
   dueDate: string,
   index = 0,
 ): InspectionAssignment {
-  const [latitude, longitude] = stateCentres[project.state] ?? [9.0765, 7.3986];
   const now = new Date().toISOString();
   const id = projectId(
     project,
     projects.indexOf(project) >= 0 ? projects.indexOf(project) : index,
   );
+  const hasRealCoordinates =
+    typeof project.latitude === "number" &&
+    typeof project.longitude === "number";
+  let latitude: number;
+  let longitude: number;
+  if (hasRealCoordinates) {
+    latitude = project.latitude as number;
+    longitude = project.longitude as number;
+  } else {
+    const [centreLat, centreLon] = stateCentres[project.state] ?? [
+      9.0765, 7.3986,
+    ];
+    const { dLat, dLon } = placeholderOffset(project.name || id);
+    latitude = centreLat + dLat;
+    longitude = centreLon + dLon;
+  }
   const component = normalizeAssignmentComponent(project.component);
   return {
     id,
@@ -332,8 +366,8 @@ export function createAssignment(
     community: `${project.state} Community ${index + 1}`,
     officer,
     dueDate,
-    latitude: latitude + index * 0.0012,
-    longitude: longitude + index * 0.001,
+    latitude,
+    longitude,
     geofenceRadius: 250,
     status: "Assigned",
     syncStatus: "synced",
@@ -640,9 +674,17 @@ export function createComponentTestAssignments() {
         );
         assignment.lga = lga;
         assignment.community = community;
-        const [latitude, longitude] = stateCentres[project.state];
-        assignment.latitude = latitude + fixtureIndex * 0.0012;
-        assignment.longitude = longitude + fixtureIndex * 0.001;
+        if (
+          typeof project.latitude !== "number" ||
+          typeof project.longitude !== "number"
+        ) {
+          const [centreLat, centreLon] = stateCentres[project.state];
+          const { dLat, dLon } = placeholderOffset(
+            `${project.name}-${fixtureIndex}`,
+          );
+          assignment.latitude = centreLat + dLat;
+          assignment.longitude = centreLon + dLon;
+        }
         return status === "Assigned"
           ? assignment
           : attachDemoReport(

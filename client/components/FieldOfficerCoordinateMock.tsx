@@ -62,16 +62,20 @@ export default function FieldOfficerCoordinateMock() {
         updated.unshift(mockAssignment);
       }
 
+      // Only re-seed the demo project's identity/location fields — never
+      // treat a successful arrival verification or an in-progress route as
+      // something to wipe. Previously `Boolean(existing.arrival)` was in
+      // this list, which meant the instant an officer verified arrival at
+      // the real Panama, Abuja coordinates, the next run of this effect
+      // reset the assignment and force-reloaded the page, discarding the
+      // verified state and making GPS checks look like they "didn't work".
       const shouldReset =
         !existing ||
         existing.projectName !== "Panama Abuja GPS Field Demo" ||
         existing.community !== "Panama, Abuja" ||
         existing.lga !== "Abuja Municipal Area Council" ||
         existing.latitude !== 9.101435 ||
-        existing.longitude !== 7.4936936 ||
-        existing.status !== "Assigned" ||
-        Boolean(existing.arrival) ||
-        Boolean(existing.routeStartedAt);
+        existing.longitude !== 7.4936936;
 
       if (shouldReset) {
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));

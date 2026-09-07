@@ -12,6 +12,16 @@ export type Project = {
   verified: boolean;
   x: number;
   y: number;
+  /**
+   * Real-world site coordinates for this project, captured from the field
+   * survey / ODK submission. When present these are the ones used for the
+   * Field Officer geofence check. When absent, Veritas falls back to a
+   * deterministic (not real) placeholder near the state capital purely so
+   * the demo has something to render on a map — that placeholder should
+   * never be treated as an actual site location.
+   */
+  latitude?: number;
+  longitude?: number;
 };
 
 export type StateSummary = {
