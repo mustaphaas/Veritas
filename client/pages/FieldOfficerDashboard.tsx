@@ -89,6 +89,87 @@ const fieldClass =
 const assignmentError =
   "This assignment does not have a valid component. Please contact your supervisor.";
 
+type LocationResult = {
+  ok: boolean;
+  latitude?: number;
+  longitude?: number;
+  message?: string;
+};
+
+/**
+ * Wraps navigator.geolocation.getCurrentPosition with a two-stage strategy:
+ * try a high-accuracy fix first (best on phones with real GPS hardware),
+ * then automatically fall back to standard accuracy if that fails or
+ * stalls. On laptops/desktops with no GPS chip, some browsers will hang
+ * indefinitely on enableHighAccuracy:true, waiting on a fix that never
+ * arrives, while the standard (network/Wi-Fi based) mode resolves in a
+ * couple of seconds - the console test that diagnosed this used the
+ * default (non-high-accuracy) mode and returned instantly. A wall-clock
+ * timer independent of the browser's own `timeout` option guards against
+ * browsers that ignore that option entirely (e.g. when system-level
+ * Location Services are off and neither callback ever fires).
+ */
+function acquireLocation(onDone: (result: LocationResult) => void) {
+  if (!navigator.geolocation) {
+    onDone({ ok: false, message: "GPS is unavailable on this device." });
+    return;
+  }
+  let settled = false;
+  let fallbackStarted = false;
+  let stage1Timer: number | undefined;
+  let stage2Timer: number | undefined;
+
+  const clearTimers = () => {
+    if (stage1Timer !== undefined) window.clearTimeout(stage1Timer);
+    if (stage2Timer !== undefined) window.clearTimeout(stage2Timer);
+  };
+
+  const succeed = (position: GeolocationPosition) => {
+    if (settled) return;
+    settled = true;
+    clearTimers();
+    onDone({
+      ok: true,
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+    });
+  };
+
+  const failFinal = (message: string) => {
+    if (settled) return;
+    settled = true;
+    clearTimers();
+    onDone({ ok: false, message });
+  };
+
+  const startStandardAccuracyAttempt = () => {
+    if (settled || fallbackStarted) return;
+    fallbackStarted = true;
+    navigator.geolocation.getCurrentPosition(
+      succeed,
+      () =>
+        failFinal(
+          "Location permission is required, or your device could not determine a position.",
+        ),
+      { enableHighAccuracy: false, timeout: 10000 },
+    );
+    stage2Timer = window.setTimeout(() => {
+      failFinal(
+        "No GPS response. Check that Location Services are turned on for this browser in your device settings, then try again.",
+      );
+    }, 12000);
+  };
+
+  navigator.geolocation.getCurrentPosition(
+    succeed,
+    startStandardAccuracyAttempt,
+    { enableHighAccuracy: true, timeout: 7000 },
+  );
+  // Independent guard in case the browser ignores enableHighAccuracy's own
+  // timeout and never calls either callback.
+  stage1Timer = window.setTimeout(startStandardAccuracyAttempt, 8000);
+}
+
 function componentInputAttributes(field: ComponentFieldDefinition) {
   if (field.kind === "integer") {
     return { type: "number", min: 0, step: 1, inputMode: "numeric" as const };
@@ -452,10 +533,7 @@ function InspectionModal({
   const captureArrival = (demo = false) => {
     if (locked) return;
     setGpsBusy(true);
-    let settled = false;
     const apply = (latitude: number, longitude: number) => {
-      if (settled) return;
-      settled = true;
       const result = verifyArrival(assignment.id, latitude, longitude);
       setGpsMessage(
         result.allowed
@@ -474,37 +552,18 @@ function InspectionModal({
       setGpsBusy(false);
     };
     if (demo) return apply(assignment.latitude, assignment.longitude);
-    if (!navigator.geolocation) {
-      setGpsMessage("GPS is unavailable on this device");
-      setGpsBusy(false);
-      return;
-    }
-    // Some mobile browsers never invoke either callback — success or error —
-    // when the device's system-level Location Services are turned off,
-    // even though a `timeout` option was passed. Without this fallback the
-    // button gets stuck on "Capturing GPS…" indefinitely with no feedback.
-    const fallbackTimer = window.setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      setGpsMessage(
-        "No GPS response after 15s. Check that Location Services are turned on for this browser in your device settings, then try again.",
-      );
-      setGpsBusy(false);
-    }, 15000);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        window.clearTimeout(fallbackTimer);
-        apply(position.coords.latitude, position.coords.longitude);
-      },
-      () => {
-        window.clearTimeout(fallbackTimer);
-        if (settled) return;
-        settled = true;
-        setGpsMessage("Location permission was not granted");
+    acquireLocation((result) => {
+      if (
+        result.ok &&
+        result.latitude !== undefined &&
+        result.longitude !== undefined
+      ) {
+        apply(result.latitude, result.longitude);
+      } else {
+        setGpsMessage(result.message ?? "Unable to determine your location.");
         setGpsBusy(false);
-      },
-      { enableHighAccuracy: true, timeout: 12000 },
-    );
+      }
+    });
   };
   const addEvidence = async (
     event: ChangeEvent<HTMLInputElement>,
@@ -1058,10 +1117,7 @@ function InlineInspectionWorkspace({
 
   const verify = (demo = false) => {
     setLocating(true);
-    let settled = false;
     const apply = (latitude: number, longitude: number) => {
-      if (settled) return;
-      settled = true;
       const result = verifyArrival(selected.id, latitude, longitude);
       setLocationMessage(
         result.allowed
@@ -1071,39 +1127,20 @@ function InlineInspectionWorkspace({
       setLocating(false);
     };
     if (demo) return apply(selected.latitude, selected.longitude);
-    if (!navigator.geolocation) {
-      setLocationMessage("GPS is unavailable on this device.");
-      setLocating(false);
-      return;
-    }
-    // See captureArrival() above: without a manual fallback, some mobile
-    // browsers silently hang forever (no success or error callback) when
-    // system-level Location Services are off, leaving the button stuck on
-    // "Checking GPS…" with no way for the officer to know what's wrong.
-    const fallbackTimer = window.setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      setLocationMessage(
-        "No GPS response after 15s. Check that Location Services are turned on for this browser in your device settings, then try again.",
-      );
-      setLocating(false);
-    }, 15000);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        window.clearTimeout(fallbackTimer);
-        apply(position.coords.latitude, position.coords.longitude);
-      },
-      () => {
-        window.clearTimeout(fallbackTimer);
-        if (settled) return;
-        settled = true;
+    acquireLocation((result) => {
+      if (
+        result.ok &&
+        result.latitude !== undefined &&
+        result.longitude !== undefined
+      ) {
+        apply(result.latitude, result.longitude);
+      } else {
         setLocationMessage(
-          "Location permission is required to verify arrival.",
+          result.message ?? "Unable to determine your location.",
         );
         setLocating(false);
-      },
-      { enableHighAccuracy: true, timeout: 12000 },
-    );
+      }
+    });
   };
 
   const selectedComponent = isSupportedAssignmentComponent(selected.component)
