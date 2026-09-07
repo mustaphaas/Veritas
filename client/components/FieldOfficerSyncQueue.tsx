@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  BadgeCheck,
   CheckCircle2,
   Clock3,
   CloudUpload,
+  ListChecks,
   Loader2,
-  PauseCircle,
   Signal,
   Sparkles,
+  UploadCloud,
   Wifi,
   WifiOff,
 } from "lucide-react";
@@ -79,9 +81,7 @@ export default function FieldOfficerSyncQueue() {
     setRunning(true);
   };
 
-  const toggleAutomatic = () => {
-    setAutomaticSync((value) => !value);
-  };
+  const toggleAutomatic = () => setAutomaticSync((value) => !value);
 
   return (
     <section className="w-full overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.07)]">
@@ -120,33 +120,31 @@ export default function FieldOfficerSyncQueue() {
       </div>
 
       <div className="grid gap-4 border-b border-slate-100 bg-[#f8faf9] p-4 sm:grid-cols-3 sm:p-5 lg:p-6">
-        <div className="group flex min-h-[112px] items-center justify-between rounded-2xl border border-[#c7e3d0] bg-[#f0faf3] px-5 py-4 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-[#08733f] hover:bg-[#08733f] hover:shadow-lg">
-          <div>
-            <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#5d8068] transition group-hover:text-white/75">Uploading</p>
-            <p className="mt-1 text-3xl font-bold text-[#08733f] transition group-hover:text-white">{active ? 1 : 0}</p>
-            <p className="mt-2 text-[9px] font-medium text-[#688473] transition group-hover:text-white/75">{running ? "Current active record" : "Not started"}</p>
-          </div>
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-[#08733f] shadow-sm transition group-hover:bg-white/15 group-hover:text-white">
-            {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <PauseCircle className="h-4 w-4" />}
+        <div className="group flex min-h-[148px] flex-col items-center justify-center rounded-2xl border border-[#c7e3d0] bg-white px-5 py-5 text-center shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition-all duration-200 hover:-translate-y-1 hover:border-[#08733f] hover:bg-[#08733f] hover:shadow-[0_12px_28px_rgba(8,115,63,0.18)]">
+          <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[#edf8f0] text-[#08733f] ring-1 ring-[#d4eadb] transition-all duration-200 group-hover:bg-white/15 group-hover:text-white group-hover:ring-white/25">
+            {running ? <Loader2 className="h-5 w-5 animate-spin" /> : <UploadCloud className="h-5 w-5" />}
           </span>
+          <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#5d8068] transition group-hover:text-white/75">Uploading</p>
+          <p className="mt-1 text-[30px] font-bold leading-none text-[#173b2a] transition group-hover:text-white">{active ? 1 : 0}</p>
+          <p className="mt-2 text-[9px] font-medium text-slate-400 transition group-hover:text-white/75">{running ? "Current active record" : "Not started"}</p>
         </div>
 
-        <div className="group flex min-h-[112px] items-center justify-between rounded-2xl border border-[#cddcf5] bg-[#f2f6fd] px-5 py-4 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-[#2563eb] hover:bg-[#2563eb] hover:shadow-lg">
-          <div>
-            <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#64748b] transition group-hover:text-white/75">Waiting</p>
-            <p className="mt-1 text-3xl font-bold text-[#2456a6] transition group-hover:text-white">{waitingCount}</p>
-            <p className="mt-2 text-[9px] font-medium text-slate-500 transition group-hover:text-white/75">Queued for synchronization</p>
-          </div>
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-[#2563eb] shadow-sm transition group-hover:bg-white/15 group-hover:text-white"><Signal className="h-4 w-4" /></span>
+        <div className="group flex min-h-[148px] flex-col items-center justify-center rounded-2xl border border-[#cddcf5] bg-white px-5 py-5 text-center shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition-all duration-200 hover:-translate-y-1 hover:border-[#2563eb] hover:bg-[#2563eb] hover:shadow-[0_12px_28px_rgba(37,99,235,0.18)]">
+          <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[#eef4ff] text-[#2563eb] ring-1 ring-[#d7e3fb] transition-all duration-200 group-hover:bg-white/15 group-hover:text-white group-hover:ring-white/25">
+            <ListChecks className="h-5 w-5" />
+          </span>
+          <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#60728d] transition group-hover:text-white/75">Waiting</p>
+          <p className="mt-1 text-[30px] font-bold leading-none text-[#173b2a] transition group-hover:text-white">{waitingCount}</p>
+          <p className="mt-2 text-[9px] font-medium text-slate-400 transition group-hover:text-white/75">Queued for synchronization</p>
         </div>
 
-        <div className="group flex min-h-[112px] items-center justify-between rounded-2xl border border-[#ead4a3] bg-[#fff9ec] px-5 py-4 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-[#d97706] hover:bg-[#d97706] hover:shadow-lg">
-          <div>
-            <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#8b6a2d] transition group-hover:text-white/75">Completed</p>
-            <p className="mt-1 text-3xl font-bold text-[#b56b00] transition group-hover:text-white">{completedIds.length}</p>
-            <p className="mt-2 text-[9px] font-medium text-[#8b764d] transition group-hover:text-white/75">Successfully synchronized</p>
-          </div>
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-[#d97706] shadow-sm transition group-hover:bg-white/15 group-hover:text-white"><CheckCircle2 className="h-4 w-4" /></span>
+        <div className="group flex min-h-[148px] flex-col items-center justify-center rounded-2xl border border-[#ead4a3] bg-white px-5 py-5 text-center shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition-all duration-200 hover:-translate-y-1 hover:border-[#d97706] hover:bg-[#d97706] hover:shadow-[0_12px_28px_rgba(217,119,6,0.18)]">
+          <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[#fff7e8] text-[#d97706] ring-1 ring-[#f1dfba] transition-all duration-200 group-hover:bg-white/15 group-hover:text-white group-hover:ring-white/25">
+            <BadgeCheck className="h-5 w-5" />
+          </span>
+          <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#8b6a2d] transition group-hover:text-white/75">Completed</p>
+          <p className="mt-1 text-[30px] font-bold leading-none text-[#173b2a] transition group-hover:text-white">{completedIds.length}</p>
+          <p className="mt-2 text-[9px] font-medium text-slate-400 transition group-hover:text-white/75">Successfully synchronized</p>
         </div>
       </div>
 
