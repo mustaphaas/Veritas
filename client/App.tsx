@@ -29,6 +29,7 @@ import FieldOfficerOfflineSyncTab from "./components/FieldOfficerOfflineSyncTab"
 import FieldOfficerPendingUploads from "./components/FieldOfficerPendingUploads";
 import FieldOfficerCoordinateMock from "./components/FieldOfficerCoordinateMock";
 import FieldOfficerSyncQueueMount from "./components/FieldOfficerSyncQueueMount";
+import FieldOfficerDraftsNavEnhancer from "./components/FieldOfficerDraftsNavEnhancer";
 import { AuthProvider, RequireRole, useAuth } from "./lib/auth";
 import { InspectionWorkflowProvider } from "./lib/inspection-workflow";
 
@@ -110,6 +111,7 @@ const App = () => (
             <FieldOfficerPendingUploads />
             <FieldOfficerCoordinateMock />
             <FieldOfficerSyncQueueMount />
+            <FieldOfficerDraftsNavEnhancer />
             <VeritasFooterGate />
             <VeritasGate />
           </BrowserRouter>
