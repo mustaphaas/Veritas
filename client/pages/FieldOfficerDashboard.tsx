@@ -1105,14 +1105,39 @@ function InlineInspectionWorkspace({
 
   const beginRoute = () => {
     startRoute(selected.id);
-    setLocationMessage(
-      "Google Map navigation opened. GPS verification remains available independently.",
-    );
-    window.open(
-      `https://www.google.com/maps/dir/?api=1&destination=${selected.latitude},${selected.longitude}`,
-      "_blank",
-      "noopener,noreferrer",
-    );
+    const destination = `${selected.latitude},${selected.longitude}`;
+    // Open the tab synchronously, within the click handler, so browsers
+    // don't treat it as a blocked popup — then redirect it once we have an
+    // accurate origin. (Omitting noopener/noreferrer here is intentional:
+    // we need to keep a handle to redirect this tab, and the destination
+    // is always the trusted, hardcoded Google Maps domain.)
+    const mapWindow = window.open("", "_blank");
+    setLocationMessage("Getting your location for accurate directions…");
+    // Without an explicit origin, Google Maps has to re-detect location in
+    // a brand-new tab, which can fall back to a rougher IP-based guess and
+    // produce a noticeably less accurate distance than typing an address
+    // in manually. Using the same GPS fix Veritas already knows how to get
+    // reliably (see acquireLocation) keeps the two consistent.
+    acquireLocation((result) => {
+      const hasOrigin =
+        result.ok &&
+        result.latitude !== undefined &&
+        result.longitude !== undefined;
+      const originParam = hasOrigin
+        ? `&origin=${result.latitude},${result.longitude}`
+        : "";
+      const url = `https://www.google.com/maps/dir/?api=1&destination=${destination}${originParam}`;
+      if (mapWindow) {
+        mapWindow.location.href = url;
+      } else {
+        window.open(url, "_blank", "noopener,noreferrer");
+      }
+      setLocationMessage(
+        hasOrigin
+          ? "Google Map navigation opened. GPS verification remains available independently."
+          : "Google Map navigation opened without a precise starting point — Maps will estimate your location. GPS verification remains available independently.",
+      );
+    });
   };
 
   const verify = (demo = false) => {
