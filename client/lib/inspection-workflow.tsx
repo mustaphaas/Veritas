@@ -868,11 +868,66 @@ function loadAssignments() {
   }
 }
 
+const PANAMA_DEMO_ID = "REA-FCT-GPS-0001";
+
+/**
+ * Assignments already sitting in a browser's localStorage were created
+ * before the placeholder-location fix (state-capital-plus-drift instead of
+ * a stable per-project point). Since assignments are hydrated straight from
+ * storage rather than regenerated, deploying the fix alone did nothing for
+ * anyone with an existing session — this recomputes the location for any
+ * assignment that isn't the live Panama, Abuja GPS demo (which manages its
+ * own fixed real-world coordinates) and doesn't yet correspond to a project
+ * with real recorded coordinates.
+ */
+function migrateAssignmentLocation(
+  assignment: InspectionAssignment,
+): InspectionAssignment {
+  if (assignment.id === PANAMA_DEMO_ID) return assignment;
+  const matchingProject = projects.find(
+    (project) =>
+      assignment.projectName === project.name ||
+      assignment.projectName.startsWith(`${project.name} —`),
+  );
+  if (
+    matchingProject &&
+    typeof matchingProject.latitude === "number" &&
+    typeof matchingProject.longitude === "number"
+  ) {
+    if (
+      assignment.latitude === matchingProject.latitude &&
+      assignment.longitude === matchingProject.longitude
+    ) {
+      return assignment;
+    }
+    return {
+      ...assignment,
+      latitude: matchingProject.latitude,
+      longitude: matchingProject.longitude,
+    };
+  }
+  const [centreLat, centreLon] = stateCentres[assignment.state] ?? [
+    9.0765, 7.3986,
+  ];
+  const { dLat, dLon } = placeholderOffset(
+    assignment.projectName || assignment.id,
+  );
+  const latitude = centreLat + dLat;
+  const longitude = centreLon + dLon;
+  if (assignment.latitude === latitude && assignment.longitude === longitude) {
+    return assignment;
+  }
+  return { ...assignment, latitude, longitude };
+}
+
 export function migrateStoredAssignment(
   storedAssignment: InspectionAssignment,
 ): InspectionAssignment {
   const component = normalizeAssignmentComponent(storedAssignment.component);
-  const assignment = { ...storedAssignment, component };
+  const assignment = migrateAssignmentLocation({
+    ...storedAssignment,
+    component,
+  });
   if (!assignment.report || !isSupportedAssignmentComponent(component)) {
     return assignment;
   }
