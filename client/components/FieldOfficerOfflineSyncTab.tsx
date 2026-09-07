@@ -124,35 +124,6 @@ export default function FieldOfficerOfflineSyncTab() {
       elements.forEach((element) => {
         const text = element.textContent?.trim();
 
-        if (text === "Draft Reports" || text === "Offline Sync") {
-          const inNavigation = Boolean(
-            element.closest("nav") || element.closest("aside"),
-          );
-
-          if (inNavigation) {
-            const clickable =
-              element.closest<HTMLElement>("button, a") ?? element;
-            const label = clickable.querySelector<HTMLElement>("span");
-
-            clickable.setAttribute("aria-label", "Offline Sync");
-            clickable.setAttribute("title", "Offline Sync");
-            clickable.dataset.label = "Offline Sync";
-            clickable.classList.add("justify-center");
-            clickable.onclick = (event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              navigate("/field-officer/sync");
-            };
-
-            if (label) {
-              label.textContent = "Offline Sync";
-              label.className = "sr-only";
-            }
-          } else if (text === "Draft Reports") {
-            element.textContent = "Offline Saved";
-          }
-        }
-
         if (text === "Sync Queue") {
           const clickable = element.closest<HTMLElement>("button, a");
           if (
@@ -164,11 +135,25 @@ export default function FieldOfficerOfflineSyncTab() {
             element.textContent = "Offline Sync";
           }
         }
-      });
 
-      if (location.pathname === "/field-officer/drafts") {
-        navigate("/field-officer/sync", { replace: true });
-      }
+        if (text === "Offline Sync") {
+          const inNavigation = Boolean(
+            element.closest("nav") || element.closest("aside"),
+          );
+          if (inNavigation) {
+            const clickable =
+              element.closest<HTMLElement>("button, a") ?? element;
+            clickable.setAttribute("aria-label", "Offline Sync");
+            clickable.setAttribute("title", "Offline Sync");
+            clickable.dataset.label = "Offline Sync";
+            clickable.onclick = (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              navigate("/field-officer/sync");
+            };
+          }
+        }
+      });
     };
 
     apply();
