@@ -452,7 +452,10 @@ function InspectionModal({
   const captureArrival = (demo = false) => {
     if (locked) return;
     setGpsBusy(true);
+    let settled = false;
     const apply = (latitude: number, longitude: number) => {
+      if (settled) return;
+      settled = true;
       const result = verifyArrival(assignment.id, latitude, longitude);
       setGpsMessage(
         result.allowed
@@ -476,9 +479,27 @@ function InspectionModal({
       setGpsBusy(false);
       return;
     }
+    // Some mobile browsers never invoke either callback — success or error —
+    // when the device's system-level Location Services are turned off,
+    // even though a `timeout` option was passed. Without this fallback the
+    // button gets stuck on "Capturing GPS…" indefinitely with no feedback.
+    const fallbackTimer = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      setGpsMessage(
+        "No GPS response after 15s. Check that Location Services are turned on for this browser in your device settings, then try again.",
+      );
+      setGpsBusy(false);
+    }, 15000);
     navigator.geolocation.getCurrentPosition(
-      (position) => apply(position.coords.latitude, position.coords.longitude),
+      (position) => {
+        window.clearTimeout(fallbackTimer);
+        apply(position.coords.latitude, position.coords.longitude);
+      },
       () => {
+        window.clearTimeout(fallbackTimer);
+        if (settled) return;
+        settled = true;
         setGpsMessage("Location permission was not granted");
         setGpsBusy(false);
       },
@@ -1037,7 +1058,10 @@ function InlineInspectionWorkspace({
 
   const verify = (demo = false) => {
     setLocating(true);
+    let settled = false;
     const apply = (latitude: number, longitude: number) => {
+      if (settled) return;
+      settled = true;
       const result = verifyArrival(selected.id, latitude, longitude);
       setLocationMessage(
         result.allowed
@@ -1052,9 +1076,27 @@ function InlineInspectionWorkspace({
       setLocating(false);
       return;
     }
+    // See captureArrival() above: without a manual fallback, some mobile
+    // browsers silently hang forever (no success or error callback) when
+    // system-level Location Services are off, leaving the button stuck on
+    // "Checking GPS…" with no way for the officer to know what's wrong.
+    const fallbackTimer = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      setLocationMessage(
+        "No GPS response after 15s. Check that Location Services are turned on for this browser in your device settings, then try again.",
+      );
+      setLocating(false);
+    }, 15000);
     navigator.geolocation.getCurrentPosition(
-      (position) => apply(position.coords.latitude, position.coords.longitude),
+      (position) => {
+        window.clearTimeout(fallbackTimer);
+        apply(position.coords.latitude, position.coords.longitude);
+      },
       () => {
+        window.clearTimeout(fallbackTimer);
+        if (settled) return;
+        settled = true;
         setLocationMessage(
           "Location permission is required to verify arrival.",
         );
