@@ -4,9 +4,9 @@ import { MapPin } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import {
   getAssignmentDisplayStatus,
-  useInspectionWorkflow,
   type InspectionAssignment,
 } from "../lib/inspection-workflow";
+import { useConsultantPortfolio } from "../lib/use-consultant-portfolio";
 
 type GeoFeature = {
   type: "Feature";
@@ -252,6 +252,11 @@ function ConsultantCoverageMap({ assignments }: { assignments: InspectionAssignm
       ),
     [assignments, pageFilters],
   );
+  useEffect(() => {
+    if (selectedProject && !assignments.some((item) => item.id === selectedProject.id)) {
+      setSelectedProject(null); setSelectedLga(null); setSelectedState(null);
+    }
+  }, [assignments, selectedProject]);
 
   useEffect(() => {
     if (pageFilters.state !== "All States") {
@@ -491,7 +496,7 @@ function ConsultantCoverageMap({ assignments }: { assignments: InspectionAssignm
 
 export default function ConsultantCoverageMapEnhancer() {
   const location = useLocation();
-  const { assignments } = useInspectionWorkflow();
+  const { visibleAssignments: assignments } = useConsultantPortfolio();
   const [target, setTarget] = useState<HTMLElement | null>(null);
 
   useEffect(() => {

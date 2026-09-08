@@ -3,9 +3,9 @@ import { createPortal } from "react-dom";
 import { MapPin } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import {
-  useInspectionWorkflow,
   type InspectionAssignment,
 } from "../lib/inspection-workflow";
+import { useConsultantPortfolio } from "../lib/use-consultant-portfolio";
 
 type GeoFeature = {
   type: "Feature";
@@ -165,7 +165,7 @@ function pathForFeature(feature: GeoFeature, projector: Projector) {
 
 export default function ConsultantProjectLgaDrilldown() {
   const location = useLocation();
-  const { assignments } = useInspectionWorkflow();
+  const { visibleAssignments: assignments } = useConsultantPortfolio();
   const [features, setFeatures] = useState<GeoFeature[]>([]);
   const [selected, setSelected] = useState<InspectionAssignment | null>(null);
   const [host, setHost] = useState<HTMLElement | null>(null);
@@ -236,6 +236,9 @@ export default function ConsultantProjectLgaDrilldown() {
     () => (selected ? resolveCoordinate(selected) : null),
     [selected],
   );
+  useEffect(() => {
+    if (selected && !assignments.some((item) => item.id === selected.id)) setSelected(null);
+  }, [assignments, selected]);
 
   const actualLga = useMemo(() => {
     if (!coordinate || !features.length) return null;

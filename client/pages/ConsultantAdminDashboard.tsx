@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Ban,
   Camera,
@@ -19,7 +19,9 @@ import {
 } from "lucide-react";
 import RoleDashboardShell from "../components/RoleDashboardShell";
 import { useLocation, useNavigate } from "react-router-dom";
-import { projects, type Project } from "../lib/dashboard-data";
+import type { Project } from "../lib/dashboard-data";
+import { setAssignmentConsultant, setOfficerConsultant } from "../lib/consultant-tenancy";
+import { useConsultantPortfolio } from "../lib/use-consultant-portfolio";
 import {
   COMPONENT_FORM_SECTIONS,
   isSupportedAssignmentComponent,
@@ -123,12 +125,12 @@ function StatusPill({ status }: { status: InspectionAssignment["status"] }) {
   );
 }
 
-function AssignProjectModal({ onClose }: { onClose: () => void }) {
-  const { assignments, fieldOfficers, assignProject } = useInspectionWorkflow();
+function AssignProjectModal({ onClose, consultantId, assignments, fieldOfficers, availableProjects }: { onClose: () => void; consultantId: string; assignments: InspectionAssignment[]; fieldOfficers: FieldOfficerAccount[]; availableProjects: Project[] }) {
+  const { assignProject } = useInspectionWorkflow();
   const activeOfficers = fieldOfficers.filter(
     (officer) => officer.status === "Active",
   );
-  const available = projects.filter(
+  const available = availableProjects.filter(
     (project) => !assignments.some((item) => item.projectName === project.name),
   );
   const [projectName, setProjectName] = useState(available[0]?.name ?? "");
@@ -142,11 +144,13 @@ function AssignProjectModal({ onClose }: { onClose: () => void }) {
   );
   const submit = () => {
     if (!selectedProject || !officer || !dueDate) return;
-    assignProject(
+    const assignment = assignProject(
       selectedProject,
       officer,
       new Date(`${dueDate}T17:00:00`).toISOString(),
     );
+    if (!assignment) return;
+    setAssignmentConsultant(assignment.id, consultantId);
     onClose();
   };
   return (
@@ -239,7 +243,7 @@ function AssignProjectModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-function CreateFieldOfficerModal({ onClose }: { onClose: () => void }) {
+function CreateFieldOfficerModal({ onClose, consultantId }: { onClose: () => void; consultantId: string }) {
   const { createFieldOfficer } = useInspectionWorkflow();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -248,7 +252,7 @@ function CreateFieldOfficerModal({ onClose }: { onClose: () => void }) {
   const [device, setDevice] = useState(
     () => `REA-FO-${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
   );
-  const [password, setPassword] = useState("Field2024!");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const submit = () => {
     const result = createFieldOfficer({
@@ -263,6 +267,7 @@ function CreateFieldOfficerModal({ onClose }: { onClose: () => void }) {
       setError(result.message);
       return;
     }
+    setOfficerConsultant(email, consultantId);
     onClose();
   };
   return (
@@ -884,8 +889,8 @@ function ConsultantWorkspace({
 }
 
 export default function ConsultantAdminDashboard() {
-  const { assignments, fieldOfficers, setFieldOfficerStatus } =
-    useInspectionWorkflow();
+  const { setFieldOfficerStatus } = useInspectionWorkflow();
+  const { consultant, visibleAssignments: assignments, fieldOfficers, unallocatedProjects } = useConsultantPortfolio();
   const [programmeFilter, setProgrammeFilter] = useState("All Programmes");
   const [stateFilter, setStateFilter] = useState("All States");
   const [officerFilter, setOfficerFilter] = useState("All Field Officers");
@@ -897,6 +902,10 @@ export default function ConsultantAdminDashboard() {
   const activeView = consultantPathViews[location.pathname] ?? "Overview";
   const [mapAssignment, setMapAssignment] =
     useState<InspectionAssignment | null>(assignments[0] ?? null);
+  useEffect(() => {
+    setProgrammeFilter("All Programmes"); setStateFilter("All States"); setOfficerFilter("All Field Officers");
+    setMapAssignment(null); setReviewing(null); setAssignOpen(false); setCreateOfficerOpen(false);
+  }, [consultant?.id]);
   const filtered = useMemo(
     () =>
       assignments.filter(
@@ -953,10 +962,10 @@ export default function ConsultantAdminDashboard() {
     : "";
   return (
     <RoleDashboardShell
-      title="Consultant Admin Dashboard"
-      subtitle="Assign field work, review inspection evidence and monitor programme assurance."
-      roleName="Ibrahim Musa · Consultant Admin"
-      initials="IM"
+      title={consultant?.firmName ?? "Consultant Admin Dashboard"}
+      subtitle={`Manage ${consultant?.firmName ?? "your firm's"} field officers, assigned projects and inspection assurance.`}
+      roleName={`${consultant?.adminName ?? "Consultant Admin"} · Consultant Admin`}
+      initials={(consultant?.adminName ?? "Consultant Admin").split(/\s+/).slice(0,2).map(part=>part[0]).join("")}
       navigation={navigation}
       activeNavigation={activeView}
       onNavigationChange={(label) =>
@@ -1108,6 +1117,10 @@ export default function ConsultantAdminDashboard() {
             )}
           </section>
         </div>
+        <section className="mt-3 overflow-hidden rounded-lg border border-slate-200 bg-white">
+          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5"><div><h2 className="text-sm font-bold text-[#173b2a]">REA Assigned · Awaiting Field Officer</h2><p className="mt-1 text-[10px] text-slate-500">Projects explicitly allocated to {consultant?.firmName ?? "this consultant"} that have not been assigned.</p></div><span className="rounded-full bg-[#fff7df] px-2.5 py-1 text-[9px] font-bold text-[#9a6800]">{unallocatedProjects.length}</span></div>
+          <div className="divide-y divide-slate-100">{unallocatedProjects.slice(0,12).map(project=><div key={project.name} className="grid gap-2 px-4 py-3 sm:grid-cols-[1fr_auto] sm:items-center"><div><p className="text-xs font-bold text-[#173b2a]">{project.name}</p><p className="mt-1 text-[9px] text-slate-500">{project.programme} · {project.component} · {project.state}</p></div><span className="rounded-full border border-[#f0d88d] bg-[#fff8e5] px-2.5 py-1 text-[9px] font-bold text-[#956300]">Not assigned</span></div>)}{!unallocatedProjects.length&&<p className="p-6 text-center text-xs text-slate-500">All REA-assigned projects have been allocated to field officers.</p>}</div>
+        </section>
         <div className="mt-3 grid gap-3 xl:grid-cols-2">
           <section className="rounded-lg border border-slate-200 bg-white">
             <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
@@ -1200,16 +1213,14 @@ export default function ConsultantAdminDashboard() {
         </div>
       </div>
       {assignOpen && (
-        <AssignProjectModal onClose={() => setAssignOpen(false)} />
+        <AssignProjectModal onClose={() => setAssignOpen(false)} consultantId={consultant?.id ?? ""} assignments={assignments} fieldOfficers={fieldOfficers} availableProjects={unallocatedProjects} />
       )}
       {createOfficerOpen && (
-        <CreateFieldOfficerModal onClose={() => setCreateOfficerOpen(false)} />
+        <CreateFieldOfficerModal onClose={() => setCreateOfficerOpen(false)} consultantId={consultant?.id ?? ""} />
       )}
-      {reviewing && (
+      {reviewing && assignments.some((item) => item.id === reviewing.id) && (
         <ReviewModal
-          assignment={
-            assignments.find((item) => item.id === reviewing.id) ?? reviewing
-          }
+          assignment={assignments.find((item) => item.id === reviewing.id)!}
           onClose={() => setReviewing(null)}
         />
       )}
