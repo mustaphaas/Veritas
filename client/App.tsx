@@ -25,6 +25,7 @@ import ReaProjectMapHost from "./components/ReaProjectMapProgramme";
 import ProjectMapFullscreenControl from "./components/ProjectMapFullscreenControl";
 import ConsultantCoverageMapEnhancer from "./components/ConsultantCoverageMapEnhancer";
 import ConsultantProjectLgaDrilldown from "./components/ConsultantProjectLgaDrilldown";
+import ConsultantWorkflowBridge from "./components/ConsultantWorkflowBridge";
 import FieldOfficerOfflineSyncTab from "./components/FieldOfficerOfflineSyncTab";
 import FieldOfficerPendingUploads from "./components/FieldOfficerPendingUploads";
 import FieldOfficerCoordinateMock from "./components/FieldOfficerCoordinateMock";
@@ -105,6 +106,7 @@ const App = () => (
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            <ConsultantWorkflowBridge />
             <ProjectMapGate />
             <ConsultantCoverageMapEnhancer />
             <ConsultantProjectLgaDrilldown />
