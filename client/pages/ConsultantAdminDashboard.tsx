@@ -158,9 +158,9 @@ function AssignProjectModal({ onClose, consultantId, assignments, fieldOfficers,
       <section className="w-full max-w-xl rounded-t-2xl bg-white p-5 shadow-2xl sm:rounded-xl sm:p-6">
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="text-lg font-bold text-[#173b2a]">Assign project</h2>
+            <h2 className="text-lg font-bold text-[#173b2a]">Assign REA allocation</h2>
             <p className="mt-1 text-xs text-slate-500">
-              Send project details and location to a field officer.
+              Assign an REA-allocated project to one of your field officers.
             </p>
           </div>
           <button
@@ -172,7 +172,7 @@ function AssignProjectModal({ onClose, consultantId, assignments, fieldOfficers,
         </div>
         <div className="mt-5 space-y-4">
           <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
-            Project
+            REA allocated project
             <select
               value={projectName}
               onChange={(event) => setProjectName(event.target.value)}
@@ -235,7 +235,7 @@ function AssignProjectModal({ onClose, consultantId, assignments, fieldOfficers,
             disabled={!selectedProject || !officer}
             className="flex items-center gap-2 rounded-md bg-[#08733f] px-5 py-2.5 text-xs font-bold text-white disabled:opacity-40"
           >
-            <Plus className="h-4 w-4" /> Assign project
+            <Plus className="h-4 w-4" /> Assign to field officer
           </button>
         </div>
       </section>
@@ -823,9 +823,13 @@ function ConsultantWorkspace({
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
       <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
         <div>
-          <h2 className="text-base font-bold text-[#173b2a]">{view}</h2>
+          <h2 className="text-base font-bold text-[#173b2a]">
+            {view === "Projects" ? "REA Project Allocations" : view}
+          </h2>
           <p className="mt-1 text-[10px] text-slate-500">
-            Workflow actions are restricted by the current inspection status.
+            {view === "Projects"
+              ? "REA allocates projects to your consultancy; you assign those allocations to field officers."
+              : "Workflow actions are restricted by the current inspection status."}
           </p>
         </div>
         {view === "Projects" && (
@@ -833,7 +837,7 @@ function ConsultantWorkspace({
             onClick={onAssign}
             className="flex items-center gap-2 rounded-md bg-[#08733f] px-4 py-2.5 text-[10px] font-bold text-white"
           >
-            <Plus className="h-4 w-4" /> Assign project
+            <Plus className="h-4 w-4" /> Assign to field officer
           </button>
         )}
       </div>
@@ -963,7 +967,7 @@ export default function ConsultantAdminDashboard() {
   return (
     <RoleDashboardShell
       title="Consultant Admin Dashboard"
-      subtitle="Assign field work, review inspection evidence and monitor programme assurance."
+      subtitle="Manage REA project allocations, assign field work, review inspection evidence and monitor programme assurance."
       roleName="Ibrahim Musa · Consultant Admin"
       initials="IM"
       navigation={navigation}
@@ -1037,15 +1041,15 @@ export default function ConsultantAdminDashboard() {
               onClick={() => setAssignOpen(true)}
               className="mt-auto flex h-10 items-center justify-center gap-2 rounded-md bg-[#08733f] px-4 text-xs font-bold text-white"
             >
-              <Plus className="h-4 w-4" /> Assign project
+              <Plus className="h-4 w-4" /> Assign to field officer
             </button>
           </div>
         </section>
         <section className="mt-3 flex gap-3 overflow-x-auto pb-1">
           <MetricCard
-            label="Assigned Projects"
+            label="Field Officer Assignments"
             value={filtered.length}
-            detail="Consultant-managed portfolio"
+            detail="REA allocations assigned to officers"
             icon={FolderKanban}
           />
           <MetricCard
@@ -1076,7 +1080,7 @@ export default function ConsultantAdminDashboard() {
                   Interactive Project Map
                 </h2>
                 <p className="mt-1 text-[10px] text-slate-500">
-                  Select an assignment to inspect its field location
+                  Select a field officer assignment to inspect its field location
                 </p>
               </div>
               {mapTarget && <StatusPill status={mapTarget.status} />}
@@ -1091,7 +1095,7 @@ export default function ConsultantAdminDashboard() {
                 />
                 <div className="max-h-[350px] overflow-y-auto border-l border-slate-100 p-3">
                   <p className="mb-2 text-[9px] font-bold uppercase tracking-wide text-slate-500">
-                    Filtered assignments
+                    Field officer assignments
                   </p>
                   {filtered.slice(0, 12).map((item) => (
                     <button
@@ -1112,7 +1116,7 @@ export default function ConsultantAdminDashboard() {
               </div>
             ) : (
               <div className="p-10 text-center text-sm text-slate-500">
-                No assigned projects match these filters.
+                No field officer assignments match these filters.
               </div>
             )}
           </section>
