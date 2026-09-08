@@ -10,7 +10,7 @@ export type DemoAccount = { role: DemoRole; roleLabel: string; name: string; ini
 export const demoAccounts: DemoAccount[] = [
  { role:"rea", roleLabel:"REA Dashboard", name:"REA Administrator", initials:"RA", email:"rea.admin@demo.ng", password:"REA2024!", path:"/" },
  { role:"field", roleLabel:"Field Officer", name:"Amina Yusuf", initials:"AY", email:"field.officer@demo.ng", password:"Field2024!", path:"/field-officer", consultantId:"con-001" },
- { role:"consultant", roleLabel:"Consultant Admin", name:"Tunde Oyelaran", initials:"TO", email:"admin@oyelaran.ng", password:"Consult2026!", path:"/consultant-admin", consultantId:"con-001" },
+ { role:"consultant", roleLabel:"Consultant Admin", name:"Ibrahim Musa", initials:"IM", email:"consultant.admin@demo.ng", password:"Consult2024!", path:"/consultant-admin", consultantId:"con-001" },
 ];
 export type AuthSession = Omit<DemoAccount,"password"> & { access?: string[] };
 type LoginAccount = DemoAccount & { access?: string[] };
@@ -53,10 +53,7 @@ function hydrateSession(session:AuthSession):AuthSession|null{
  }
  if(session.role==="consultant"){
   const consultant=readConsultants().find(account=>account.adminEmail.toLowerCase()===session.email.toLowerCase());
-  if(!consultant||consultant.status!=="Active"){
-   const seeded=demoAccounts.find(account=>account.role==="consultant"&&account.email.toLowerCase()===session.email.toLowerCase());
-   return seeded?session:null;
-  }
+  if(!consultant||consultant.status!=="Active")return session.email==="consultant.admin@demo.ng"?session:null;
   return {...session,name:consultant.adminName,initials:initials(consultant.adminName),consultantId:consultant.id};
  }
  if(session.role==="field"){
