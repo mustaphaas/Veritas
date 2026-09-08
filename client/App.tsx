@@ -27,7 +27,6 @@ import ConsultantCoverageMapEnhancer from "./components/ConsultantCoverageMapEnh
 import ConsultantProjectLgaDrilldown from "./components/ConsultantProjectLgaDrilldown";
 import ConsultantWorkflowBridge from "./components/ConsultantWorkflowBridge";
 import FieldOfficerCoordinateMock from "./components/FieldOfficerCoordinateMock";
-import FieldOfficerSyncQueueMount from "./components/FieldOfficerSyncQueueMount";
 import FieldOfficerSyncMediaMock from "./components/FieldOfficerSyncMediaMock";
 import FieldOfficerSyncPendingBridge from "./components/FieldOfficerSyncPendingBridge";
 import FieldOfficerKpiDataBridge from "./components/FieldOfficerKpiDataBridge";
@@ -114,7 +113,6 @@ const App = () => (
             <ConsultantCoverageMapEnhancer />
             <ConsultantProjectLgaDrilldown />
             <FieldOfficerCoordinateMock />
-            <FieldOfficerSyncQueueMount />
             <FieldOfficerSyncMediaMock />
             <FieldOfficerSyncPendingBridge />
             <FieldOfficerKpiDataBridge />

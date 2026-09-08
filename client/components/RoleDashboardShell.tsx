@@ -14,6 +14,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
+import FieldOfficerSyncQueue from "./FieldOfficerSyncQueue";
 
 export type RoleNavigationItem = {
   label: string;
@@ -204,7 +205,7 @@ export default function RoleDashboardShell({ title, subtitle, roleName, initials
           <div className="flex min-w-0 items-center gap-3"><button type="button" onClick={() => setMobileMenuOpen(true)} className="rounded-md p-2 text-slate-600 hover:bg-slate-100" aria-label="Open navigation"><Menu className="h-5 w-5" /></button><div className="min-w-0"><h1 className="truncate text-lg font-bold tracking-tight text-[#142a1f] sm:text-[22px]">{title}</h1><p className="mt-1 hidden truncate text-xs text-slate-500 sm:block">{subtitle}</p></div></div>
           <div className="flex items-center gap-2 sm:gap-4"><span className="hidden items-center gap-2 text-xs font-semibold text-[#08733f] md:flex"><i className="h-2 w-2 rounded-full bg-[#16a05a]" /> Live data</span><button type="button" onClick={() => { setInternalActiveNav("Notifications"); onNavigationChange?.("Notifications"); }} className="relative rounded-md p-2 text-slate-500 hover:bg-slate-100" aria-label="Notifications"><Bell className="h-5 w-5" /><span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full border border-white bg-[#df7d00] px-1 text-[8px] font-bold text-white">3</span></button><div className="hidden items-center gap-2 sm:flex"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#e9f5ec] text-xs font-bold text-[#08733f]">{initials}</div><span className="hidden text-xs font-semibold text-[#142a1f] xl:block">{roleName}</span></div><button type="button" onClick={() => { logout(); navigate("/login", { replace: true }); }} className="flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-[11px] font-bold text-slate-600 hover:border-[#e2b5b5] hover:bg-red-50 hover:text-red-700"><LogOut className="h-4 w-4" /><span className="hidden xl:inline">Logout</span></button></div>
         </header>
-        <div className="mx-auto max-w-[1580px] px-4 py-4 sm:px-7">{showFieldSyncQueue ? <SyncQueueDemo key={normalizedPath} /> : children}</div>
+        <div className="mx-auto max-w-[1580px] px-4 py-4 sm:px-7">{showFieldSyncQueue ? <FieldOfficerSyncQueue key={normalizedPath} /> : children}</div>
       </main>
     </div>
   );
