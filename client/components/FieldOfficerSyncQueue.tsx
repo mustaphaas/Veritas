@@ -7,17 +7,16 @@ import {
   ListChecks,
   Loader2,
   Signal,
-  Sparkles,
   UploadCloud,
   Wifi,
   WifiOff,
 } from "lucide-react";
 
 const initialQueue = [
-  { project: "DARES Kaduna Grid Extension", id: "REA-KAD-0214", location: "Kawo, Kaduna North", type: "Inspection report + 8 photos", queued: "Today, 8:42 AM", size: "18.4 MB" },
-  { project: "NEP Kano Mini Grid", id: "REA-KAN-0187", location: "Kofar Ruwa, Kano Municipal", type: "Inspection report + signatures", queued: "Today, 8:18 AM", size: "6.7 MB" },
-  { project: "AMP Katsina SAS Verification", id: "REA-KAT-0096", location: "Kofar Sauri, Katsina", type: "GPS record + 5 photos", queued: "Yesterday, 5:36 PM", size: "12.1 MB" },
-  { project: "NEP Sokoto Mini Grid", id: "REA-SOK-0068", location: "Gagi, Sokoto South", type: "Inspection draft + evidence", queued: "Yesterday, 4:11 PM", size: "9.8 MB" },
+  { project: "DARES Kaduna Grid Extension", id: "REA-KAD-0214", location: "Kawo, Kaduna North", type: "Inspection report + no media", queued: "Today, 8:42 AM", size: "18.4 MB" },
+  { project: "NEP Kano Mini Grid", id: "REA-KAN-0187", location: "Kofar Ruwa, Kano Municipal", type: "Inspection report + no media", queued: "Today, 8:18 AM", size: "6.7 MB" },
+  { project: "AMP Katsina SAS Verification", id: "REA-KAT-0096", location: "Kofar Sauri, Katsina", type: "Inspection report + no media", queued: "Yesterday, 5:36 PM", size: "12.1 MB" },
+  { project: "NEP Sokoto Mini Grid", id: "REA-SOK-0068", location: "Gagi, Sokoto South", type: "Inspection report + no media", queued: "Yesterday, 4:11 PM", size: "9.8 MB" },
 ];
 
 export default function FieldOfficerSyncQueue() {
@@ -28,13 +27,17 @@ export default function FieldOfficerSyncQueue() {
   const [automaticSync, setAutomaticSync] = useState(false);
 
   useEffect(() => {
-    const online = () => setIsOnline(true);
-    const offline = () => setIsOnline(false);
-    window.addEventListener("online", online);
-    window.addEventListener("offline", offline);
+    const updateConnection = () => setIsOnline(navigator.onLine);
+    updateConnection();
+    window.addEventListener("online", updateConnection);
+    window.addEventListener("offline", updateConnection);
+    window.addEventListener("focus", updateConnection);
+    document.addEventListener("visibilitychange", updateConnection);
     return () => {
-      window.removeEventListener("online", online);
-      window.removeEventListener("offline", offline);
+      window.removeEventListener("online", updateConnection);
+      window.removeEventListener("offline", updateConnection);
+      window.removeEventListener("focus", updateConnection);
+      document.removeEventListener("visibilitychange", updateConnection);
     };
   }, []);
 
@@ -120,31 +123,31 @@ export default function FieldOfficerSyncQueue() {
       </div>
 
       <div className="grid gap-4 border-b border-slate-100 bg-[#f8faf9] p-4 sm:grid-cols-3 sm:p-5 lg:p-6">
-        <div className="group flex min-h-[148px] flex-col items-center justify-center rounded-2xl border border-[#c7e3d0] bg-white px-5 py-5 text-center shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition-all duration-200 hover:-translate-y-1 hover:border-[#08733f] hover:bg-[#08733f] hover:shadow-[0_12px_28px_rgba(8,115,63,0.18)]">
-          <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[#edf8f0] text-[#08733f] ring-1 ring-[#d4eadb] transition-all duration-200 group-hover:bg-white/15 group-hover:text-white group-hover:ring-white/25">
+        <div className="group flex min-h-[148px] flex-col items-center justify-center rounded-2xl border border-[#b9dfc5] bg-[#edf8f0] px-5 py-5 text-center shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition-all duration-200 hover:-translate-y-1 hover:border-[#08733f] hover:bg-[#08733f] hover:shadow-[0_12px_28px_rgba(8,115,63,0.18)]">
+          <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-white/80 text-[#08733f] ring-1 ring-[#d4eadb] transition-all duration-200 group-hover:bg-white/15 group-hover:text-white group-hover:ring-white/25">
             {running ? <Loader2 className="h-5 w-5 animate-spin" /> : <UploadCloud className="h-5 w-5" />}
           </span>
           <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#5d8068] transition group-hover:text-white/75">Uploading</p>
           <p className="mt-1 text-[30px] font-bold leading-none text-[#173b2a] transition group-hover:text-white">{active ? 1 : 0}</p>
-          <p className="mt-2 text-[9px] font-medium text-slate-400 transition group-hover:text-white/75">{running ? "Current active record" : "Not started"}</p>
+          <p className="mt-2 text-[9px] font-medium text-[#6e8977] transition group-hover:text-white/75">{running ? "Current active record" : "Not started"}</p>
         </div>
 
-        <div className="group flex min-h-[148px] flex-col items-center justify-center rounded-2xl border border-[#cddcf5] bg-white px-5 py-5 text-center shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition-all duration-200 hover:-translate-y-1 hover:border-[#2563eb] hover:bg-[#2563eb] hover:shadow-[0_12px_28px_rgba(37,99,235,0.18)]">
-          <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[#eef4ff] text-[#2563eb] ring-1 ring-[#d7e3fb] transition-all duration-200 group-hover:bg-white/15 group-hover:text-white group-hover:ring-white/25">
+        <div className="group flex min-h-[148px] flex-col items-center justify-center rounded-2xl border border-[#cddcf5] bg-[#eef4ff] px-5 py-5 text-center shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition-all duration-200 hover:-translate-y-1 hover:border-[#2563eb] hover:bg-[#2563eb] hover:shadow-[0_12px_28px_rgba(37,99,235,0.18)]">
+          <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-white/80 text-[#2563eb] ring-1 ring-[#d7e3fb] transition-all duration-200 group-hover:bg-white/15 group-hover:text-white group-hover:ring-white/25">
             <ListChecks className="h-5 w-5" />
           </span>
           <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#60728d] transition group-hover:text-white/75">Waiting</p>
           <p className="mt-1 text-[30px] font-bold leading-none text-[#173b2a] transition group-hover:text-white">{waitingCount}</p>
-          <p className="mt-2 text-[9px] font-medium text-slate-400 transition group-hover:text-white/75">Queued for synchronization</p>
+          <p className="mt-2 text-[9px] font-medium text-[#70809a] transition group-hover:text-white/75">Queued for synchronization</p>
         </div>
 
-        <div className="group flex min-h-[148px] flex-col items-center justify-center rounded-2xl border border-[#ead4a3] bg-white px-5 py-5 text-center shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition-all duration-200 hover:-translate-y-1 hover:border-[#d97706] hover:bg-[#d97706] hover:shadow-[0_12px_28px_rgba(217,119,6,0.18)]">
-          <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[#fff7e8] text-[#d97706] ring-1 ring-[#f1dfba] transition-all duration-200 group-hover:bg-white/15 group-hover:text-white group-hover:ring-white/25">
+        <div className="group flex min-h-[148px] flex-col items-center justify-center rounded-2xl border border-[#ead4a3] bg-[#fff7e8] px-5 py-5 text-center shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition-all duration-200 hover:-translate-y-1 hover:border-[#d97706] hover:bg-[#d97706] hover:shadow-[0_12px_28px_rgba(217,119,6,0.18)]">
+          <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-white/80 text-[#d97706] ring-1 ring-[#f1dfba] transition-all duration-200 group-hover:bg-white/15 group-hover:text-white group-hover:ring-white/25">
             <BadgeCheck className="h-5 w-5" />
           </span>
           <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#8b6a2d] transition group-hover:text-white/75">Completed</p>
           <p className="mt-1 text-[30px] font-bold leading-none text-[#173b2a] transition group-hover:text-white">{completedIds.length}</p>
-          <p className="mt-2 text-[9px] font-medium text-slate-400 transition group-hover:text-white/75">Successfully synchronized</p>
+          <p className="mt-2 text-[9px] font-medium text-[#92733b] transition group-hover:text-white/75">Successfully synchronized</p>
         </div>
       </div>
 
@@ -190,8 +193,7 @@ export default function FieldOfficerSyncQueue() {
         })}
       </div>
 
-      <div className="flex flex-col gap-3 border-t border-[#dbe9df] bg-[#f7fbf8] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <div className="flex items-center gap-2 text-[9px] text-[#587362]"><Sparkles className="h-3.5 w-3.5 text-[#08733f]" /><span>Records remain securely stored until synchronization completes.</span></div>
+      <div className="flex justify-end border-t border-[#dbe9df] bg-[#f7fbf8] px-5 py-4 sm:px-6">
         <span className="text-[9px] font-bold text-slate-400">Mode: {automaticSync ? "Automatic" : "Manual"}</span>
       </div>
     </section>
