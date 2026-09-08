@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { getAssignmentDisplayStatus, useInspectionWorkflow } from "../lib/inspection-workflow";
+import { FIELD_SYNC_PENDING_EVENT, FIELD_SYNC_PENDING_KEY } from "./FieldOfficerSyncPendingBridge";
 
 const KPI_LABELS = [
   "Assigned Projects",
@@ -11,39 +12,17 @@ const KPI_LABELS = [
   "Sync Pending",
 ] as const;
 
-function readVisibleSyncPending() {
-  const queueHeading = Array.from(document.querySelectorAll("h2")).find(
-    (node) => node.textContent?.trim() === "Offline Sync Queue",
-  );
-  const queueSection = queueHeading?.closest("section");
-  if (!queueSection) return null;
-
-  const waiting = Array.from(queueSection.querySelectorAll("p")).find(
-    (node) => node.textContent?.trim() === "Waiting",
-  );
-  const waitingCard = waiting?.closest("div.group");
-  const waitingValue = waitingCard
-    ? Array.from(waitingCard.querySelectorAll("p")).find((node) => /^\d+$/.test(node.textContent?.trim() ?? ""))
-    : null;
-
-  const uploading = Array.from(queueSection.querySelectorAll("p")).find(
-    (node) => node.textContent?.trim() === "Uploading",
-  );
-  const uploadingCard = uploading?.closest("div.group");
-  const uploadingValue = uploadingCard
-    ? Array.from(uploadingCard.querySelectorAll("p")).find((node) => /^\d+$/.test(node.textContent?.trim() ?? ""))
-    : null;
-
-  const waitingCount = Number(waitingValue?.textContent ?? "0");
-  const uploadingCount = Number(uploadingValue?.textContent ?? "0");
-  return Number.isFinite(waitingCount + uploadingCount) ? waitingCount + uploadingCount : null;
+function initialSharedSyncPending() {
+  if (typeof window === "undefined") return 4;
+  const stored = Number(localStorage.getItem(FIELD_SYNC_PENDING_KEY));
+  return Number.isFinite(stored) && stored >= 0 ? stored : 4;
 }
 
 export default function FieldOfficerKpiDataBridge() {
   const location = useLocation();
   const { session } = useAuth();
   const { assignments } = useInspectionWorkflow();
-  const [visibleSyncPending, setVisibleSyncPending] = useState<number | null>(null);
+  const [sharedSyncPending, setSharedSyncPending] = useState(initialSharedSyncPending);
 
   const counts = useMemo(() => {
     const officerName = session?.name ?? "Amina Yusuf";
@@ -69,23 +48,28 @@ export default function FieldOfficerKpiDataBridge() {
       "Inspections Due": due,
       Approved: approved,
       "Draft Reports": drafts,
-      "Sync Pending": visibleSyncPending ?? workflowSyncPending,
+      "Sync Pending": workflowSyncPending > 0 ? workflowSyncPending : sharedSyncPending,
     } as Record<(typeof KPI_LABELS)[number], number>;
-  }, [assignments, session?.name, visibleSyncPending]);
+  }, [assignments, session?.name, sharedSyncPending]);
 
   useEffect(() => {
-    if (!location.pathname.startsWith("/field-officer")) return;
-
-    const refreshSyncPending = () => {
-      const visible = readVisibleSyncPending();
-      if (visible !== null) setVisibleSyncPending(visible);
+    const onSharedSyncPending = (event: Event) => {
+      const count = Number((event as CustomEvent<number>).detail);
+      if (Number.isFinite(count) && count >= 0) setSharedSyncPending(count);
+    };
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== FIELD_SYNC_PENDING_KEY) return;
+      const count = Number(event.newValue);
+      if (Number.isFinite(count) && count >= 0) setSharedSyncPending(count);
     };
 
-    refreshSyncPending();
-    const observer = new MutationObserver(refreshSyncPending);
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
-    return () => observer.disconnect();
-  }, [location.pathname]);
+    window.addEventListener(FIELD_SYNC_PENDING_EVENT, onSharedSyncPending as EventListener);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener(FIELD_SYNC_PENDING_EVENT, onSharedSyncPending as EventListener);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
 
   useEffect(() => {
     if (!location.pathname.startsWith("/field-officer")) return;
