@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { getAssignmentDisplayStatus, useInspectionWorkflow } from "../lib/inspection-workflow";
@@ -11,10 +11,39 @@ const KPI_LABELS = [
   "Sync Pending",
 ] as const;
 
+function readVisibleSyncPending() {
+  const queueHeading = Array.from(document.querySelectorAll("h2")).find(
+    (node) => node.textContent?.trim() === "Offline Sync Queue",
+  );
+  const queueSection = queueHeading?.closest("section");
+  if (!queueSection) return null;
+
+  const waiting = Array.from(queueSection.querySelectorAll("p")).find(
+    (node) => node.textContent?.trim() === "Waiting",
+  );
+  const waitingCard = waiting?.closest("div.group");
+  const waitingValue = waitingCard
+    ? Array.from(waitingCard.querySelectorAll("p")).find((node) => /^\d+$/.test(node.textContent?.trim() ?? ""))
+    : null;
+
+  const uploading = Array.from(queueSection.querySelectorAll("p")).find(
+    (node) => node.textContent?.trim() === "Uploading",
+  );
+  const uploadingCard = uploading?.closest("div.group");
+  const uploadingValue = uploadingCard
+    ? Array.from(uploadingCard.querySelectorAll("p")).find((node) => /^\d+$/.test(node.textContent?.trim() ?? ""))
+    : null;
+
+  const waitingCount = Number(waitingValue?.textContent ?? "0");
+  const uploadingCount = Number(uploadingValue?.textContent ?? "0");
+  return Number.isFinite(waitingCount + uploadingCount) ? waitingCount + uploadingCount : null;
+}
+
 export default function FieldOfficerKpiDataBridge() {
   const location = useLocation();
   const { session } = useAuth();
   const { assignments } = useInspectionWorkflow();
+  const [visibleSyncPending, setVisibleSyncPending] = useState<number | null>(null);
 
   const counts = useMemo(() => {
     const officerName = session?.name ?? "Amina Yusuf";
@@ -33,16 +62,30 @@ export default function FieldOfficerKpiDataBridge() {
     const drafts = mine.filter(
       (item) => getAssignmentDisplayStatus(item.status) === "Draft",
     ).length;
-    const syncPending = mine.filter((item) => item.syncStatus === "queued").length;
+    const workflowSyncPending = mine.filter((item) => item.syncStatus === "queued").length;
 
     return {
       "Assigned Projects": assigned,
       "Inspections Due": due,
       Approved: approved,
       "Draft Reports": drafts,
-      "Sync Pending": syncPending,
+      "Sync Pending": visibleSyncPending ?? workflowSyncPending,
     } as Record<(typeof KPI_LABELS)[number], number>;
-  }, [assignments, session?.name]);
+  }, [assignments, session?.name, visibleSyncPending]);
+
+  useEffect(() => {
+    if (!location.pathname.startsWith("/field-officer")) return;
+
+    const refreshSyncPending = () => {
+      const visible = readVisibleSyncPending();
+      if (visible !== null) setVisibleSyncPending(visible);
+    };
+
+    refreshSyncPending();
+    const observer = new MutationObserver(refreshSyncPending);
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    return () => observer.disconnect();
+  }, [location.pathname]);
 
   useEffect(() => {
     if (!location.pathname.startsWith("/field-officer")) return;
