@@ -47,6 +47,30 @@ function hideDraftsOutsideDraftWorkspace(pathname: string) {
   }
 }
 
+function simplifyOverviewConnectivityStatus(pathname: string) {
+  if (pathname !== "/field-officer") return;
+
+  const spans = Array.from(document.querySelectorAll<HTMLElement>("span"));
+  const status = spans.find((element) => {
+    const text = element.textContent?.trim() ?? "";
+    return (
+      text.includes("Online · field data sync is active") ||
+      text.includes("Offline · drafts and evidence will remain on this device")
+    );
+  });
+
+  if (!status) return;
+  const text = status.textContent?.trim() ?? "";
+  status.childNodes.forEach((node) => {
+    if (node.nodeType === Node.TEXT_NODE) node.textContent = "";
+  });
+  status.append(document.createTextNode(text.startsWith("Online") ? "Online" : "Offline"));
+
+  const section = status.closest("section");
+  const syncButton = section?.querySelector<HTMLButtonElement>("button");
+  if (syncButton) syncButton.style.display = "none";
+}
+
 export default function FieldOfficerDraftAutosave() {
   const location = useLocation();
   const saveTimer = useRef<number | null>(null);
@@ -106,7 +130,10 @@ export default function FieldOfficerDraftAutosave() {
 
   useEffect(() => {
     if (!location.pathname.startsWith("/field-officer")) return;
-    const apply = () => hideDraftsOutsideDraftWorkspace(location.pathname);
+    const apply = () => {
+      hideDraftsOutsideDraftWorkspace(location.pathname);
+      simplifyOverviewConnectivityStatus(location.pathname);
+    };
     apply();
     const observer = new MutationObserver(apply);
     observer.observe(document.body, { childList: true, subtree: true });
