@@ -835,6 +835,7 @@ type WorkflowContextValue = {
     note: string,
   ) => void;
   syncNow: () => void;
+  syncAssignment: (id: string) => void;
   resetDemo: () => void;
 };
 
@@ -1401,6 +1402,29 @@ export function InspectionWorkflowProvider({
     );
   }, [isOnline]);
 
+  const syncAssignment = useCallback(
+    (id: string) =>
+      update(id, (assignment) => {
+        if (assignment.syncStatus !== "queued") return assignment;
+        return {
+          ...assignment,
+          syncStatus: "synced",
+          audit: [
+            ...assignment.audit,
+            {
+              id: uid("audit"),
+              at: new Date().toISOString(),
+              actor: assignment.officer,
+              action: "Synced to server",
+              deviceId: getDeviceId(),
+              deviceType: getDeviceType(),
+            },
+          ],
+        };
+      }),
+    [update],
+  );
+
   const resetDemo = useCallback(() => setAssignments(seedAssignments()), []);
 
   const value = useMemo(
@@ -1418,6 +1442,7 @@ export function InspectionWorkflowProvider({
       reviewReport,
       reaReviewReport,
       syncNow,
+      syncAssignment,
       resetDemo,
     }),
     [
@@ -1434,6 +1459,7 @@ export function InspectionWorkflowProvider({
       reviewReport,
       reaReviewReport,
       syncNow,
+      syncAssignment,
       resetDemo,
     ],
   );

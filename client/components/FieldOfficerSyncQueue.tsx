@@ -11,38 +11,80 @@ import {
   Wifi,
   WifiOff,
 } from "lucide-react";
+import { useAuth } from "../lib/auth";
+import { useInspectionWorkflow } from "../lib/inspection-workflow";
 
-const initialQueue = [
-  { project: "DARES Kaduna Grid Extension", id: "REA-KAD-0214", location: "Kawo, Kaduna North", type: "Inspection report + no media", queued: "Today, 8:42 AM", size: "18.4 MB" },
-  { project: "NEP Kano Mini Grid", id: "REA-KAN-0187", location: "Kofar Ruwa, Kano Municipal", type: "Inspection report + no media", queued: "Today, 8:18 AM", size: "6.7 MB" },
-  { project: "AMP Katsina SAS Verification", id: "REA-KAT-0096", location: "Kofar Sauri, Katsina", type: "Inspection report + no media", queued: "Yesterday, 5:36 PM", size: "12.1 MB" },
-  { project: "NEP Sokoto Mini Grid", id: "REA-SOK-0068", location: "Gagi, Sokoto South", type: "Inspection report + no media", queued: "Yesterday, 4:11 PM", size: "9.8 MB" },
-];
+type QueueItem = {
+  id: string;
+  project: string;
+  location: string;
+  type: string;
+  queued: string;
+  size: string;
+};
+
+function estimateEvidenceMegabytes(previewUrl: string | undefined) {
+  if (!previewUrl) return 0.4; // undecoded/large-file placeholder objectURL
+  // base64 payloads are ~4/3 the size of the raw bytes they encode.
+  return (previewUrl.length * 0.75) / (1024 * 1024);
+}
 
 export default function FieldOfficerSyncQueue() {
-  const [isOnline, setIsOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
+  const { session } = useAuth();
+  const { assignments, isOnline, syncAssignment } = useInspectionWorkflow();
+  const officerName = session?.name ?? "Amina Yusuf";
+
+  // Snapshot the officer's queued items when this view mounts, so items
+  // that finish syncing stay visible in the "Completed" section instead of
+  // vanishing the instant their real syncStatus flips. Revisiting this page
+  // re-mounts the component and takes a fresh snapshot of whatever is
+  // actually queued at that point.
+  const [queueItems] = useState<QueueItem[]>(() =>
+    assignments
+      .filter(
+        (assignment) =>
+          assignment.officer === officerName &&
+          assignment.syncStatus === "queued",
+      )
+      .map((assignment): QueueItem => {
+        const evidence = assignment.report?.evidence ?? [];
+        const evidenceMb = evidence.reduce(
+          (sum, item) => sum + estimateEvidenceMegabytes(item.previewUrl),
+          0,
+        );
+        const queuedAudit = [...assignment.audit]
+          .reverse()
+          .find((entry) => entry.action === "Submission queued offline");
+        const queuedAt = queuedAudit?.at ?? assignment.report?.submittedAt;
+        return {
+          id: assignment.id,
+          project: assignment.projectName,
+          location: `${assignment.community}, ${assignment.lga}`,
+          type:
+            evidence.length > 0
+              ? `Inspection report + ${evidence.length} media file${evidence.length > 1 ? "s" : ""}`
+              : "Inspection report + no media",
+          queued: queuedAt
+            ? new Date(queuedAt).toLocaleString(undefined, {
+                dateStyle: "medium",
+                timeStyle: "short",
+              })
+            : "Pending sync",
+          size:
+            evidenceMb > 0
+              ? `${evidenceMb.toFixed(1)} MB`
+              : "0.2 MB",
+        };
+      }),
+  );
+
   const [progress, setProgress] = useState(0);
   const [completedIds, setCompletedIds] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
   const [automaticSync, setAutomaticSync] = useState(false);
 
-  useEffect(() => {
-    const updateConnection = () => setIsOnline(navigator.onLine);
-    updateConnection();
-    window.addEventListener("online", updateConnection);
-    window.addEventListener("offline", updateConnection);
-    window.addEventListener("focus", updateConnection);
-    document.addEventListener("visibilitychange", updateConnection);
-    return () => {
-      window.removeEventListener("online", updateConnection);
-      window.removeEventListener("offline", updateConnection);
-      window.removeEventListener("focus", updateConnection);
-      document.removeEventListener("visibilitychange", updateConnection);
-    };
-  }, []);
-
-  const pending = useMemo(() => initialQueue.filter((item) => !completedIds.includes(item.id)), [completedIds]);
-  const completed = useMemo(() => initialQueue.filter((item) => completedIds.includes(item.id)), [completedIds]);
+  const pending = useMemo(() => queueItems.filter((item) => !completedIds.includes(item.id)), [queueItems, completedIds]);
+  const completed = useMemo(() => queueItems.filter((item) => completedIds.includes(item.id)), [queueItems, completedIds]);
   const active = running ? pending[0] : undefined;
   const orderedQueue = [...pending, ...completed];
 
@@ -62,6 +104,7 @@ export default function FieldOfficerSyncQueue() {
           window.clearInterval(timer);
           window.setTimeout(() => {
             setCompletedIds((ids) => (ids.includes(active.id) ? ids : [...ids, active.id]));
+            syncAssignment(active.id);
             setProgress(0);
             if (!automaticSync && pending.length <= 1) setRunning(false);
           }, 320);
@@ -70,7 +113,7 @@ export default function FieldOfficerSyncQueue() {
       });
     }, 120);
     return () => window.clearInterval(timer);
-  }, [active?.id, automaticSync, isOnline, pending.length, running]);
+  }, [active?.id, automaticSync, isOnline, pending.length, running, syncAssignment]);
 
   useEffect(() => {
     if (running && pending.length === 0) setRunning(false);
@@ -96,7 +139,7 @@ export default function FieldOfficerSyncQueue() {
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2.5">
               <h2 className="text-xl font-bold tracking-tight text-[#173b2a]">Offline Sync Queue</h2>
-              <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-500 shadow-sm">{initialQueue.length} records</span>
+              <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-500 shadow-sm">{queueItems.length} records</span>
               <span className="rounded-full border border-[#cbe8d4] bg-[#edf9f1] px-2.5 py-1 text-[9px] font-bold text-[#08733f]">Sequential upload</span>
             </div>
           </div>
@@ -154,6 +197,16 @@ export default function FieldOfficerSyncQueue() {
       <div className="hidden grid-cols-[minmax(0,1.45fr)_minmax(250px,.85fr)_240px] items-center gap-8 border-b border-slate-100 bg-white px-6 py-3.5 text-[9px] font-bold uppercase tracking-[0.13em] text-slate-400 lg:grid">
         <span>Inspection record</span><span>Package details</span><span className="text-right">Sync status</span>
       </div>
+
+      {orderedQueue.length === 0 && (
+        <div className="flex flex-col items-center gap-2 px-6 py-14 text-center">
+          <BadgeCheck className="h-8 w-8 text-[#08733f]" />
+          <p className="text-xs font-bold text-[#173b2a]">All caught up</p>
+          <p className="text-[10px] text-slate-500">
+            No offline submissions are waiting to sync right now.
+          </p>
+        </div>
+      )}
 
       <div className="divide-y divide-slate-100">
         {orderedQueue.map((item) => {
