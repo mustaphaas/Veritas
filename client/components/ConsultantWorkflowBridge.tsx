@@ -92,7 +92,6 @@ function seedOwnership(
     if (ownerId) setOfficerConsultant(officer.email, ownerId);
   }
 
-  // The historical demo Consultant Admin and Amina Yusuf belong together.
   const demoOfficer = officers.find(
     (officer) => officer.email.toLowerCase() === "field.officer@demo.ng",
   );
@@ -147,6 +146,16 @@ export default function ConsultantWorkflowBridge() {
         MASTER_OFFICERS_KEY,
         fieldOfficers,
       );
+
+      if (session?.role === "field") {
+        const nextAssignments = mergeById(masterAssignments, assignments);
+        const nextOfficers = mergeById(masterOfficers, fieldOfficers);
+        writeJson(MASTER_ASSIGNMENTS_KEY, nextAssignments);
+        writeJson(MASTER_OFFICERS_KEY, nextOfficers);
+        lastApplied.current = "";
+        return;
+      }
+
       if (JSON.stringify(assignments) !== JSON.stringify(masterAssignments)) {
         fireStorage(ASSIGNMENTS_STORAGE_KEY, masterAssignments);
       }
@@ -175,18 +184,10 @@ export default function ConsultantWorkflowBridge() {
         (assignment) => getAssignmentConsultant(assignment.id) === consultant.id,
       );
 
-    if (currentLooksScoped) {
-      masterAssignments = mergeById(masterAssignments, assignments);
-      masterOfficers = mergeById(masterOfficers, fieldOfficers);
-      writeJson(MASTER_ASSIGNMENTS_KEY, masterAssignments);
-      writeJson(MASTER_OFFICERS_KEY, masterOfficers);
-    } else {
-      // Capture any portfolio-wide changes REA made before this consultant session.
-      masterAssignments = mergeById(masterAssignments, assignments);
-      masterOfficers = mergeById(masterOfficers, fieldOfficers);
-      writeJson(MASTER_ASSIGNMENTS_KEY, masterAssignments);
-      writeJson(MASTER_OFFICERS_KEY, masterOfficers);
-    }
+    masterAssignments = mergeById(masterAssignments, assignments);
+    masterOfficers = mergeById(masterOfficers, fieldOfficers);
+    writeJson(MASTER_ASSIGNMENTS_KEY, masterAssignments);
+    writeJson(MASTER_OFFICERS_KEY, masterOfficers);
 
     seedOwnership(
       consultant,
@@ -195,7 +196,6 @@ export default function ConsultantWorkflowBridge() {
       masterAssignments,
     );
 
-    // Any new officer created while this consultant is signed in belongs to it.
     for (const officer of fieldOfficers) {
       if (!masterOfficers.some((item) => item.id === officer.id)) continue;
       if (!getOfficerConsultant(officer.email) && currentLooksScoped) {
@@ -203,7 +203,6 @@ export default function ConsultantWorkflowBridge() {
       }
     }
 
-    // Any newly assigned project inherits ownership from the selected officer.
     for (const assignment of assignments) {
       if (getAssignmentConsultant(assignment.id)) continue;
       const officer = fieldOfficers.find(
@@ -220,17 +219,28 @@ export default function ConsultantWorkflowBridge() {
         consultant.id,
     );
     const scopedOfficerNames = new Set(scopedOfficers.map((officer) => officer.name));
-    const scopedAssignments = masterAssignments.filter(
-      (assignment) =>
+    const scopedAssignments = masterAssignments.filter((assignment) => {
+      const belongsToConsultant =
         ownership.assignmentOwners[assignment.id] === consultant.id ||
         (!ownership.assignmentOwners[assignment.id] &&
-          scopedOfficerNames.has(assignment.officer)),
-    );
+          scopedOfficerNames.has(assignment.officer));
+      if (!belongsToConsultant) return false;
+
+      // Offline submissions stay only in the Field Officer Sync queue until
+      // upload completes. Once syncNow marks them synced, they immediately
+      // become available to Consultant Admin for QA review.
+      if (assignment.status === "Submitted" && assignment.syncStatus === "queued") {
+        return false;
+      }
+      return true;
+    });
 
     const signature = JSON.stringify({
       consultant: consultant.id,
       officers: scopedOfficers.map((item) => item.id),
-      assignments: scopedAssignments.map((item) => `${item.id}:${item.status}`),
+      assignments: scopedAssignments.map(
+        (item) => `${item.id}:${item.status}:${item.syncStatus}`,
+      ),
     });
     if (lastApplied.current !== signature) {
       lastApplied.current = signature;
@@ -248,8 +258,6 @@ export default function ConsultantWorkflowBridge() {
     );
     observer.observe(document.body, { childList: true, subtree: true });
 
-    // Keep the existing Assign Project modal design, but hide projects outside
-    // the consultant's REA-approved state coverage.
     const filterProjectOptions = () => {
       const selects = Array.from(document.querySelectorAll("select"));
       for (const select of selects) {
@@ -282,7 +290,7 @@ export default function ConsultantWorkflowBridge() {
       observer.disconnect();
       modalObserver.disconnect();
     };
-  }, [assignments, consultant, fieldOfficers]);
+  }, [assignments, consultant, fieldOfficers, session?.role]);
 
   return null;
 }
