@@ -29,6 +29,7 @@ import ConsultantWorkflowBridge from "./components/ConsultantWorkflowBridge";
 import FieldOfficerCoordinateMock from "./components/FieldOfficerCoordinateMock";
 import FieldOfficerSyncQueueMount from "./components/FieldOfficerSyncQueueMount";
 import FieldOfficerKpiDataBridge from "./components/FieldOfficerKpiDataBridge";
+import FieldOfficerGpsKmDisplay from "./components/FieldOfficerGpsKmDisplay";
 import FieldOfficerDraftsNavEnhancer from "./components/FieldOfficerDraftsNavEnhancer";
 import FieldOfficerDraftAutosave from "./components/FieldOfficerDraftAutosave";
 import FieldOfficerDraftNormalizer from "./components/FieldOfficerDraftNormalizer";
@@ -113,6 +114,7 @@ const App = () => (
             <FieldOfficerCoordinateMock />
             <FieldOfficerSyncQueueMount />
             <FieldOfficerKpiDataBridge />
+            <FieldOfficerGpsKmDisplay />
             <FieldOfficerDraftsNavEnhancer />
             <FieldOfficerDraftAutosave />
             <FieldOfficerDraftNormalizer />
