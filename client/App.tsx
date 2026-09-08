@@ -28,6 +28,7 @@ import ConsultantProjectLgaDrilldown from "./components/ConsultantProjectLgaDril
 import ConsultantWorkflowBridge from "./components/ConsultantWorkflowBridge";
 import FieldOfficerCoordinateMock from "./components/FieldOfficerCoordinateMock";
 import FieldOfficerSyncQueueMount from "./components/FieldOfficerSyncQueueMount";
+import FieldOfficerKpiDataBridge from "./components/FieldOfficerKpiDataBridge";
 import FieldOfficerDraftsNavEnhancer from "./components/FieldOfficerDraftsNavEnhancer";
 import FieldOfficerDraftAutosave from "./components/FieldOfficerDraftAutosave";
 import FieldOfficerDraftNormalizer from "./components/FieldOfficerDraftNormalizer";
@@ -111,6 +112,7 @@ const App = () => (
             <ConsultantProjectLgaDrilldown />
             <FieldOfficerCoordinateMock />
             <FieldOfficerSyncQueueMount />
+            <FieldOfficerKpiDataBridge />
             <FieldOfficerDraftsNavEnhancer />
             <FieldOfficerDraftAutosave />
             <FieldOfficerDraftNormalizer />
