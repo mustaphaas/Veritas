@@ -19,5 +19,8 @@ describe("field officer draft normalization", () => {
     expect(shouldNormalizeFieldDraft(stale, "Amina Yusuf", attempted)).toBe(
       false,
     );
+    expect(
+      shouldNormalizeFieldDraft(stale, "Chinedu Okafor", new Map()),
+    ).toBe(false);
   });
 });
