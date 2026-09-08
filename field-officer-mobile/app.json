@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "Veritas Field Officer",
+    "slug": "veritas-field-officer",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "icon": "./assets/icon.png",
+    "scheme": "veritas-field",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#f4faf6"
+    },
+    "android": {
+      "package": "ng.gov.rea.veritas.fieldofficer.native",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#f4faf6"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Veritas uses your location to verify that you have arrived at the assigned project site."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Veritas uses project photos as inspection evidence.",
+          "cameraPermission": "Veritas uses the camera to capture project evidence."
+        }
+      ]
+    ],
+    "extra": {
+      "apiBaseUrl": "https://veritas.mustaphaaliyu236.workers.dev/api",
+      "eas": {
+        "projectId": "REPLACE_WITH_EXPO_PROJECT_ID"
+      }
+    }
+  }
+}

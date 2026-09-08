@@ -8,6 +8,8 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+field-officer-mobile/.expo/
+field-officer-mobile/dist/
 dist
 dist-ssr
 *.local
