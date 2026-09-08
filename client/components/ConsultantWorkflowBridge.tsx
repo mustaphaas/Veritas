@@ -19,6 +19,8 @@ import {
 const ASSIGNMENTS_STORAGE_KEY = "rea-inspection-workflow-v4";
 const MASTER_ASSIGNMENTS_KEY = "veritas-master-inspection-workflow-v1";
 const MASTER_OFFICERS_KEY = "veritas-master-field-officers-v1";
+const DEFAULT_CONSULTANT_ID = "con-001";
+const DEMO_FIELD_OFFICER_EMAIL = "field.officer@demo.ng";
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -59,7 +61,9 @@ function resolveConsultant(email: string): ConsultantRecord | null {
       (record) => record.adminEmail.trim().toLowerCase() === normalized,
     ) ??
     (normalized === "consultant.admin@demo.ng"
-      ? consultants.find((record) => record.status === "Active") ?? consultants[0]
+      ? consultants.find((record) => record.id === DEFAULT_CONSULTANT_ID) ??
+        consultants.find((record) => record.status === "Active") ??
+        consultants[0]
       : null) ??
     null
   );
@@ -71,6 +75,22 @@ function seedOwnership(
   officers: FieldOfficerAccount[],
   assignments: InspectionAssignment[],
 ) {
+  const defaultConsultant =
+    allConsultants.find((record) => record.id === DEFAULT_CONSULTANT_ID) ??
+    consultant;
+  const demoOfficer = officers.find(
+    (officer) => officer.email.toLowerCase() === DEMO_FIELD_OFFICER_EMAIL,
+  );
+
+  if (demoOfficer) {
+    setOfficerConsultant(demoOfficer.email, defaultConsultant.id);
+    for (const assignment of assignments) {
+      if (assignment.officer === demoOfficer.name) {
+        setAssignmentConsultant(assignment.id, defaultConsultant.id);
+      }
+    }
+  }
+
   for (const assignment of assignments) {
     if (getAssignmentConsultant(assignment.id)) continue;
     const owner =
@@ -91,29 +111,37 @@ function seedOwnership(
       .find(Boolean);
     if (ownerId) setOfficerConsultant(officer.email, ownerId);
   }
-
-  const demoOfficer = officers.find(
-    (officer) => officer.email.toLowerCase() === "field.officer@demo.ng",
-  );
-  if (demoOfficer && !getOfficerConsultant(demoOfficer.email)) {
-    setOfficerConsultant(demoOfficer.email, consultant.id);
-  }
 }
 
-function replaceVisibleConsultantName(name: string) {
+function replaceVisibleConsultantIdentity(consultant: ConsultantRecord) {
   const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   const replacements: Text[] = [];
   while (walk.nextNode()) {
     const node = walk.currentNode as Text;
-    if (node.nodeValue?.includes("Ibrahim Musa · Consultant Admin")) {
+    const value = node.nodeValue ?? "";
+    if (
+      value.includes("Ibrahim Musa · Consultant Admin") ||
+      value.includes("Consultant Admin Dashboard") ||
+      value.includes(
+        "Assign field work, review inspection evidence and monitor programme assurance.",
+      )
+    ) {
       replacements.push(node);
     }
   }
+
   for (const node of replacements) {
-    node.nodeValue = node.nodeValue!.replace(
+    let value = node.nodeValue ?? "";
+    value = value.replace(
       "Ibrahim Musa · Consultant Admin",
-      `${name} · Consultant Admin`,
+      `${consultant.adminName} · Consultant Admin`,
     );
+    value = value.replace("Consultant Admin Dashboard", consultant.firmName);
+    value = value.replace(
+      "Assign field work, review inspection evidence and monitor programme assurance.",
+      `Welcome to ${consultant.firmName}. Manage your field officers, assigned projects and inspection assurance.`,
+    );
+    node.nodeValue = value;
   }
 }
 
@@ -218,13 +246,19 @@ export default function ConsultantWorkflowBridge() {
         ownership.officerOwners[officer.email.trim().toLowerCase()] ===
         consultant.id,
     );
-    const scopedOfficerNames = new Set(scopedOfficers.map((officer) => officer.name));
+    const scopedOfficerNames = new Set(
+      scopedOfficers.map((officer) => officer.name),
+    );
     const scopedAssignments = masterAssignments.filter((assignment) => {
       const belongsToConsultant =
         ownership.assignmentOwners[assignment.id] === consultant.id ||
         (!ownership.assignmentOwners[assignment.id] &&
           scopedOfficerNames.has(assignment.officer));
       if (!belongsToConsultant) return false;
+
+      // Drafts are private working copies belonging only to the field officer.
+      // They must never appear in the consultant workspace until submitted.
+      if (assignment.status === "Draft") return false;
 
       // Offline submissions stay only in the Field Officer Sync queue until
       // upload completes. Once syncNow marks them synced, they immediately
@@ -252,9 +286,9 @@ export default function ConsultantWorkflowBridge() {
       }
     }
 
-    replaceVisibleConsultantName(consultant.adminName);
+    replaceVisibleConsultantIdentity(consultant);
     const observer = new MutationObserver(() =>
-      replaceVisibleConsultantName(consultant.adminName),
+      replaceVisibleConsultantIdentity(consultant),
     );
     observer.observe(document.body, { childList: true, subtree: true });
 
@@ -267,8 +301,12 @@ export default function ConsultantWorkflowBridge() {
         if (!projectOptions.length) continue;
         for (const option of projectOptions) {
           const project = projects.find((item) => item.name === option.value);
-          option.hidden = Boolean(project && !consultant.states.includes(project.state));
-          option.disabled = Boolean(project && !consultant.states.includes(project.state));
+          option.hidden = Boolean(
+            project && !consultant.states.includes(project.state),
+          );
+          option.disabled = Boolean(
+            project && !consultant.states.includes(project.state),
+          );
         }
         const selectedProject = projects.find(
           (project) => project.name === select.value,
