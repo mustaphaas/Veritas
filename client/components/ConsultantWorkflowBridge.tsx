@@ -100,37 +100,20 @@ function seedOwnership(
   }
 }
 
-function replaceVisibleCompanyIdentity(consultant: ConsultantRecord) {
+function replaceVisibleConsultantName(name: string) {
   const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-  const nodes: Text[] = [];
-  while (walk.nextNode()) nodes.push(walk.currentNode as Text);
-
-  for (const node of nodes) {
-    const value = node.nodeValue;
-    if (!value) continue;
-
-    let next = value;
-    next = next.replace(
-      "Consultant Admin Dashboard",
-      `${consultant.firmName} Dashboard`,
-    );
-    next = next.replace(
+  const replacements: Text[] = [];
+  while (walk.nextNode()) {
+    const node = walk.currentNode as Text;
+    if (node.nodeValue?.includes("Ibrahim Musa · Consultant Admin")) {
+      replacements.push(node);
+    }
+  }
+  for (const node of replacements) {
+    node.nodeValue = node.nodeValue!.replace(
       "Ibrahim Musa · Consultant Admin",
-      `${consultant.firmName} · Field Officer Admin`,
+      `${name} · Consultant Admin`,
     );
-    next = next.replace(
-      `${consultant.adminName} · Consultant Admin`,
-      `${consultant.firmName} · Field Officer Admin`,
-    );
-    next = next.replace(
-      "Consultant Workspace Settings",
-      `${consultant.firmName} Workspace Settings`,
-    );
-    next = next.replace("Consultant-managed portfolio", "Company-managed portfolio");
-    next = next.replace("Assignment authority", "Field assignment authority");
-    if (next === "Consultant Admin") next = "Field Officer Admin";
-
-    if (next !== value) node.nodeValue = next;
   }
 }
 
@@ -235,27 +218,25 @@ export default function ConsultantWorkflowBridge() {
         ownership.officerOwners[officer.email.trim().toLowerCase()] ===
         consultant.id,
     );
-    const scopedOfficerNames = new Set(
-      scopedOfficers.map((officer) => officer.name),
-    );
+    const scopedOfficerNames = new Set(scopedOfficers.map((officer) => officer.name));
     const scopedAssignments = masterAssignments.filter((assignment) => {
-      const belongsToCompany =
+      const belongsToConsultant =
         ownership.assignmentOwners[assignment.id] === consultant.id ||
         (!ownership.assignmentOwners[assignment.id] &&
           scopedOfficerNames.has(assignment.officer));
-      if (!belongsToCompany) return false;
+      if (!belongsToConsultant) return false;
 
-      if (
-        assignment.status === "Submitted" &&
-        assignment.syncStatus === "queued"
-      ) {
+      // Offline submissions stay only in the Field Officer Sync queue until
+      // upload completes. Once syncNow marks them synced, they immediately
+      // become available to Consultant Admin for QA review.
+      if (assignment.status === "Submitted" && assignment.syncStatus === "queued") {
         return false;
       }
       return true;
     });
 
     const signature = JSON.stringify({
-      company: consultant.id,
+      consultant: consultant.id,
       officers: scopedOfficers.map((item) => item.id),
       assignments: scopedAssignments.map(
         (item) => `${item.id}:${item.status}:${item.syncStatus}`,
@@ -271,9 +252,9 @@ export default function ConsultantWorkflowBridge() {
       }
     }
 
-    replaceVisibleCompanyIdentity(consultant);
+    replaceVisibleConsultantName(consultant.adminName);
     const observer = new MutationObserver(() =>
-      replaceVisibleCompanyIdentity(consultant),
+      replaceVisibleConsultantName(consultant.adminName),
     );
     observer.observe(document.body, { childList: true, subtree: true });
 
@@ -286,20 +267,13 @@ export default function ConsultantWorkflowBridge() {
         if (!projectOptions.length) continue;
         for (const option of projectOptions) {
           const project = projects.find((item) => item.name === option.value);
-          option.hidden = Boolean(
-            project && !consultant.states.includes(project.state),
-          );
-          option.disabled = Boolean(
-            project && !consultant.states.includes(project.state),
-          );
+          option.hidden = Boolean(project && !consultant.states.includes(project.state));
+          option.disabled = Boolean(project && !consultant.states.includes(project.state));
         }
         const selectedProject = projects.find(
           (project) => project.name === select.value,
         );
-        if (
-          selectedProject &&
-          !consultant.states.includes(selectedProject.state)
-        ) {
+        if (selectedProject && !consultant.states.includes(selectedProject.state)) {
           const firstAllowed = projectOptions.find((option) => !option.disabled);
           if (firstAllowed) {
             select.value = firstAllowed.value;
