@@ -19,6 +19,41 @@ type QueueItem = {
   size: string;
 };
 
+const initialQueue: QueueItem[] = [
+  {
+    project: "DARES Kaduna Grid Extension",
+    id: "REA-KAD-0214",
+    location: "Kawo, Kaduna North",
+    type: "Inspection report + no media",
+    queued: "Today, 8:42 AM",
+    size: "18.4 MB",
+  },
+  {
+    project: "NEP Kano Mini Grid",
+    id: "REA-KAN-0187",
+    location: "Kofar Ruwa, Kano Municipal",
+    type: "Inspection report + no media",
+    queued: "Today, 8:18 AM",
+    size: "6.7 MB",
+  },
+  {
+    project: "AMP Katsina SAS Verification",
+    id: "REA-KAT-0096",
+    location: "Kofar Sauri, Katsina",
+    type: "Inspection report + no media",
+    queued: "Yesterday, 5:36 PM",
+    size: "12.1 MB",
+  },
+  {
+    project: "NEP Sokoto Mini Grid",
+    id: "REA-SOK-0068",
+    location: "Gagi, Sokoto South",
+    type: "Inspection report + no media",
+    queued: "Yesterday, 4:11 PM",
+    size: "9.8 MB",
+  },
+];
+
 function estimateEvidenceMegabytes(previewUrl: string | undefined) {
   if (!previewUrl) return 0.4;
   return (previewUrl.length * 0.75) / (1024 * 1024);
@@ -29,8 +64,8 @@ export default function FieldOfficerSyncQueue() {
   const { assignments, isOnline, syncAssignment } = useInspectionWorkflow();
   const officerName = session?.name ?? "Amina Yusuf";
 
-  const [queueItems] = useState<QueueItem[]>(() =>
-    assignments
+  const [queueItems] = useState<QueueItem[]>(() => {
+    const realQueue = assignments
       .filter(
         (assignment) =>
           assignment.officer === officerName &&
@@ -62,8 +97,10 @@ export default function FieldOfficerSyncQueue() {
             : "Pending sync",
           size: evidenceMb > 0 ? `${evidenceMb.toFixed(1)} MB` : "0.2 MB",
         };
-      }),
-  );
+      });
+
+    return realQueue.length > 0 ? realQueue : initialQueue;
+  });
 
   const [progress, setProgress] = useState(0);
   const [completedIds, setCompletedIds] = useState<string[]>([]);
