@@ -962,10 +962,10 @@ export default function ConsultantAdminDashboard() {
     : "";
   return (
     <RoleDashboardShell
-      title={consultant?.firmName ?? "Consultant Admin Dashboard"}
-      subtitle={`Manage ${consultant?.firmName ?? "your firm's"} field officers, assigned projects and inspection assurance.`}
-      roleName={`${consultant?.adminName ?? "Consultant Admin"} · Consultant Admin`}
-      initials={(consultant?.adminName ?? "Consultant Admin").split(/\s+/).slice(0,2).map(part=>part[0]).join("")}
+      title="Consultant Admin Dashboard"
+      subtitle="Assign field work, review inspection evidence and monitor programme assurance."
+      roleName="Ibrahim Musa · Consultant Admin"
+      initials="IM"
       navigation={navigation}
       activeNavigation={activeView}
       onNavigationChange={(label) =>
@@ -1117,10 +1117,6 @@ export default function ConsultantAdminDashboard() {
             )}
           </section>
         </div>
-        <section className="mt-3 overflow-hidden rounded-lg border border-slate-200 bg-white">
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5"><div><h2 className="text-sm font-bold text-[#173b2a]">REA Assigned · Awaiting Field Officer</h2><p className="mt-1 text-[10px] text-slate-500">Projects explicitly allocated to {consultant?.firmName ?? "this consultant"} that have not been assigned.</p></div><span className="rounded-full bg-[#fff7df] px-2.5 py-1 text-[9px] font-bold text-[#9a6800]">{unallocatedProjects.length}</span></div>
-          <div className="divide-y divide-slate-100">{unallocatedProjects.slice(0,12).map(project=><div key={project.name} className="grid gap-2 px-4 py-3 sm:grid-cols-[1fr_auto] sm:items-center"><div><p className="text-xs font-bold text-[#173b2a]">{project.name}</p><p className="mt-1 text-[9px] text-slate-500">{project.programme} · {project.component} · {project.state}</p></div><span className="rounded-full border border-[#f0d88d] bg-[#fff8e5] px-2.5 py-1 text-[9px] font-bold text-[#956300]">Not assigned</span></div>)}{!unallocatedProjects.length&&<p className="p-6 text-center text-xs text-slate-500">All REA-assigned projects have been allocated to field officers.</p>}</div>
-        </section>
         <div className="mt-3 grid gap-3 xl:grid-cols-2">
           <section className="rounded-lg border border-slate-200 bg-white">
             <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
