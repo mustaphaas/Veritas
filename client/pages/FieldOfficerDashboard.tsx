@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -522,6 +523,28 @@ function InspectionModal({
   const canCollect =
     Boolean(validComponent) &&
     (locked || arrivalFresh || gpsMessage.startsWith("Verified"));
+  const isFirstReportRender = useRef(true);
+  useEffect(() => {
+    if (isFirstReportRender.current) {
+      isFirstReportRender.current = false;
+      return;
+    }
+    if (locked) return;
+    const timer = window.setTimeout(() => {
+      saveReport(assignment.id, report);
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [report, locked, saveReport, assignment.id]);
+  useEffect(() => {
+    if (locked) return;
+    const flush = () => saveReport(assignment.id, report);
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", flush);
+    };
+  }, [report, locked, saveReport, assignment.id]);
   const update = (key: keyof InspectionReport, value: string) =>
     !locked && setReport((current) => ({ ...current, [key]: value }));
   const updateComponentValue = (key: string, value: string) =>
