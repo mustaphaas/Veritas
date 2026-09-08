@@ -27,8 +27,7 @@ import ConsultantCoverageMapEnhancer from "./components/ConsultantCoverageMapEnh
 import ConsultantProjectLgaDrilldown from "./components/ConsultantProjectLgaDrilldown";
 import ConsultantWorkflowBridge from "./components/ConsultantWorkflowBridge";
 import FieldOfficerCoordinateMock from "./components/FieldOfficerCoordinateMock";
-import FieldOfficerSequentialUploadQueue from "./components/FieldOfficerSequentialUploadQueue";
-import FieldOfficerSequentialSyncMountFix from "./components/FieldOfficerSequentialSyncMountFix";
+import FieldOfficerSyncQueueMount from "./components/FieldOfficerSyncQueueMount";
 import FieldOfficerDraftsNavEnhancer from "./components/FieldOfficerDraftsNavEnhancer";
 import FieldOfficerDraftAutosave from "./components/FieldOfficerDraftAutosave";
 import FieldOfficerDraftNormalizer from "./components/FieldOfficerDraftNormalizer";
@@ -111,8 +110,7 @@ const App = () => (
             <ConsultantCoverageMapEnhancer />
             <ConsultantProjectLgaDrilldown />
             <FieldOfficerCoordinateMock />
-            <FieldOfficerSequentialSyncMountFix />
-            <FieldOfficerSequentialUploadQueue />
+            <FieldOfficerSyncQueueMount />
             <FieldOfficerDraftsNavEnhancer />
             <FieldOfficerDraftAutosave />
             <FieldOfficerDraftNormalizer />
