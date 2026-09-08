@@ -26,10 +26,9 @@ import ProjectMapFullscreenControl from "./components/ProjectMapFullscreenContro
 import ConsultantCoverageMapEnhancer from "./components/ConsultantCoverageMapEnhancer";
 import ConsultantProjectLgaDrilldown from "./components/ConsultantProjectLgaDrilldown";
 import ConsultantWorkflowBridge from "./components/ConsultantWorkflowBridge";
-import FieldOfficerOfflineSyncTab from "./components/FieldOfficerOfflineSyncTab";
-import FieldOfficerPendingUploads from "./components/FieldOfficerPendingUploads";
 import FieldOfficerCoordinateMock from "./components/FieldOfficerCoordinateMock";
-import FieldOfficerSyncQueueMount from "./components/FieldOfficerSyncQueueMount";
+import FieldOfficerSequentialUploadQueue from "./components/FieldOfficerSequentialUploadQueue";
+import FieldOfficerDraftsNavEnhancer from "./components/FieldOfficerDraftsNavEnhancer";
 import FieldOfficerDraftAutosave from "./components/FieldOfficerDraftAutosave";
 import FieldOfficerDraftNormalizer from "./components/FieldOfficerDraftNormalizer";
 import { AuthProvider, RequireRole, useAuth } from "./lib/auth";
@@ -110,10 +109,9 @@ const App = () => (
             <ProjectMapGate />
             <ConsultantCoverageMapEnhancer />
             <ConsultantProjectLgaDrilldown />
-            <FieldOfficerOfflineSyncTab />
-            <FieldOfficerPendingUploads />
             <FieldOfficerCoordinateMock />
-            <FieldOfficerSyncQueueMount />
+            <FieldOfficerSequentialUploadQueue />
+            <FieldOfficerDraftsNavEnhancer />
             <FieldOfficerDraftAutosave />
             <FieldOfficerDraftNormalizer />
             <VeritasFooterGate />
