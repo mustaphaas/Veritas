@@ -55,7 +55,9 @@ export async function sha256File(uri: string) {
   const base64 = await FileSystem.readAsStringAsync(uri, {
     encoding: FileSystem.EncodingType.Base64,
   });
-  return sha256Text(base64);
+  const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+  const digest = await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, bytes);
+  return [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, "0")).join("");
 }
 
 export function canonicalJson(value: unknown): string {

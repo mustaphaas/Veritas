@@ -1,3 +1,5 @@
+import { handleFieldApi } from "./field-api.js";
+
 const BUILD_ID = "veritas-2026-09-03-ui-cache-r1";
 
 const json = (body, status = 200) =>
@@ -189,6 +191,9 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    const fieldResponse = await handleFieldApi(request, env);
+    if (fieldResponse) return fieldResponse;
+
     if (url.pathname === "/api/veritas") {
       if (request.method !== "POST") {
         return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
@@ -227,6 +232,7 @@ export default {
         geminiKeyConfigured: Boolean(env.GEMINI_API_KEY),
         geminiPrimary: true,
         localFreeMode: false,
+        fieldStorageConfigured: Boolean(env.DB && env.EVIDENCE),
       });
     }
 

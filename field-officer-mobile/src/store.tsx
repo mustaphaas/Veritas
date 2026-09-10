@@ -28,12 +28,13 @@ import {
 import { demoAssignments } from "./demoData";
 import { distanceMetres, isWithinProjectGeofence } from "./domain";
 import type { Assignment, EvidenceRecord, InspectionReport } from "./types";
+import { apiArrival, apiAssignments, apiDraft, apiEvidence, apiLogin, apiSubmit } from "./api";
 
 const ASSIGNMENTS_KEY = "veritas-field-assignments-v1";
 const SESSION_KEY = "veritas-field-session-v1";
 const OFFICER_NAME = "Amina Yusuf";
 
-type SessionRecord = { officerName: string; officerId: string; consultantFirm: string; sessionId: string; signedInAt: string };
+type SessionRecord = { officerName: string; officerId: string; consultantFirm: string; sessionId: string; signedInAt: string; apiToken?: string; apiExpiresAt?: string };
 type ArrivalResult =
   | { ok: true; distanceMetres: number }
   | { ok: false; message: string; distanceMetres?: number };
@@ -138,17 +139,18 @@ export function StoreProvider({ children }: PropsWithChildren) {
   }, []);
 
   const login = useCallback(async (identifier: string, password: string) => {
-    const normalized = identifier.trim().toLowerCase().replace(/\s+/g, "");
-    const account = normalized === "field.officer@demo.ng" && password === "Field2024!"
-      ? { officerName: OFFICER_NAME, officerId: OFFICER_ID, consultantFirm: CONSULTANT_FIRM }
-      : normalized === "08093822087" && password === "siddiqa12"
-        ? { officerName: "Mustapha Aliyu", officerId: "FO-0002", consultantFirm: CONSULTANT_FIRM }
-        : null;
-    if (!account) return false;
-    const nextSession = { ...account, sessionId: newSessionId(), signedInAt: new Date().toISOString() };
-    await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(nextSession));
-    setSession(nextSession);
-    return true;
+    try {
+      const result = await apiLogin(identifier, password);
+      if (result.user.role !== "field_officer") return false;
+      const nextSession: SessionRecord = { officerName: result.user.name, officerId: result.user.id, consultantFirm: result.user.consultantFirm, sessionId: newSessionId(), signedInAt: new Date().toISOString(), apiToken: result.token, apiExpiresAt: result.expiresAt };
+      const remote = await apiAssignments(result.token);
+      if (remote.assignments.length) setAssignments((current) => [...current.filter((item) => item.officer !== nextSession.officerName), ...remote.assignments]);
+      await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(nextSession));
+      setSession(nextSession);
+      return true;
+    } catch {
+      return false;
+    }
   }, []);
 
   const logout = useCallback(async () => {
@@ -170,6 +172,7 @@ export function StoreProvider({ children }: PropsWithChildren) {
       const verifiedAt = new Date().toISOString();
       setAssignments((items) => items.map((item) => item.id === assignmentId ? {
         ...item,
+        syncStatus: "queued",
         arrival: {
           latitude: current.coords.latitude,
           longitude: current.coords.longitude,
@@ -247,7 +250,7 @@ export function StoreProvider({ children }: PropsWithChildren) {
   }, [assignments, session]);
 
   const syncNow = useCallback(async () => {
-    if (!isOnline) return;
+    if (!isOnline || !session?.apiToken) return;
     const startedAt = new Date().toISOString();
     const network = await networkAudit();
     setAssignments((items) => items.map((item) => item.syncStatus === "queued" || item.syncStatus === "failed" ? {
@@ -258,12 +261,29 @@ export function StoreProvider({ children }: PropsWithChildren) {
     // Replace this acknowledgement with the Veritas API response when backend sync is connected.
     await new Promise((resolve) => setTimeout(resolve, 900));
     const completedAt = new Date().toISOString();
-    setAssignments((items) => items.map((item) => item.syncStatus === "uploading" ? {
-      ...item,
-      syncStatus: "synced",
-      report: item.report ? { ...item.report, syncAudit: { ...item.report.syncAudit, attempts: item.report.syncAudit?.attempts ?? 1, uploadCompletedAt: completedAt } } : item.report,
-    } : item));
-  }, [isOnline]);
+    for (const item of assignments.filter((candidate) => candidate.syncStatus === "queued" || candidate.syncStatus === "failed")) {
+      try {
+        if (item.arrival) await apiArrival(session.apiToken, item.id, item.arrival);
+        if (item.report) {
+          for (const evidence of item.report.evidence) await apiEvidence(session.apiToken, item.id, evidence);
+          if (item.status === "Submitted") await apiSubmit(session.apiToken, item.id, item.report);
+          else await apiDraft(session.apiToken, item.id, item.report);
+        }
+        setAssignments((current) => current.map((candidate) => candidate.id === item.id ? { ...candidate, syncStatus: "synced", report: candidate.report ? { ...candidate.report, syncAudit: { ...candidate.report.syncAudit, attempts: candidate.report.syncAudit?.attempts ?? 1, uploadCompletedAt: completedAt, serverReceivedAt: completedAt } } : candidate.report } : candidate));
+      } catch (error) {
+        setAssignments((current) => current.map((candidate) => candidate.id === item.id ? { ...candidate, syncStatus: "failed", report: candidate.report ? { ...candidate.report, syncAudit: { ...candidate.report.syncAudit, attempts: candidate.report.syncAudit?.attempts ?? 1, lastError: error instanceof Error ? error.message : "Synchronization failed." } } : candidate.report } : candidate));
+      }
+    }
+    const remote = await apiAssignments(session.apiToken).catch(() => null);
+    if (remote?.assignments.length) setAssignments((current) => {
+      const localById = new Map(current.map((item) => [item.id, item]));
+      const merged = remote.assignments.map((item) => {
+        const local = localById.get(item.id);
+        return { ...item, report: local?.report ?? item.report, arrival: item.arrival ?? local?.arrival, syncStatus: "synced" as const };
+      });
+      return [...current.filter((item) => item.officer !== session.officerName), ...merged];
+    });
+  }, [isOnline, session, assignments]);
 
   const value = useMemo<StoreValue>(() => ({
     assignments: assignments.filter((item) => item.officer === (session?.officerName ?? OFFICER_NAME)),

@@ -18,6 +18,7 @@ import {
   type ComponentFormValues,
   type SupportedAssignmentComponent,
 } from "./component-inspection-form";
+import { createFieldAssignment, createFieldOfficerApi, fetchFieldAssignments, normalizeCloudAssignment, reviewFieldAssignment } from "./field-api";
 
 export type AssignmentStatus =
   | "Assigned"
@@ -1043,6 +1044,23 @@ export function InspectionWorkflowProvider({
   }, [fieldOfficers]);
 
   useEffect(() => {
+    let active = true;
+    const hydrateCloud = () => {
+      void fetchFieldAssignments().then((payload) => {
+        if (!active) return;
+        const remote = (payload.assignments ?? []).map(normalizeCloudAssignment) as InspectionAssignment[];
+        setAssignments((current) => {
+          const remoteIds = new Set(remote.map((item) => item.id));
+          return [...remote, ...current.filter((item) => !remoteIds.has(item.id))];
+        });
+      }).catch(() => undefined);
+    };
+    hydrateCloud();
+    window.addEventListener("veritas-cloud-session", hydrateCloud);
+    return () => { active = false; window.removeEventListener("veritas-cloud-session", hydrateCloud); };
+  }, []);
+
+  useEffect(() => {
     const synchronizeRoleTabs = (event: StorageEvent) => {
       if (!event.newValue) return;
       try {
@@ -1134,6 +1152,7 @@ export function InspectionWorkflowProvider({
         assignment,
         ...current.filter((item) => item.id !== assignment.id),
       ]);
+      void createFieldAssignment({ ...assignment, project: assignment }).catch(() => undefined);
       return assignment;
     },
     [assignments.length, fieldOfficers],
@@ -1177,6 +1196,7 @@ export function InspectionWorkflowProvider({
         },
         ...current,
       ]);
+      void createFieldOfficerApi({ ...account, name, email, consultantFirm: "Supreme Way" }).catch(() => undefined);
       return { ok: true, message: "Field officer created." };
     },
     [fieldOfficers],
@@ -1336,7 +1356,8 @@ export function InspectionWorkflowProvider({
   );
 
   const reviewReport = useCallback(
-    (id: string, decision: "Approved" | "Re-inspection", note: string) =>
+    (id: string, decision: "Approved" | "Re-inspection", note: string) => {
+      void reviewFieldAssignment(id, decision, note).catch(() => undefined);
       update(id, (assignment) => {
         if (!canReviewReport(assignment.status)) return assignment;
         if (decision === "Re-inspection" && !note.trim()) return assignment;
@@ -1367,12 +1388,14 @@ export function InspectionWorkflowProvider({
             },
           ],
         };
-      }),
+      });
+    },
     [update],
   );
 
   const reaReviewReport = useCallback(
-    (id: string, decision: "Verified" | "Re-inspection", note: string) =>
+    (id: string, decision: "Verified" | "Re-inspection", note: string) => {
+      void reviewFieldAssignment(id, decision, note).catch(() => undefined);
       update(id, (assignment) => {
         if (assignment.status !== "Approved") return assignment;
         if (decision === "Re-inspection" && !note.trim()) return assignment;
@@ -1391,7 +1414,8 @@ export function InspectionWorkflowProvider({
             deviceType: getDeviceType(),
           }],
         };
-      }),
+      });
+    },
     [update],
   );
 

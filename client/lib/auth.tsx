@@ -4,6 +4,7 @@ import { defaultFieldOfficers, FIELD_OFFICERS_STORAGE_KEY, type FieldOfficerAcco
 import { readConsultants } from "./consultants";
 import { getOfficerConsultant } from "./consultant-tenancy";
 import { appendAuditEvent, readReaStaff } from "./rea-admin";
+import { authenticateFieldApi } from "./field-api";
 
 export type DemoRole = "rea" | "field" | "consultant";
 export type DemoAccount = { role: DemoRole; roleLabel: string; name: string; initials: string; email: string; password: string; path: string; consultantId?: string; };
@@ -12,7 +13,7 @@ export const demoAccounts: DemoAccount[] = [
  { role:"field", roleLabel:"Field Officer", name:"Amina Yusuf", initials:"AY", email:"field.officer@demo.ng", password:"Field2024!", path:"/field-officer", consultantId:"con-001" },
  { role:"consultant", roleLabel:"Consultant Admin", name:"Ibrahim Musa", initials:"IM", email:"consultant.admin@demo.ng", password:"Consult2024!", path:"/consultant-admin", consultantId:"con-001" },
 ];
-export type AuthSession = Omit<DemoAccount,"password"> & { access?: string[] };
+export type AuthSession = Omit<DemoAccount,"password"> & { access?: string[]; apiToken?: string; apiExpiresAt?: string };
 type LoginAccount = DemoAccount & { access?: string[] };
 type AuthContextValue={session:AuthSession|null;login:(email:string,password:string)=>Promise<AuthSession|null>;logout:()=>void;};
 const SESSION_KEY="rea-demo-session"; const AuthContext=createContext<AuthContextValue|null>(null);
@@ -94,10 +95,12 @@ export function AuthProvider({children}:{children:ReactNode}){
  },[]);
  const login=async(email:string,password:string)=>{
   const account=authenticateDemoAccount(email,password);if(!account)return null;
-  if(account.role==="rea"){appendAuditEvent({actor:account.name,action:"Signed in",category:"Authentication",target:"REA Dashboard",details:`Successful login for ${account.email}`,severity:"Success"});try{const response=await fetch("/api/auth/veritas-session",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password})});if(!response.ok)console.warn("Veritas AI session is not available yet.");}catch{}}
-  const{password:_password,...nextSession}=account;setSession(nextSession);window.sessionStorage.setItem(SESSION_KEY,JSON.stringify(nextSession));return nextSession;
+  let cloud;try{cloud=await authenticateFieldApi(email,password)}catch{return null}
+  const expected={rea:"rea_admin",field:"field_officer",consultant:"consultant_admin"}[account.role];if(cloud.user.role!==expected)return null;
+  if(account.role==="rea")appendAuditEvent({actor:account.name,action:"Signed in",category:"Authentication",target:"REA Dashboard",details:`Successful login for ${account.email}`,severity:"Success"});
+  const{password:_password,...baseSession}=account;const nextSession={...baseSession,apiToken:cloud.token,apiExpiresAt:cloud.expiresAt};setSession(nextSession);window.sessionStorage.setItem(SESSION_KEY,JSON.stringify(nextSession));window.dispatchEvent(new Event("veritas-cloud-session"));return nextSession;
  };
- const logout=()=>{if(session?.role==="rea")appendAuditEvent({actor:session.name,action:"Signed out",category:"Authentication",target:"REA Dashboard",details:"User ended dashboard session",severity:"Info"});void fetch("/api/auth/veritas-session",{method:"DELETE",credentials:"same-origin"}).catch(()=>undefined);setSession(null);window.sessionStorage.removeItem(SESSION_KEY);};
+ const logout=()=>{if(session?.role==="rea")appendAuditEvent({actor:session.name,action:"Signed out",category:"Authentication",target:"REA Dashboard",details:"User ended dashboard session",severity:"Info"});if(session?.apiToken)void fetch("/api/field/auth/logout",{method:"POST",headers:{Authorization:`Bearer ${session.apiToken}`}}).catch(()=>undefined);setSession(null);window.sessionStorage.removeItem(SESSION_KEY);};
  return <AuthContext.Provider value={{session,login,logout}}>{children}</AuthContext.Provider>
 }
 export function useAuth(){const c=useContext(AuthContext);if(!c)throw new Error("useAuth must be used inside AuthProvider");return c;}
