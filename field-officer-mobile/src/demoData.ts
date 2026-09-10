@@ -5,6 +5,23 @@ const due = (offset: number) => new Date(Date.now() + offset * day).toISOString(
 
 export const demoAssignments: Assignment[] = [
   {
+    id: "REA-FCT-MG-DEMO-001",
+    projectId: "FCT-MG-DURUMI-001",
+    projectName: "Durumi Solar Mini Grid Demo",
+    programme: "DARES",
+    component: "Mini Grid",
+    contractor: "Veritas Demo Contractor",
+    state: "FCT",
+    lga: "Abuja Municipal Area Council",
+    community: "Durumi",
+    latitude: 9.0232043,
+    longitude: 7.4518017,
+    dueDate: due(1),
+    status: "Assigned",
+    syncStatus: "synced",
+    officer: "Mustapha Aliyu",
+  },
+  {
     id: "REA-KN-MG-0142",
     projectName: "Kofar Ruwa Solar Mini Grid",
     programme: "NEP",

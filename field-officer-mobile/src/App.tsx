@@ -1,12 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
+import { Picker } from "@react-native-picker/picker";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -25,16 +27,17 @@ import {
 import { assignmentValues, assignmentsForSection, displayStatus, formSections, isFormComplete, isReportLocked } from "./domain";
 import { colors } from "./theme";
 import { deviceName, StoreProvider, useStore } from "./store";
+import { deviceAudit, networkAudit, sha256File, timezone } from "./audit";
 import type { Assignment, DisplayStatus, FormField } from "./types";
 
 type Tab = "Overview" | "Assignments" | "Inspections" | "Drafts" | "Sync";
 
-const tabs: { label: Tab; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { label: "Overview", icon: "home-outline" },
-  { label: "Assignments", icon: "folder-open-outline" },
-  { label: "Inspections", icon: "clipboard-outline" },
-  { label: "Drafts", icon: "document-text-outline" },
-  { label: "Sync", icon: "sync-outline" },
+const tabs: { label: Tab; icon: keyof typeof Ionicons.glyphMap; color: string; pale: string }[] = [
+  { label: "Overview", icon: "apps-outline", color: colors.primary, pale: colors.paleStrong },
+  { label: "Assignments", icon: "briefcase-outline", color: colors.blue, pale: colors.bluePale },
+  { label: "Inspections", icon: "shield-checkmark-outline", color: colors.violet, pale: colors.violetPale },
+  { label: "Drafts", icon: "document-text-outline", color: colors.amber, pale: colors.amberPale },
+  { label: "Sync", icon: "cloud-upload-outline", color: colors.cyan, pale: colors.cyanPale },
 ];
 const reaLogo = require("../assets/rea-logo.png");
 
@@ -62,16 +65,16 @@ function AppRoot() {
 
 function LoginScreen() {
   const { login } = useStore();
-  const [email, setEmail] = useState("field.officer@demo.ng");
-  const [password, setPassword] = useState("Field2024!");
+  const [identifier, setIdentifier] = useState("08093822087");
+  const [password, setPassword] = useState("siddiqa12");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   const submit = async () => {
     setBusy(true);
     setError("");
-    const ok = await login(email, password);
-    if (!ok) setError("Invalid field officer email or password.");
+    const ok = await login(identifier, password);
+    if (!ok) setError("Invalid field officer phone/email or password.");
     setBusy(false);
   };
 
@@ -85,8 +88,8 @@ function LoginScreen() {
         <View style={styles.loginCard}>
           <Text style={styles.loginTitle}>Field Officer Sign In</Text>
           <Text style={styles.loginSubtitle}>Access assigned projects and complete secure field inspections.</Text>
-          <FieldLabel label="Email address">
-            <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" style={styles.input} />
+          <FieldLabel label="Phone number or email">
+            <TextInput value={identifier} onChangeText={setIdentifier} autoCapitalize="none" keyboardType="default" style={styles.input} />
           </FieldLabel>
           <FieldLabel label="Password">
             <TextInput value={password} onChangeText={setPassword} secureTextEntry style={styles.input} />
@@ -95,7 +98,7 @@ function LoginScreen() {
           <Pressable onPress={() => void submit()} disabled={busy} style={styles.primaryButton}>
             {busy ? <ActivityIndicator color={colors.white} /> : <><Ionicons name="log-in-outline" size={18} color={colors.white} /><Text style={styles.primaryButtonText}>Sign in securely</Text></>}
           </Pressable>
-          <Text style={styles.demoHint}>Demo: field.officer@demo.ng · Field2024!</Text>
+          <Text style={styles.demoHint}>Mustapha: 08093822087 · siddiqa12{"\n"}Amina: field.officer@demo.ng · Field2024!</Text>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -114,7 +117,7 @@ function FieldOfficerApp() {
         <View style={styles.headerBrand}><Image source={reaLogo} style={styles.headerLogo} resizeMode="contain" /><View><Text style={styles.headerTitle}>Veritas</Text><Text style={styles.headerSubtitle}>REA · FIELD OFFICER</Text></View></View>
         <View style={styles.headerActions}>
           <View style={styles.onlinePill}><View style={[styles.onlineDot, !isOnline && styles.offlineDot]} /><Text style={[styles.onlineText, !isOnline && { color: colors.amber }]}>{isOnline ? "ONLINE" : "OFFLINE"}</Text></View>
-          <Pressable onPress={() => setShowProfile(true)} style={styles.avatar}><Text style={styles.avatarText}>AY</Text></Pressable>
+          <Pressable onPress={() => setShowProfile(true)} style={styles.avatar}><Text style={styles.avatarText}>{initials(officerName)}</Text></Pressable>
         </View>
       </View>
       <View style={styles.page}>
@@ -125,21 +128,35 @@ function FieldOfficerApp() {
         {tab === "Sync" && <SyncScreen />}
       </View>
       <View style={styles.tabBar}>
-        {tabs.map((item) => {
-          const active = item.label === tab;
-          return <Pressable key={item.label} onPress={() => setTab(item.label)} style={[styles.tab, active && styles.tabActive]}><Ionicons name={item.icon} size={21} color={active ? colors.primary : colors.slate} /><Text style={[styles.tabText, active && styles.tabTextActive]}>{item.label}</Text></Pressable>;
-        })}
+        {tabs.map((item) => <AnimatedTab key={item.label} item={item} active={item.label === tab} onPress={() => setTab(item.label)} />)}
       </View>
       <InspectionModal assignment={selected} onClose={() => setSelected(null)} />
       <Modal visible={showProfile} transparent animationType="fade" onRequestClose={() => setShowProfile(false)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setShowProfile(false)}><Pressable style={styles.profileCard} onPress={() => undefined}><View style={styles.profileAvatar}><Text style={styles.profileAvatarText}>AY</Text></View><Text style={styles.profileName}>{officerName}</Text><Text style={styles.profileRole}>Field Officer · Supreme Way</Text><View style={styles.profileRow}><Ionicons name="phone-portrait-outline" size={18} color={colors.primary} /><Text style={styles.profileValue}>{deviceName()}</Text></View><Pressable onPress={() => void logout()} style={styles.logoutButton}><Ionicons name="log-out-outline" size={18} color={colors.red} /><Text style={styles.logoutText}>Sign out</Text></Pressable></Pressable></Pressable>
+        <Pressable style={styles.modalBackdrop} onPress={() => setShowProfile(false)}><Pressable style={styles.profileCard} onPress={() => undefined}><View style={styles.profileAvatar}><Text style={styles.profileAvatarText}>{initials(officerName)}</Text></View><Text style={styles.profileName}>{officerName}</Text><Text style={styles.profileRole}>Field Officer · Supreme Way</Text><View style={styles.profileRow}><Ionicons name="phone-portrait-outline" size={18} color={colors.primary} /><Text style={styles.profileValue}>{deviceName()}</Text></View><Pressable onPress={() => void logout()} style={styles.logoutButton}><Ionicons name="log-out-outline" size={18} color={colors.red} /><Text style={styles.logoutText}>Sign out</Text></Pressable></Pressable></Pressable>
       </Modal>
     </SafeAreaView>
   );
 }
 
+function AnimatedTab({ item, active, onPress }: { item: (typeof tabs)[number]; active: boolean; onPress: () => void }) {
+  const scale = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (!active) return;
+    Animated.sequence([
+      Animated.spring(scale, { toValue: 1.12, useNativeDriver: true, speed: 28, bounciness: 7 }),
+      Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 24, bounciness: 5 }),
+    ]).start();
+  }, [active, scale]);
+  return (
+    <Pressable onPress={onPress} onPressIn={() => Animated.spring(scale, { toValue: 0.9, useNativeDriver: true }).start()} onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start()} style={[styles.tab, active && { backgroundColor: item.pale }]}>
+      <Animated.View style={[styles.tabIcon, { backgroundColor: active ? item.color : item.pale, transform: [{ scale }] }]}><Ionicons name={item.icon} size={19} color={active ? colors.white : item.color} /></Animated.View>
+      <Text style={[styles.tabText, active && { color: item.color }]}>{item.label}</Text>
+    </Pressable>
+  );
+}
+
 function Overview({ onOpen, onNavigate }: { onOpen: (item: Assignment) => void; onNavigate: (tab: Tab) => void }) {
-  const { assignments } = useStore();
+  const { assignments, officerName } = useStore();
   const assigned = assignments.filter((item) => item.status === "Assigned");
   const drafts = assignments.filter((item) => item.status === "Draft");
   const approved = assignments.filter((item) => item.status === "Approved");
@@ -147,7 +164,7 @@ function Overview({ onOpen, onNavigate }: { onOpen: (item: Assignment) => void; 
   const next = drafts[0] ?? assigned[0];
   return (
     <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-      <View style={styles.heroCopy}><Text style={styles.greeting}>Good day, Amina.</Text><Text style={styles.pageSubtitle}>Here’s what’s happening across your assigned sites.</Text></View>
+      <View style={styles.heroCopy}><Text style={styles.greeting}>Good day, {officerName.split(" ")[0]}.</Text><Text style={styles.pageSubtitle}>Here’s what’s happening across your assigned sites.</Text></View>
       <View style={styles.metricsRow}>
         <Metric label="Assigned" value={assigned.length} note="Ready to start" icon="grid-outline" tone="green" onPress={() => onNavigate("Assignments")} />
         <Metric label="Due this week" value={dueThisWeek.length} note="Next visit" icon="time-outline" tone="amber" onPress={() => onNavigate("Assignments")} />
@@ -199,7 +216,7 @@ function SyncScreen() {
 }
 
 function InspectionModal({ assignment, onClose }: { assignment: Assignment | null; onClose: () => void }) {
-  const { assignments, verifyArrival, saveDraft, addEvidence, submitReport } = useStore();
+  const { assignments, officerId, consultantFirm, sessionId, verifyArrival, saveDraft, addEvidence, submitReport } = useStore();
   const live = assignment ? assignments.find((item) => item.id === assignment.id) ?? assignment : null;
   const [values, setValues] = useState<Record<string, string>>({});
   const [communitySignatory, setCommunitySignatory] = useState("");
@@ -207,7 +224,9 @@ function InspectionModal({ assignment, onClose }: { assignment: Assignment | nul
   const [gpsBusy, setGpsBusy] = useState(false);
   const [gpsMessage, setGpsMessage] = useState("");
   const [sectionIndex, setSectionIndex] = useState(0);
-  const locked = live ? isReportLocked(live.status) : false;
+  const workflowLocked = live ? isReportLocked(live.status) : false;
+  const gpsLocked = Boolean(live && !live.arrival);
+  const formLocked = workflowLocked || gpsLocked;
   const sections = live ? formSections[live.component] : [];
 
   useEffect(() => {
@@ -220,10 +239,10 @@ function InspectionModal({ assignment, onClose }: { assignment: Assignment | nul
   }, [live?.id]);
 
   useEffect(() => {
-    if (!live || locked || !Object.keys(values).length) return;
+    if (!live || formLocked || !Object.keys(values).length) return;
     const timer = setTimeout(() => saveDraft(live.id, values, communitySignatory, contractorSignatory), 350);
     return () => clearTimeout(timer);
-  }, [values, communitySignatory, contractorSignatory, live?.id, locked, saveDraft]);
+  }, [values, communitySignatory, contractorSignatory, live?.id, formLocked]);
 
   if (!live) return null;
 
@@ -245,36 +264,64 @@ function InspectionModal({ assignment, onClose }: { assignment: Assignment | nul
     if (result.canceled) return;
     const asset = result.assets[0];
     if (!asset) return Alert.alert("Evidence unavailable", "The camera did not return a media file. Please try again.");
-    const current = await Location.getLastKnownPositionAsync();
+    const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }).catch(() => null);
     const uri = await persistEvidence(asset.uri, type);
-    addEvidence(live.id, {
-      id: `${Date.now()}`,
+    const capturedAt = new Date().toISOString();
+    const [integrityHash, network, fileInfo] = await Promise.all([
+      sha256File(uri).catch(() => ""),
+      networkAudit(),
+      FileSystem.getInfoAsync(uri),
+    ]);
+    if (!integrityHash) return Alert.alert("Evidence not saved", "The app could not create the evidence integrity hash. Please capture it again.");
+    const evidenceResult = addEvidence(live.id, {
+      id: `${live.id}-${Date.now()}`,
       uri,
       type,
-      capturedAt: new Date().toISOString(),
+      capturedAt,
       latitude: current?.coords.latitude ?? live.arrival.latitude,
       longitude: current?.coords.longitude ?? live.arrival.longitude,
-      projectId: live.id,
+      projectId: live.projectId ?? live.id,
       inspector: live.officer,
       deviceName: deviceName(),
+      assignmentId: live.id,
+      programme: live.programme,
+      component: live.component,
+      contractor: live.contractor,
+      officerId,
+      consultantFirm,
+      sessionId,
+      timezone: timezone(),
+      gpsAccuracyMetres: current?.coords.accuracy ?? live.arrival.accuracyMetres,
+      altitudeMetres: current?.coords.altitude ?? live.arrival.altitudeMetres,
+      headingDegrees: current?.coords.heading ?? live.arrival.headingDegrees,
+      speedMetresPerSecond: current?.coords.speed ?? live.arrival.speedMetresPerSecond,
+      mocked: current?.mocked ?? live.arrival.mocked,
+      captureSequence: (live.report?.evidence.length ?? 0) + 1,
+      durationSeconds: type === "video" && asset.duration ? asset.duration / 1000 : null,
+      fileSizeBytes: asset.fileSize ?? (fileInfo.exists && "size" in fileInfo ? fileInfo.size : null),
+      integrityAlgorithm: "SHA-256",
+      integrityHash,
+      ...network,
+      device: deviceAudit(),
     });
+    if (!evidenceResult.ok) Alert.alert("Evidence not saved", evidenceResult.message);
   };
-  const submit = () => {
-    saveDraft(live.id, values, communitySignatory, contractorSignatory);
+  const submit = async () => {
+    if (!live.arrival) return Alert.alert("GPS required", "Verify arrival before filling or submitting the form.");
     if (!isFormComplete(live.component, values)) return Alert.alert("Incomplete form", "Complete every required field before submission.");
-    const result = submitReport(live.id, values, communitySignatory, contractorSignatory);
+    const result = await submitReport(live.id, values, communitySignatory, contractorSignatory);
     Alert.alert(result.ok ? "Submitted" : "Submission blocked", result.message, result.ok ? [{ text: "Done", onPress: onClose }] : undefined);
   };
   const section = sections[sectionIndex];
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={styles.safe}><StatusBar hidden /><View style={styles.modalHeader}><Pressable onPress={onClose} style={styles.iconButton}><Ionicons name="close" size={24} color={colors.deep} /></Pressable><View style={styles.modalTitleWrap}><Text numberOfLines={1} style={styles.modalTitle}>{live.projectName}</Text><Text style={styles.modalSubtitle}>{live.id} · {live.component}</Text></View><StatusBadge status={displayStatus(live.status)} /></View><ScrollView contentContainerStyle={styles.inspectionContent} keyboardShouldPersistTaps="handled"><View style={styles.gpsCard}><View style={styles.gpsIcon}><Ionicons name={live.arrival ? "shield-checkmark" : "location"} size={24} color={live.arrival ? colors.primary : colors.amber} /></View><View style={styles.gpsCopy}><Text style={styles.gpsTitle}>{live.arrival ? "Arrival verified" : "GPS verification required"}</Text><Text style={styles.gpsText}>{live.arrival ? `${Math.round(live.arrival.distanceMetres)} m from approved project centre` : "You must be within 250 m before data collection."}</Text></View></View>{gpsMessage ? <Text style={[styles.gpsMessage, gpsMessage.startsWith("Verification blocked") && styles.gpsError]}>{gpsMessage}</Text> : null}<View style={styles.actionRow}><Pressable style={styles.outlineButton} onPress={() => openMaps(live)}><Ionicons name="navigate-outline" size={17} color={colors.primary} /><Text style={styles.outlineButtonText}>Open Maps</Text></Pressable><Pressable disabled={gpsBusy || locked} style={[styles.primaryButton, styles.flexButton, (gpsBusy || locked) && styles.disabled]} onPress={() => void checkGps()}>{gpsBusy ? <ActivityIndicator color={colors.white} /> : <><Ionicons name="locate-outline" size={17} color={colors.white} /><Text style={styles.primaryButtonText}>Verify GPS</Text></>}</Pressable></View><View style={styles.stepRow}>{sections.map((item, index) => <Pressable key={item.title} onPress={() => setSectionIndex(index)} style={[styles.step, index === sectionIndex && styles.stepActive]}><Text style={[styles.stepText, index === sectionIndex && styles.stepTextActive]}>{index + 1}</Text></Pressable>)}</View>{section ? <View style={styles.formCard}><Text style={styles.formTitle}>{section.title}</Text>{section.fields.map((field, index) => <View key={field.key}>{field.group && section.fields[index - 1]?.group !== field.group ? <Text style={styles.fieldGroup}>{field.group}</Text> : null}<FormInput field={field} value={values[field.key] ?? ""} locked={locked || Boolean(field.assigned)} onChange={(value) => setValues((current) => ({ ...current, [field.key]: value }))} /></View>)}</View> : null}<View style={styles.actionRow}>{sectionIndex > 0 ? <Pressable style={styles.outlineButton} onPress={() => setSectionIndex((current) => current - 1)}><Text style={styles.outlineButtonText}>Previous</Text></Pressable> : <View />}{sectionIndex < sections.length - 1 ? <Pressable style={[styles.primaryButton, styles.flexButton]} onPress={() => setSectionIndex((current) => current + 1)}><Text style={styles.primaryButtonText}>Next section</Text><Ionicons name="arrow-forward" size={16} color={colors.white} /></Pressable> : null}</View><View style={styles.formCard}><Text style={styles.formTitle}>Evidence</Text><Text style={styles.sectionSubtitle}>Photos and videos carry project ID, GPS, time, inspector and device metadata.</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.evidenceRow}>{live.report?.evidence.map((item) => <View key={item.id} style={styles.evidenceItem}>{item.type === "photo" ? <Image source={{ uri: item.uri }} style={styles.evidenceImage} /> : <View style={styles.videoEvidence}><Ionicons name="videocam" size={32} color={colors.white} /><Text style={styles.videoEvidenceText}>VIDEO EVIDENCE</Text></View>}<View style={styles.evidenceStamp}><Text style={styles.evidenceStampText}>{live.id} · {item.type.toUpperCase()}</Text><Text style={styles.evidenceStampText}>{new Date(item.capturedAt).toLocaleString()}</Text></View></View>)}{!locked ? <><Pressable onPress={() => void captureEvidence("photo")} style={styles.captureButton}><Ionicons name="camera-outline" size={27} color={colors.primary} /><Text style={styles.captureText}>Photo</Text></Pressable><Pressable onPress={() => void captureEvidence("video")} style={[styles.captureButton, styles.videoCaptureButton]}><Ionicons name="videocam-outline" size={27} color={colors.blue} /><Text style={[styles.captureText, { color: colors.blue }]}>Video</Text></Pressable></> : null}</ScrollView></View><View style={styles.formCard}><Text style={styles.formTitle}>Representative signatories</Text><FormInput field={{ key: "communitySignatory", label: "Community representative" }} value={communitySignatory} locked={locked} onChange={setCommunitySignatory} /><FormInput field={{ key: "contractorSignatory", label: "Contractor representative" }} value={contractorSignatory} locked={locked} onChange={setContractorSignatory} /></View>{locked ? <View style={styles.lockedCard}><Ionicons name="lock-closed" size={18} color={colors.primary} /><Text style={styles.lockedText}>This submitted inspection is locked and cannot be modified.</Text></View> : <View style={styles.submitRow}><Pressable style={styles.outlineButton} onPress={() => { saveDraft(live.id, values, communitySignatory, contractorSignatory); Alert.alert("Draft saved", "This inspection is stored on the device."); }}><Ionicons name="save-outline" size={17} color={colors.primary} /><Text style={styles.outlineButtonText}>Save draft</Text></Pressable><Pressable style={[styles.primaryButton, styles.flexButton]} onPress={submit}><Ionicons name="send-outline" size={17} color={colors.white} /><Text style={styles.primaryButtonText}>Submit for review</Text></Pressable></View>}</ScrollView></SafeAreaView>
+      <SafeAreaView style={styles.safe}><StatusBar hidden /><View style={styles.modalHeader}><Pressable onPress={onClose} style={styles.iconButton}><Ionicons name="close" size={24} color={colors.deep} /></Pressable><View style={styles.modalTitleWrap}><Text numberOfLines={1} style={styles.modalTitle}>{live.projectName}</Text><Text style={styles.modalSubtitle}>{live.id} · {live.component}</Text></View><StatusBadge status={displayStatus(live.status)} /></View><ScrollView contentContainerStyle={styles.inspectionContent} keyboardShouldPersistTaps="handled"><View style={styles.gpsCard}><View style={styles.gpsIcon}><Ionicons name={live.arrival ? "shield-checkmark" : "location"} size={24} color={live.arrival ? colors.primary : colors.amber} /></View><View style={styles.gpsCopy}><Text style={styles.gpsTitle}>{live.arrival ? "Arrival verified" : "GPS verification required"}</Text><Text style={styles.gpsText}>{live.arrival ? `${Math.round(live.arrival.distanceMetres)} m from approved project centre${live.arrival.accuracyMetres ? ` · ±${Math.round(live.arrival.accuracyMetres)} m accuracy` : ""}` : "The form stays locked until you are verified within 250 m."}</Text></View></View>{gpsMessage ? <Text style={[styles.gpsMessage, gpsMessage.startsWith("Verification blocked") && styles.gpsError]}>{gpsMessage}</Text> : null}<View style={styles.actionRow}><Pressable style={styles.outlineButton} onPress={() => openMaps(live)}><Ionicons name="navigate-outline" size={17} color={colors.primary} /><Text style={styles.outlineButtonText}>Open Maps</Text></Pressable><Pressable disabled={gpsBusy || workflowLocked} style={[styles.primaryButton, styles.flexButton, (gpsBusy || workflowLocked) && styles.disabled]} onPress={() => void checkGps()}>{gpsBusy ? <ActivityIndicator color={colors.white} /> : <><Ionicons name="locate-outline" size={17} color={colors.white} /><Text style={styles.primaryButtonText}>Verify GPS</Text></>}</Pressable></View>{gpsLocked ? <View style={[styles.lockedCard, styles.gpsLockedCard]}><Ionicons name="lock-closed" size={18} color={colors.amber} /><Text style={[styles.lockedText, { color: colors.amber }]}>Data entry, evidence and autosave unlock after GPS verification.</Text></View> : null}<View style={styles.stepRow}>{sections.map((item, index) => <Pressable key={item.title} onPress={() => setSectionIndex(index)} style={[styles.step, index === sectionIndex && styles.stepActive]}><Text style={[styles.stepText, index === sectionIndex && styles.stepTextActive]}>{index + 1}</Text></Pressable>)}</View>{section ? <View style={styles.formCard}><Text style={styles.formTitle}>{section.title}</Text>{section.fields.map((field, index) => <View key={field.key}>{field.group && section.fields[index - 1]?.group !== field.group ? <Text style={styles.fieldGroup}>{field.group}</Text> : null}<FormInput field={field} value={values[field.key] ?? ""} locked={formLocked || Boolean(field.assigned)} onChange={(value) => setValues((current) => ({ ...current, [field.key]: value }))} /></View>)}</View> : null}<View style={styles.actionRow}>{sectionIndex > 0 ? <Pressable style={styles.outlineButton} onPress={() => setSectionIndex((current) => current - 1)}><Text style={styles.outlineButtonText}>Previous</Text></Pressable> : <View />}{sectionIndex < sections.length - 1 ? <Pressable style={[styles.primaryButton, styles.flexButton]} onPress={() => setSectionIndex((current) => current + 1)}><Text style={styles.primaryButtonText}>Next section</Text><Ionicons name="arrow-forward" size={16} color={colors.white} /></Pressable> : null}</View><View style={styles.formCard}><Text style={styles.formTitle}>Evidence</Text><Text style={styles.sectionSubtitle}>Photos and videos carry project, GPS, time, officer, device, network and SHA-256 integrity metadata.</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.evidenceRow}>{live.report?.evidence.map((item) => <View key={item.id} style={styles.evidenceItem}>{item.type === "photo" ? <Image source={{ uri: item.uri }} style={styles.evidenceImage} /> : <View style={styles.videoEvidence}><Ionicons name="videocam" size={32} color={colors.white} /><Text style={styles.videoEvidenceText}>VIDEO EVIDENCE</Text></View>}<View style={styles.evidenceStamp}><Text style={styles.evidenceStampText}>{live.id} · {item.type.toUpperCase()}</Text><Text style={styles.evidenceStampText}>{new Date(item.capturedAt).toLocaleString()}</Text></View></View>)}{!formLocked ? <><Pressable onPress={() => void captureEvidence("photo")} style={styles.captureButton}><Ionicons name="camera-outline" size={27} color={colors.primary} /><Text style={styles.captureText}>Photo</Text></Pressable><Pressable onPress={() => void captureEvidence("video")} style={[styles.captureButton, styles.videoCaptureButton]}><Ionicons name="videocam-outline" size={27} color={colors.blue} /><Text style={[styles.captureText, { color: colors.blue }]}>Video</Text></Pressable></> : null}</ScrollView></View><View style={styles.formCard}><Text style={styles.formTitle}>Representative signatories</Text><FormInput field={{ key: "communitySignatory", label: "Community representative" }} value={communitySignatory} locked={formLocked} onChange={setCommunitySignatory} /><FormInput field={{ key: "contractorSignatory", label: "Contractor representative" }} value={contractorSignatory} locked={formLocked} onChange={setContractorSignatory} /></View>{workflowLocked ? <View style={styles.lockedCard}><Ionicons name="lock-closed" size={18} color={colors.primary} /><Text style={styles.lockedText}>This submitted inspection is locked and cannot be modified.</Text></View> : <View style={styles.submitRow}><Pressable disabled={gpsLocked} style={[styles.outlineButton, gpsLocked && styles.disabled]} onPress={() => { const result = saveDraft(live.id, values, communitySignatory, contractorSignatory); Alert.alert(result.ok ? "Draft saved" : "Draft locked", result.message); }}><Ionicons name="save-outline" size={17} color={colors.primary} /><Text style={styles.outlineButtonText}>Save draft</Text></Pressable><Pressable disabled={gpsLocked} style={[styles.primaryButton, styles.flexButton, gpsLocked && styles.disabled]} onPress={() => void submit()}><Ionicons name="send-outline" size={17} color={colors.white} /><Text style={styles.primaryButtonText}>Submit for review</Text></Pressable></View>}</ScrollView></SafeAreaView>
     </Modal>
   );
 }
 
 function FormInput({ field, value, locked, onChange }: { field: FormField; value: string; locked: boolean; onChange: (value: string) => void }) {
-  return <FieldLabel label={field.label}>{field.options ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.optionRow}>{field.options.map((option) => <FilterChip key={option} label={option} active={value === option} disabled={locked} onPress={() => onChange(option)} />)}</ScrollView> : <TextInput editable={!locked} value={value} onChangeText={onChange} keyboardType={field.keyboard ?? "default"} style={[styles.input, locked && styles.readonlyInput]} placeholder={locked ? "" : `Enter ${field.label.toLowerCase()}`} placeholderTextColor="#a0aaa4" />}</FieldLabel>;
+  return <FieldLabel label={field.label}>{field.options ? <View style={[styles.pickerWrap, locked && styles.readonlyInput]}><Picker selectedValue={value} enabled={!locked} onValueChange={(next) => onChange(String(next))} style={styles.picker} dropdownIconColor={colors.primary}><Picker.Item label={`Select ${field.label.toLowerCase()}`} value="" color={colors.slate} />{field.options.map((option) => <Picker.Item key={option} label={option} value={option} />)}</Picker></View> : <TextInput editable={!locked} value={value} onChangeText={onChange} keyboardType={field.keyboard ?? "default"} style={[styles.input, locked && styles.readonlyInput]} placeholder={locked ? "" : `Enter ${field.label.toLowerCase()}`} placeholderTextColor="#a0aaa4" />}</FieldLabel>;
 }
 
 function AssignmentCard({ item, onOpen, compact = false }: { item: Assignment; onOpen: (item: Assignment) => void; compact?: boolean }) {
@@ -326,6 +373,10 @@ function openMaps(item: Assignment) {
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+
+function initials(name: string) {
+  return name.split(/\s+/).slice(0, 2).map((part) => part[0] ?? "").join("").toUpperCase();
 }
 
 const styles = StyleSheet.create({
@@ -402,6 +453,7 @@ const styles = StyleSheet.create({
   chipTextActive: { color: colors.primary },
   tabBar: { height: 70, marginHorizontal: 14, marginBottom: 10, padding: 7, backgroundColor: "rgba(255,255,255,0.96)", borderWidth: 1, borderColor: "rgba(255,255,255,0.9)", borderRadius: 25, flexDirection: "row", shadowColor: "#173B2A", shadowOpacity: 0.12, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 7 },
   tab: { flex: 1, alignItems: "center", justifyContent: "center", gap: 3, borderRadius: 18 },
+  tabIcon: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
   tabActive: { backgroundColor: colors.paleStrong },
   tabText: { color: colors.slate, fontSize: 8, fontWeight: "700" },
   tabTextActive: { color: colors.primary },
@@ -449,6 +501,8 @@ const styles = StyleSheet.create({
   field: { marginTop: 8 },
   fieldLabel: { color: colors.muted, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.55, fontWeight: "800", marginBottom: 6 },
   input: { height: 44, borderWidth: 1, borderColor: "#dbe5df", borderRadius: 8, backgroundColor: colors.white, paddingHorizontal: 12, color: colors.deep, fontSize: 12 },
+  pickerWrap: { height: 48, borderWidth: 1, borderColor: "#dbe5df", borderRadius: 8, backgroundColor: colors.white, justifyContent: "center", overflow: "hidden" },
+  picker: { color: colors.deep, fontSize: 12 },
   readonlyInput: { backgroundColor: "#f4f7f5", color: colors.muted },
   optionRow: { gap: 6 },
   evidenceRow: { gap: 9, paddingTop: 9 },
@@ -462,6 +516,7 @@ const styles = StyleSheet.create({
   videoEvidence: { width: "100%", height: "100%", backgroundColor: colors.deep, alignItems: "center", justifyContent: "center", gap: 6 },
   videoEvidenceText: { color: colors.white, fontSize: 9, fontWeight: "900", letterSpacing: 0.8 },
   lockedCard: { flexDirection: "row", alignItems: "center", gap: 9, padding: 12, backgroundColor: colors.paleStrong, borderRadius: 9 },
+  gpsLockedCard: { backgroundColor: colors.amberPale },
   lockedText: { flex: 1, color: colors.primary, fontSize: 10, fontWeight: "700" },
   submitRow: { flexDirection: "row", gap: 9 },
   modalBackdrop: { flex: 1, backgroundColor: "rgba(10,25,17,0.42)", justifyContent: "flex-start", alignItems: "flex-end", paddingTop: 72, paddingRight: 15 },

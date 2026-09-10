@@ -69,6 +69,7 @@ export function isFormComplete(
 }
 
 const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const years = Array.from({ length: new Date().getFullYear() - 1999 + 6 }, (_, index) => String(2000 + index));
 const statuses = ["Not Started", "Ongoing", "Completed"];
 const commonProjectFields = [
   { key: "programName", label: "Program Name", assigned: "programme" as const },
@@ -85,9 +86,9 @@ const locationFields = [
 ];
 const implementationFields = [
   { key: "status", label: "Status", options: statuses },
-  { key: "startDateYear", label: "Year", group: "Start Date", keyboard: "numeric" as const },
+  { key: "startDateYear", label: "Year", group: "Start Date", options: years },
   { key: "startDateMonth", label: "Month", group: "Start Date", options: months },
-  { key: "completionDateYear", label: "Year", group: "Date of Completion", keyboard: "numeric" as const },
+  { key: "completionDateYear", label: "Year", group: "Date of Completion", options: years },
   { key: "completionDateMonth", label: "Month", group: "Date of Completion", options: months },
 ];
 const publicInstitutionFields = [
@@ -142,8 +143,7 @@ export const formSections: Record<ProjectComponent, FormSection[]> = {
     {
       title: "Financial",
       fields: [
-        { key: "totalProjectCostDollar", label: "$", group: "Total Project Cost", keyboard: "decimal-pad" },
-        { key: "totalProjectCostNaira", label: "₦", group: "Total Project Cost", keyboard: "decimal-pad" },
+        { key: "totalProjectCostNaira", label: "Amount (₦)", group: "Total Project Cost", keyboard: "decimal-pad" },
         { key: "grantPerConnection", label: "Grant per Connection", keyboard: "decimal-pad" },
       ],
     },
