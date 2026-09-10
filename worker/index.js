@@ -1,6 +1,7 @@
 import { handleFieldApi } from "./field-api.js";
 
-const BUILD_ID = "veritas-2026-09-11-live-d1-ai-r1";
+const BUILD_ID = "veritas-2026-09-11-live-d1-roster-r1";
+const encoder = new TextEncoder();
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -11,6 +12,58 @@ const json = (body, status = 200) =>
       "X-Veritas-Build": BUILD_ID,
     },
   });
+
+const hex = (bytes) => [...new Uint8Array(bytes)].map((x) => x.toString(16).padStart(2, "0")).join("");
+
+async function digest(value) {
+  return hex(await crypto.subtle.digest("SHA-256", typeof value === "string" ? encoder.encode(value) : value));
+}
+
+async function authenticatedDatabaseUser(request, env) {
+  const bearer = request.headers.get("Authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
+  if (!bearer || !env.DB) return null;
+  const tokenHash = await digest(bearer);
+  return env.DB.prepare(`SELECT u.id,u.name,u.role,u.consultant_firm AS consultantFirm
+    FROM sessions s JOIN users u ON u.id=s.user_id
+    WHERE s.token_hash=? AND s.expires_at>? AND u.status='active'`)
+    .bind(tokenHash, new Date().toISOString())
+    .first();
+}
+
+async function consultantFieldOfficerResponse(request, env) {
+  const user = await authenticatedDatabaseUser(request, env);
+  if (!user) return json({ error: "Authentication required." }, 401);
+  if (user.role !== "consultant_admin" && user.role !== "rea_admin") {
+    return json({ error: "Consultant or REA access required." }, 403);
+  }
+
+  let consultantFirm = user.consultantFirm;
+  if (user.role === "rea_admin") {
+    consultantFirm = new URL(request.url).searchParams.get("consultantFirm") || consultantFirm;
+  }
+  if (!consultantFirm) return json({ error: "Consultant firm is required." }, 400);
+
+  const result = await env.DB.prepare(`SELECT id,name,email,phone,consultant_firm AS consultantFirm,status,created_at AS createdAt
+    FROM users
+    WHERE role='field_officer' AND consultant_firm=?
+    ORDER BY name COLLATE NOCASE`)
+    .bind(consultantFirm)
+    .all();
+
+  return json({
+    consultantFirm,
+    fieldOfficers: (result.results || []).map((officer) => ({
+      id: officer.id,
+      name: officer.name,
+      email: officer.email || "",
+      phone: officer.phone || "",
+      consultantFirm: officer.consultantFirm,
+      status: String(officer.status).toLowerCase() === "active" ? "Active" : "Suspended",
+      createdAt: officer.createdAt,
+    })),
+    serverTime: new Date().toISOString(),
+  });
+}
 
 function latestQuestion(messages = []) {
   return [...messages]
@@ -250,6 +303,17 @@ async function veritasResponse(request, env) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    if (url.pathname === "/api/consultant/field-officers") {
+      if (request.method !== "GET") return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
+      try {
+        return await consultantFieldOfficerResponse(request, env);
+      } catch (error) {
+        console.error(JSON.stringify({ event: "consultant_roster_failure", message: error instanceof Error ? error.message : "Unknown error", build: BUILD_ID }));
+        return json({ error: "Unable to load the consultant field-officer roster." }, 503);
+      }
+    }
+
     const fieldResponse = await handleFieldApi(request, env);
     if (fieldResponse) return fieldResponse;
 
