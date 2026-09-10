@@ -40,7 +40,7 @@ const welcome: DisplayMessage = {
   id: "welcome",
   role: "assistant",
   content:
-    "Welcome to Veritas. I can answer presentation questions across the REA, Field Officer and Consultant Admin demo dashboards, including projects, programmes, contractors, assignments, inspection forms, reports and verification performance.",
+    "Welcome to Veritas. I can analyse current REA, Field Officer and Consultant Admin data, including projects, programmes, contractors, assignments, inspection forms, reports and verification performance.",
 };
 
 const quickActions = [
@@ -75,7 +75,7 @@ const quickActions = [
 ];
 
 const questionExamples = [
-  "How many field officers and assignments are in the demo?",
+  "How many field officers and assignments are currently in Veritas?",
   "Which projects are still pending verification?",
   "What can the Consultant Admin review and approve?",
   "What fields are in the Mini Grid inspection form?",
@@ -215,7 +215,7 @@ export default function VeritasAssistant() {
     return {
       generatedAt: new Date().toISOString(),
       dataScope:
-        "Presentation-safe demo data across the REA Dashboard, Field Officer Dashboard and Consultant Admin Dashboard, plus the shared inspection workflow.",
+        "Current Veritas operational data across the REA Dashboard, Field Officer Dashboard and Consultant Admin Dashboard, plus the shared inspection workflow.",
       dashboardViews: {
         reaAdmin: {
           navigation: [
@@ -297,7 +297,7 @@ export default function VeritasAssistant() {
       inspectionFormSchema: inspectionFormSchema(),
       inspectionWorkflow: {
         privacyScope:
-          "Management-safe demo fields only. Passwords, personal phone numbers, signatures, device IDs, precise evidence coordinates and private evidence are excluded.",
+          "Management-safe operational fields only. Passwords, personal phone numbers, signatures, device IDs, precise evidence coordinates and private evidence are excluded.",
         totalAssignments: assignments.length,
         statusCounts,
         submittedReports: assignments.filter((assignment) => assignment.report)
@@ -434,7 +434,7 @@ export default function VeritasAssistant() {
                   </span>
                 </div>
                 <p className="mt-0.5 truncate text-[10px] text-slate-500">
-                  REA · Field Officer · Consultant Admin demo intelligence
+                  REA · Field Officer · Consultant Admin intelligence
                 </p>
               </div>
             </div>
@@ -462,7 +462,7 @@ export default function VeritasAssistant() {
             <span className="flex h-5 w-5 items-center justify-center rounded-md bg-[#e8f6ed] text-[#08733f]">
               <Database className="h-3 w-3" />
             </span>
-            Grounded in all dashboard demo data
+            Grounded in live Veritas production data
             <span className="text-slate-300">•</span>
             <Globe2 className="h-3 w-3 text-[#08733f]" /> Official REA sources
           </div>
@@ -521,7 +521,7 @@ export default function VeritasAssistant() {
                     <div className="flex items-center gap-2">
                       <Search className="h-4 w-4 text-[#08733f]" />
                       <p className="text-[11px] font-bold text-[#173b2a]">
-                        Ask any demo dashboard question
+                        Ask any Veritas data question
                       </p>
                     </div>
                     <p className="mt-1 text-[9px] leading-4 text-slate-500">
@@ -577,7 +577,7 @@ export default function VeritasAssistant() {
                 <div className="flex justify-start">
                   <div className="flex items-center gap-2 rounded-2xl rounded-bl-md border border-[#dfe9e2] bg-white px-4 py-3 text-[10px] text-slate-500 shadow-sm">
                     <Loader2 className="h-4 w-4 animate-spin text-[#08733f]" />
-                    Analysing dashboard demo data…
+                    Analysing live Veritas data…
                   </div>
                 </div>
               )}
