@@ -1,6 +1,6 @@
 import { handleFieldApi } from "./field-api.js";
 
-const BUILD_ID = "veritas-2026-09-11-live-d1-roster-r1";
+const BUILD_ID = "veritas-2026-09-11-provider-neutral-errors-r1";
 const encoder = new TextEncoder();
 
 const json = (body, status = 200) =>
@@ -215,7 +215,7 @@ function buildInput(messages, databaseContext) {
   const question = latestQuestion(messages);
   const context = JSON.stringify(compactContext(databaseContext || {}));
 
-  return `You are Veritas, the Gemini-powered AI assistant inside the Rural Electrification Agency monitoring application.
+  return `You are Veritas, the AI assistant inside the Rural Electrification Agency monitoring application.
 
 Answer naturally, intelligently, and directly. Use reasoning to explain findings, comparisons, implications, risks, and next actions when useful.
 
@@ -234,16 +234,16 @@ ${conversation || "No prior conversation."}
 CURRENT USER QUESTION:
 ${question}
 
-Respond as Gemini-powered Veritas, with a concise but genuinely reasoned answer.`;
+Respond as Veritas, with a concise but genuinely reasoned answer.`;
 }
 
-function geminiErrorMessage(status, payload) {
-  const message = String(payload?.error?.message || "");
-  if (status === 400) return "Gemini rejected the request. Please try a more focused question.";
-  if (status === 401 || status === 403) return "Veritas Gemini authentication failed. Check the GEMINI_API_KEY secret in Cloudflare.";
-  if (status === 404) return "The configured Gemini model is unavailable. Check GEMINI_MODEL and redeploy.";
-  if (status === 429) return "Veritas reached the Gemini API rate or quota limit. Please try again after the Gemini quota resets or increase the Gemini API quota.";
-  return `Gemini request failed (HTTP ${status}${message ? `: ${message}` : ""}).`;
+function publicVeritasError(status) {
+  if (status === 400) return "Veritas could not process that request. Please try a more focused question.";
+  if (status === 401 || status === 403) return "Veritas AI service is currently unavailable.";
+  if (status === 404) return "Veritas AI service is currently unavailable.";
+  if (status === 429) return "Veritas is experiencing high demand. Please try again shortly.";
+  if (status === 503) return "Veritas is temporarily unavailable due to high demand. Please try again shortly.";
+  return "Veritas is temporarily unavailable. Please try again shortly.";
 }
 
 function extractGeminiText(payload) {
@@ -267,11 +267,8 @@ async function veritasResponse(request, env) {
   const question = latestQuestion(body?.messages);
   if (!question) return json({ error: "Ask Veritas a question.", build: BUILD_ID }, 400);
   if (!env.GEMINI_API_KEY) {
-    return json({
-      error: "Veritas is configured to use Gemini, but GEMINI_API_KEY is not available in this Cloudflare deployment.",
-      provider: "gemini",
-      build: BUILD_ID,
-    }, 503);
+    console.error(JSON.stringify({ event: "veritas_provider_unconfigured", provider: "gemini", build: BUILD_ID }));
+    return json({ error: "Veritas AI service is currently unavailable.", build: BUILD_ID }, 503);
   }
 
   const databaseContext = await liveDatabaseContext(env);
@@ -290,14 +287,24 @@ async function veritasResponse(request, env) {
 
   const payload = await upstream.json().catch(() => ({}));
   if (!upstream.ok) {
-    console.error(JSON.stringify({ event: "veritas_gemini_error", status: upstream.status, model, build: BUILD_ID }));
-    return json({ error: geminiErrorMessage(upstream.status, payload), provider: "gemini", model, build: BUILD_ID }, 502);
+    console.error(JSON.stringify({
+      event: "veritas_provider_error",
+      provider: "gemini",
+      status: upstream.status,
+      model,
+      upstreamMessage: String(payload?.error?.message || ""),
+      build: BUILD_ID,
+    }));
+    return json({ error: publicVeritasError(upstream.status), build: BUILD_ID }, upstream.status === 429 ? 429 : 503);
   }
 
   const answer = extractGeminiText(payload);
-  if (!answer) return json({ error: "Veritas Gemini returned an empty response.", provider: "gemini", model, build: BUILD_ID }, 502);
+  if (!answer) {
+    console.error(JSON.stringify({ event: "veritas_empty_provider_response", provider: "gemini", model, build: BUILD_ID }));
+    return json({ error: "Veritas could not complete that response. Please try again shortly.", build: BUILD_ID }, 503);
+  }
 
-  return json({ answer, sources: [], mode: "gemini-live-d1", provider: "gemini", model, build: BUILD_ID });
+  return json({ answer, sources: [], mode: "veritas-live-d1", build: BUILD_ID });
 }
 
 export default {
@@ -327,7 +334,7 @@ export default {
           message: error instanceof Error ? error.message : "Unknown error",
           build: BUILD_ID,
         }));
-        return json({ error: "Veritas Gemini is temporarily unavailable. Please try again.", provider: "gemini", build: BUILD_ID }, 503);
+        return json({ error: "Veritas is temporarily unavailable. Please try again shortly.", build: BUILD_ID }, 503);
       }
     }
 
@@ -336,12 +343,8 @@ export default {
         ok: true,
         mode: "cloudflare-worker",
         build: BUILD_ID,
-        provider: "gemini",
-        model: env.GEMINI_MODEL || "gemini-3.6-flash",
-        geminiKeyConfigured: Boolean(env.GEMINI_API_KEY),
-        geminiPrimary: true,
+        aiService: "veritas",
         aiDatabaseSource: "cloudflare-d1-live",
-        localFreeMode: false,
         fieldStorageConfigured: Boolean(env.DB),
         evidenceStorageConfigured: Boolean(env.EVIDENCE),
       });
