@@ -22,7 +22,7 @@ import {
   View,
 } from "react-native";
 
-import { assignmentValues, displayStatus, formSections, isFormComplete, isReportLocked } from "./domain";
+import { assignmentValues, assignmentsForSection, displayStatus, formSections, isFormComplete, isReportLocked } from "./domain";
 import { colors } from "./theme";
 import { deviceName, StoreProvider, useStore } from "./store";
 import type { Assignment, DisplayStatus, FormField } from "./types";
@@ -112,11 +112,10 @@ function FieldOfficerApp() {
       <StatusBar hidden />
       <View style={styles.header}>
         <View style={styles.headerBrand}><Image source={reaLogo} style={styles.headerLogo} resizeMode="contain" /><View><Text style={styles.headerTitle}>Veritas</Text><Text style={styles.headerSubtitle}>REA · FIELD OFFICER</Text></View></View>
-        <Pressable onPress={() => setShowProfile(true)} style={styles.avatar}><Text style={styles.avatarText}>AY</Text></Pressable>
-      </View>
-      <View style={styles.onlineBar}>
-        <View style={[styles.onlineDot, !isOnline && styles.offlineDot]} />
-        <Text style={[styles.onlineText, !isOnline && { color: colors.amber }]}>{isOnline ? "Online" : "Offline"}</Text>
+        <View style={styles.headerActions}>
+          <View style={styles.onlinePill}><View style={[styles.onlineDot, !isOnline && styles.offlineDot]} /><Text style={[styles.onlineText, !isOnline && { color: colors.amber }]}>{isOnline ? "ONLINE" : "OFFLINE"}</Text></View>
+          <Pressable onPress={() => setShowProfile(true)} style={styles.avatar}><Text style={styles.avatarText}>AY</Text></Pressable>
+        </View>
       </View>
       <View style={styles.page}>
         {tab === "Overview" && <Overview onOpen={setSelected} onNavigate={setTab} />}
@@ -128,7 +127,7 @@ function FieldOfficerApp() {
       <View style={styles.tabBar}>
         {tabs.map((item) => {
           const active = item.label === tab;
-          return <Pressable key={item.label} onPress={() => setTab(item.label)} style={styles.tab}><Ionicons name={item.icon} size={21} color={active ? colors.primary : colors.slate} /><Text style={[styles.tabText, active && styles.tabTextActive]}>{item.label}</Text></Pressable>;
+          return <Pressable key={item.label} onPress={() => setTab(item.label)} style={[styles.tab, active && styles.tabActive]}><Ionicons name={item.icon} size={21} color={active ? colors.primary : colors.slate} /><Text style={[styles.tabText, active && styles.tabTextActive]}>{item.label}</Text></Pressable>;
         })}
       </View>
       <InspectionModal assignment={selected} onClose={() => setSelected(null)} />
@@ -141,53 +140,62 @@ function FieldOfficerApp() {
 
 function Overview({ onOpen, onNavigate }: { onOpen: (item: Assignment) => void; onNavigate: (tab: Tab) => void }) {
   const { assignments } = useStore();
-  const active = assignments.filter((item) => ["Assigned", "Draft", "Re-inspection"].includes(item.status));
-  const drafts = assignments.filter((item) => displayStatus(item.status) === "Draft");
-  const queued = assignments.filter((item) => item.syncStatus !== "synced");
+  const assigned = assignments.filter((item) => item.status === "Assigned");
+  const drafts = assignments.filter((item) => item.status === "Draft");
   const approved = assignments.filter((item) => item.status === "Approved");
-  const next = active[0];
+  const dueThisWeek = assignments.filter((item) => ["Assigned", "Draft"].includes(item.status) && new Date(item.dueDate).getTime() <= Date.now() + 7 * 86_400_000);
+  const next = drafts[0] ?? assigned[0];
   return (
     <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-      <Text style={styles.greeting}>Good day, Amina</Text>
-      <Text style={styles.pageSubtitle}>Navigate, verify arrival and complete secure field inspections.</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.metricsRow}>
-        <Metric label="Assigned Projects" value={active.length} note="Assigned or draft" icon="folder-open-outline" tone="green" onPress={() => onNavigate("Assignments")} />
-        <Metric label="Inspections Due" value={active.length} note="Visits requiring action" icon="time-outline" tone="amber" onPress={() => onNavigate("Inspections")} />
-        <Metric label="Approved" value={approved.length} note="Passed consultant QA" icon="checkmark-circle-outline" tone="green" onPress={() => onNavigate("Inspections")} />
-        <Metric label="Draft Reports" value={drafts.length} note="Saved on this device" icon="document-text-outline" tone="blue" onPress={() => onNavigate("Drafts")} />
-        <Metric label="Sync Pending" value={queued.length} note="Uploads when online" icon="cloud-upload-outline" tone="amber" onPress={() => onNavigate("Sync")} />
-      </ScrollView>
-      {next ? <View style={styles.nextCard}><View style={styles.sectionHead}><View><Text style={styles.eyebrow}>NEXT ASSIGNMENT</Text><Text style={styles.cardTitle}>{next.projectName}</Text></View><StatusBadge status={displayStatus(next.status)} /></View><View style={styles.locationRow}><Ionicons name="location-outline" size={17} color={colors.primary} /><Text style={styles.locationText}>{next.community}, {next.lga}, {next.state}</Text></View><View style={styles.metaRow}><Meta label="Programme" value={next.programme} /><Meta label="Component" value={next.component} /><Meta label="Due" value={formatDate(next.dueDate)} /></View><View style={styles.actionRow}><Pressable style={styles.outlineButton} onPress={() => openMaps(next)}><Ionicons name="navigate-outline" size={17} color={colors.primary} /><Text style={styles.outlineButtonText}>Navigate</Text></Pressable><Pressable style={[styles.primaryButton, styles.flexButton]} onPress={() => onOpen(next)}><Ionicons name="clipboard-outline" size={17} color={colors.white} /><Text style={styles.primaryButtonText}>{next.status === "Draft" ? "Continue" : "Open assignment"}</Text></Pressable></View></View> : null}
-      <View style={styles.sectionHead}><View><Text style={styles.sectionTitle}>My Project Assignments</Text><Text style={styles.sectionSubtitle}>Projects requiring your attention</Text></View><Pressable onPress={() => onNavigate("Assignments")}><Text style={styles.viewAll}>View all</Text></Pressable></View>
-      {active.slice(0, 4).map((item) => <AssignmentCard key={item.id} item={item} onOpen={onOpen} />)}
+      <View style={styles.heroCopy}><Text style={styles.greeting}>Good day, Amina.</Text><Text style={styles.pageSubtitle}>Here’s what’s happening across your assigned sites.</Text></View>
+      <View style={styles.metricsRow}>
+        <Metric label="Assigned" value={assigned.length} note="Ready to start" icon="grid-outline" tone="green" onPress={() => onNavigate("Assignments")} />
+        <Metric label="Due this week" value={dueThisWeek.length} note="Next visit" icon="time-outline" tone="amber" onPress={() => onNavigate("Assignments")} />
+        <Metric label="Approved" value={approved.length} note="Consultant QA" icon="checkmark-circle-outline" tone="blue" onPress={() => onNavigate("Inspections")} />
+      </View>
+      {next ? <View style={styles.nextCard}><View style={styles.assignmentTop}><View style={styles.projectIcon}><Ionicons name="flash-outline" size={21} color={colors.primary} /></View><View style={styles.assignmentMain}><Text style={styles.eyebrow}>NEXT ASSIGNMENT</Text><Text style={styles.cardTitle}>{next.projectName}</Text></View></View><View style={styles.locationRow}><Ionicons name="location-outline" size={17} color={colors.primary} /><Text style={styles.locationText}>{next.community}, {next.state} · {next.id}</Text></View><Pressable style={styles.outlineButton} onPress={() => openMaps(next)}><Ionicons name="navigate-outline" size={17} color={colors.primary} /><Text style={styles.outlineButtonText}>Navigate to site</Text></Pressable><Pressable style={styles.primaryButton} onPress={() => onOpen(next)}><Text style={styles.primaryButtonText}>{next.status === "Draft" ? "Continue inspection" : "Start inspection"}</Text><Ionicons name="arrow-forward" size={17} color={colors.white} /></Pressable></View> : null}
+      <View style={styles.listPanel}><View style={styles.sectionHead}><Text style={styles.sectionTitle}>My assignments</Text><Pressable onPress={() => onNavigate("Assignments")} style={styles.viewAllButton}><Text style={styles.viewAll}>See all</Text><Ionicons name="arrow-forward" size={15} color={colors.primary} /></Pressable></View>{assigned.slice(0, 3).map((item) => <AssignmentCard key={item.id} item={item} onOpen={onOpen} compact />)}</View>
     </ScrollView>
   );
 }
 
 function AssignmentList({ mode, onOpen }: { mode: "assignments" | "inspections" | "drafts"; onOpen: (item: Assignment) => void }) {
   const { assignments } = useStore();
-  const [state, setState] = useState("All");
-  const [status, setStatus] = useState<DisplayStatus | "All">("All");
-  const states = ["All", ...new Set(assignments.map((item) => item.state))];
-  const base = assignments.filter((item) => {
-    if (mode === "drafts") return displayStatus(item.status) === "Draft";
-    if (mode === "assignments") return ["Assigned", "Draft", "Re-inspection"].includes(item.status);
-    return true;
-  });
-  const filtered = base.filter((item) => (state === "All" || item.state === state) && (status === "All" || displayStatus(item.status) === status));
-  const title = mode === "drafts" ? "Draft Reports" : mode === "assignments" ? "My Assignments" : "My Inspections";
+  const base = assignmentsForSection(assignments, mode);
+  const title = mode === "drafts" ? "Drafts" : mode === "assignments" ? "Assignments" : "Inspections";
+  const subtitle = mode === "drafts" ? "Forms you started are autosaved here" : mode === "assignments" ? "Projects ready for field inspection" : "Submitted and reviewed field inspections";
+  const summaries = mode === "assignments"
+    ? [
+        { label: "Assigned", value: base.length, icon: "folder-open-outline" as const, tone: "green" as const },
+        { label: "Due this week", value: base.filter((item) => new Date(item.dueDate).getTime() <= Date.now() + 7 * 86_400_000).length, icon: "calendar-outline" as const, tone: "amber" as const },
+        { label: "States", value: new Set(base.map((item) => item.state)).size, icon: "map-outline" as const, tone: "blue" as const },
+      ]
+    : mode === "drafts"
+      ? [
+          { label: "Autosaved", value: base.length, icon: "cloud-done-outline" as const, tone: "green" as const },
+          { label: "With evidence", value: base.filter((item) => (item.report?.evidence.length ?? 0) > 0).length, icon: "camera-outline" as const, tone: "blue" as const },
+          { label: "To complete", value: base.length, icon: "create-outline" as const, tone: "amber" as const },
+        ]
+      : [
+          { label: "Submitted", value: base.filter((item) => item.status === "Submitted").length, icon: "paper-plane-outline" as const, tone: "blue" as const },
+          { label: "Approved", value: base.filter((item) => item.status === "Approved").length, icon: "checkmark-circle-outline" as const, tone: "green" as const },
+          { label: "Verified", value: base.filter((item) => item.status === "Verified").length, icon: "shield-checkmark-outline" as const, tone: "green" as const },
+          { label: "Re-inspection", value: base.filter((item) => item.status === "Re-inspection").length, icon: "refresh-outline" as const, tone: "amber" as const },
+        ];
   return (
-    <FlatList data={filtered} keyExtractor={(item) => item.id} contentContainerStyle={styles.scrollContent} ListHeaderComponent={<><Text style={styles.pageTitle}>{title}</Text><Text style={styles.pageSubtitle}>{mode === "drafts" ? "Forms automatically saved on this device" : "Only projects assigned to your account"}</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>{states.map((item) => <FilterChip key={item} label={item === "All" ? "All states" : item} active={state === item} onPress={() => setState(item)} />)}</ScrollView>{mode !== "drafts" ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>{(["All", "Assigned", "Draft", "Approved", "Verified"] as const).map((item) => <FilterChip key={item} label={item === "All" ? "All statuses" : item} active={status === item} onPress={() => setStatus(item)} />)}</ScrollView> : null}</>} renderItem={({ item }) => <AssignmentCard item={item} onOpen={onOpen} />} ListEmptyComponent={<EmptyState icon="document-outline" title="Nothing here" text="No field-officer records match this view." />} />
+    <FlatList data={base} keyExtractor={(item) => item.id} contentContainerStyle={styles.scrollContent} ListHeaderComponent={<><View style={styles.heroCopy}><Text style={styles.pageTitle}>{title}</Text><Text style={styles.pageSubtitle}>{subtitle}</Text></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.summaryStrip}>{summaries.map((item) => <SummaryCard key={item.label} {...item} />)}</ScrollView><Text style={styles.listLabel}>{mode === "drafts" ? "Autosaved forms" : mode === "assignments" ? "Assignment list" : "Inspection history"}</Text></>} renderItem={({ item }) => <AssignmentCard item={item} onOpen={onOpen} />} ListEmptyComponent={<EmptyState icon={mode === "drafts" ? "document-text-outline" : "checkmark-done-outline"} title={mode === "drafts" ? "No drafts" : "Nothing here"} text={mode === "drafts" ? "A form appears here automatically after you start filling it." : "No records are available in this section."} />} />
   );
 }
 
 function SyncScreen() {
   const { assignments, isOnline, syncNow } = useStore();
-  const queued = assignments.filter((item) => item.syncStatus !== "synced");
+  const pending = assignments.filter((item) => item.syncStatus !== "synced");
+  const waiting = assignments.filter((item) => item.syncStatus === "queued" || item.syncStatus === "failed");
+  const uploading = assignments.filter((item) => item.syncStatus === "uploading");
   const completed = assignments.filter((item) => item.syncStatus === "synced");
   const [busy, setBusy] = useState(false);
   const sync = async () => { setBusy(true); await syncNow(); setBusy(false); };
-  return <ScrollView contentContainerStyle={styles.scrollContent}><Text style={styles.pageTitle}>Offline Sync Queue</Text><Text style={styles.pageSubtitle}>Inspection packages upload sequentially when a connection is available.</Text><View style={styles.syncSummary}><MetricMini label="Uploading" value={busy ? 1 : 0} icon="cloud-upload-outline" color={colors.blue} /><MetricMini label="Waiting" value={queued.length} icon="time-outline" color={colors.amber} /><MetricMini label="Completed" value={completed.length} icon="checkmark-circle-outline" color={colors.primary} /></View><Pressable disabled={!isOnline || !queued.length || busy} onPress={() => void sync()} style={[styles.primaryButton, (!isOnline || !queued.length || busy) && styles.disabled]}>{busy ? <ActivityIndicator color={colors.white} /> : <><Ionicons name="sync" size={18} color={colors.white} /><Text style={styles.primaryButtonText}>{isOnline ? "Synchronize now" : "Waiting for internet"}</Text></>}</Pressable><View style={styles.queueCard}>{queued.length ? queued.map((item, index) => <View key={item.id} style={styles.queueRow}><View style={styles.queueIndex}><Text style={styles.queueIndexText}>{index + 1}</Text></View><View style={styles.queueInfo}><Text style={styles.queueTitle}>{item.projectName}</Text><Text style={styles.queueMeta}>{item.id} · {item.report?.evidence.length ?? 0} evidence files</Text></View><Text style={styles.queueState}>{item.syncStatus}</Text></View>) : <EmptyState icon="checkmark-done-circle-outline" title="Everything is synchronized" text="There are no inspection packages waiting to upload." />}</View><Text style={styles.securityNote}>GPS coordinates, timestamps, evidence and signatories remain attached to each inspection package until upload completes.</Text></ScrollView>;
+  return <ScrollView contentContainerStyle={styles.scrollContent}><View style={styles.heroCopy}><Text style={styles.pageTitle}>Sync</Text><Text style={styles.pageSubtitle}>Uploads continue safely when an internet connection is available.</Text></View><View style={styles.syncSummary}><MetricMini label="Uploading" value={uploading.length || (busy ? 1 : 0)} icon="cloud-upload-outline" color={colors.blue} /><MetricMini label="Waiting" value={waiting.length} icon="time-outline" color={colors.amber} /><MetricMini label="Completed" value={completed.length} icon="checkmark-circle-outline" color={colors.primary} /></View><Pressable disabled={!isOnline || !pending.length || busy} onPress={() => void sync()} style={[styles.primaryButton, (!isOnline || !pending.length || busy) && styles.disabled]}>{busy ? <ActivityIndicator color={colors.white} /> : <><Ionicons name="sync" size={18} color={colors.white} /><Text style={styles.primaryButtonText}>{isOnline ? "Synchronize now" : "Waiting for internet"}</Text></>}</Pressable><Text style={styles.listLabel}>Waiting to upload</Text><View style={styles.queueCard}>{pending.length ? pending.map((item, index) => <View key={item.id} style={styles.queueRow}><View style={styles.queueIndex}><Text style={styles.queueIndexText}>{index + 1}</Text></View><View style={styles.queueInfo}><Text style={styles.queueTitle}>{item.projectName}</Text><Text style={styles.queueMeta}>{item.id} · {item.report?.evidence.length ?? 0} evidence files</Text></View><Text style={styles.queueState}>{item.syncStatus}</Text></View>) : <EmptyState icon="checkmark-done-circle-outline" title="Everything is synchronized" text="There are no inspection packages waiting to upload." />}</View><Text style={styles.securityNote}>GPS coordinates, timestamps, evidence and signatories stay attached to every inspection package.</Text></ScrollView>;
 }
 
 function InspectionModal({ assignment, onClose }: { assignment: Assignment | null; onClose: () => void }) {
@@ -213,7 +221,7 @@ function InspectionModal({ assignment, onClose }: { assignment: Assignment | nul
 
   useEffect(() => {
     if (!live || locked || !Object.keys(values).length) return;
-    const timer = setTimeout(() => saveDraft(live.id, values, communitySignatory, contractorSignatory), 700);
+    const timer = setTimeout(() => saveDraft(live.id, values, communitySignatory, contractorSignatory), 350);
     return () => clearTimeout(timer);
   }, [values, communitySignatory, contractorSignatory, live?.id, locked, saveDraft]);
 
@@ -269,15 +277,21 @@ function FormInput({ field, value, locked, onChange }: { field: FormField; value
   return <FieldLabel label={field.label}>{field.options ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.optionRow}>{field.options.map((option) => <FilterChip key={option} label={option} active={value === option} disabled={locked} onPress={() => onChange(option)} />)}</ScrollView> : <TextInput editable={!locked} value={value} onChangeText={onChange} keyboardType={field.keyboard ?? "default"} style={[styles.input, locked && styles.readonlyInput]} placeholder={locked ? "" : `Enter ${field.label.toLowerCase()}`} placeholderTextColor="#a0aaa4" />}</FieldLabel>;
 }
 
-function AssignmentCard({ item, onOpen }: { item: Assignment; onOpen: (item: Assignment) => void }) {
+function AssignmentCard({ item, onOpen, compact = false }: { item: Assignment; onOpen: (item: Assignment) => void; compact?: boolean }) {
   const status = displayStatus(item.status);
-  return <Pressable onPress={() => onOpen(item)} style={styles.assignmentCard}><View style={styles.assignmentTop}><View style={styles.projectIcon}><Ionicons name={item.component === "Grid Extension" ? "git-network-outline" : item.component === "Mini Grid" ? "sunny-outline" : "battery-charging-outline"} size={21} color={colors.primary} /></View><View style={styles.assignmentMain}><Text style={styles.assignmentName}>{item.projectName}</Text><Text style={styles.assignmentId}>{item.id} · {item.programme}</Text></View><StatusBadge status={status} /></View><View style={styles.locationRow}><Ionicons name="location-outline" size={15} color={colors.muted} /><Text style={styles.assignmentLocation}>{item.community}, {item.lga}, {item.state}</Text></View><View style={styles.assignmentFooter}><Text style={styles.dueText}>Due {formatDate(item.dueDate)}</Text><View style={styles.openLink}><Text style={styles.openLinkText}>{isReportLocked(item.status) ? "View report" : item.status === "Draft" ? "Continue" : "Open"}</Text><Ionicons name="chevron-forward" size={16} color={colors.primary} /></View></View></Pressable>;
+  return <Pressable onPress={() => onOpen(item)} style={[styles.assignmentCard, compact && styles.assignmentCardCompact]}><View style={styles.assignmentTop}><View style={styles.projectIcon}><Ionicons name={item.component === "Grid Extension" ? "git-network-outline" : item.component === "Mini Grid" ? "sunny-outline" : "battery-charging-outline"} size={20} color={colors.primary} /></View><View style={styles.assignmentMain}><Text style={styles.assignmentName}>{item.projectName}</Text><Text style={styles.assignmentId}>{item.id} · {item.component}</Text></View>{compact ? <Text style={styles.dueText}>{formatDate(item.dueDate)}</Text> : <StatusBadge status={status} />}<Ionicons name="chevron-forward" size={17} color={colors.slate} /></View>{compact ? null : <><View style={styles.locationRow}><Ionicons name="location-outline" size={15} color={colors.muted} /><Text style={styles.assignmentLocation}>{item.community}, {item.lga}, {item.state}</Text></View><View style={styles.assignmentFooter}><Text style={styles.dueText}>Due {formatDate(item.dueDate)}</Text><Text style={styles.openLinkText}>{isReportLocked(item.status) ? "View report" : item.status === "Draft" ? "Continue form" : item.status === "Re-inspection" ? "Start again" : "Open"}</Text></View></>}</Pressable>;
 }
 
 function Metric({ label, value, note, icon, tone, onPress }: { label: string; value: number; note: string; icon: keyof typeof Ionicons.glyphMap; tone: "green" | "amber" | "blue"; onPress: () => void }) {
   const color = tone === "amber" ? colors.amber : tone === "blue" ? colors.blue : colors.primary;
   const pale = tone === "amber" ? colors.amberPale : tone === "blue" ? colors.bluePale : colors.paleStrong;
-  return <Pressable onPress={onPress} style={styles.metricCard}><View style={[styles.metricIcon, { backgroundColor: pale }]}><Ionicons name={icon} size={20} color={color} /></View><Text style={styles.metricValue}>{value}</Text><Text style={styles.metricLabel}>{label}</Text><Text style={styles.metricNote}>{note}</Text><View style={[styles.metricLine, { backgroundColor: color }]} /></Pressable>;
+  return <Pressable onPress={onPress} style={[styles.metricCard, { backgroundColor: pale }]}><View style={[styles.metricIcon, { backgroundColor: "rgba(255,255,255,0.66)" }]}><Ionicons name={icon} size={20} color={color} /></View><Text style={styles.metricValue}>{String(value).padStart(2, "0")}</Text><Text style={styles.metricLabel}>{label}</Text><Text style={styles.metricNote}>{note}</Text><View style={[styles.metricLine, { backgroundColor: color }]} /></Pressable>;
+}
+
+function SummaryCard({ label, value, icon, tone }: { label: string; value: number; icon: keyof typeof Ionicons.glyphMap; tone: "green" | "amber" | "blue" }) {
+  const color = tone === "amber" ? colors.amber : tone === "blue" ? colors.blue : colors.primary;
+  const pale = tone === "amber" ? colors.amberPale : tone === "blue" ? colors.bluePale : colors.paleStrong;
+  return <View style={[styles.summaryCard, { backgroundColor: pale }]}><Ionicons name={icon} size={20} color={color} /><Text style={styles.summaryValue}>{String(value).padStart(2, "0")}</Text><Text style={styles.summaryLabel}>{label}</Text></View>;
 }
 
 function MetricMini({ label, value, icon, color }: { label: string; value: number; icon: keyof typeof Ionicons.glyphMap; color: string }) {
@@ -285,8 +299,8 @@ function MetricMini({ label, value, icon, color }: { label: string; value: numbe
 }
 
 function StatusBadge({ status }: { status: DisplayStatus }) {
-  const tone = status === "Verified" || status === "Approved" ? colors.primary : status === "Draft" ? colors.blue : colors.amber;
-  const background = status === "Verified" || status === "Approved" ? colors.paleStrong : status === "Draft" ? colors.bluePale : colors.amberPale;
+  const tone = status === "Verified" || status === "Approved" ? colors.primary : status === "Draft" || status === "Submitted" ? colors.blue : colors.amber;
+  const background = status === "Verified" || status === "Approved" ? colors.paleStrong : status === "Draft" || status === "Submitted" ? colors.bluePale : colors.amberPale;
   return <View style={[styles.badge, { backgroundColor: background }]}><View style={[styles.badgeDot, { backgroundColor: tone }]} /><Text style={[styles.badgeText, { color: tone }]}>{status}</Text></View>;
 }
 
@@ -318,35 +332,41 @@ const styles = StyleSheet.create({
   loading: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background },
   safe: { flex: 1, backgroundColor: colors.background },
   page: { flex: 1 },
-  scrollContent: { padding: 16, paddingBottom: 28, gap: 12 },
-  header: { height: 62, backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  scrollContent: { padding: 18, paddingBottom: 28, gap: 14 },
+  header: { height: 70, backgroundColor: "rgba(255,255,255,0.94)", borderBottomWidth: 1, borderBottomColor: "rgba(223,233,226,0.75)", paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   headerBrand: { flexDirection: "row", alignItems: "center", gap: 10 },
-  headerLogo: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.white },
-  headerTitle: { color: colors.deep, fontSize: 18, lineHeight: 19, fontWeight: "800", letterSpacing: 0.2 },
+  headerLogo: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.white },
+  headerTitle: { color: colors.deep, fontSize: 17, lineHeight: 18, fontWeight: "800", letterSpacing: 0.2 },
   headerSubtitle: { color: colors.primary, fontSize: 8, fontWeight: "800", letterSpacing: 1.3 },
-  avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.paleStrong, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 10 },
+  onlinePill: { flexDirection: "row", alignItems: "center", gap: 5 },
+  avatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.paleStrong, alignItems: "center", justifyContent: "center" },
   avatarText: { color: colors.primary, fontSize: 12, fontWeight: "800" },
   onlineBar: { height: 30, paddingHorizontal: 16, backgroundColor: colors.white, flexDirection: "row", alignItems: "center", gap: 7 },
   onlineDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.primaryBright },
   offlineDot: { backgroundColor: colors.amber },
-  onlineText: { color: colors.primary, fontSize: 11, fontWeight: "700" },
-  greeting: { fontSize: 22, color: colors.deep, fontWeight: "800" },
-  pageTitle: { fontSize: 21, color: colors.deep, fontWeight: "800" },
-  pageSubtitle: { marginTop: -7, color: colors.muted, fontSize: 12, lineHeight: 18 },
-  metricsRow: { gap: 10, paddingVertical: 3 },
-  metricCard: { width: 148, height: 142, borderRadius: 14, backgroundColor: colors.white, borderWidth: 1, borderColor: "#e1ebe4", padding: 13, overflow: "hidden" },
-  metricIcon: { width: 34, height: 34, borderRadius: 9, alignItems: "center", justifyContent: "center" },
-  metricValue: { marginTop: 8, color: colors.deep, fontSize: 24, fontWeight: "800" },
-  metricLabel: { color: colors.deep, fontSize: 11, fontWeight: "800" },
-  metricNote: { color: colors.muted, fontSize: 9, marginTop: 3 },
-  metricLine: { position: "absolute", left: 0, top: 0, bottom: 0, width: 4 },
-  nextCard: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: 15, gap: 12 },
+  onlineText: { color: colors.primary, fontSize: 8, fontWeight: "900", letterSpacing: 1.4 },
+  heroCopy: { marginTop: 14, marginBottom: 6 },
+  greeting: { fontSize: 28, lineHeight: 34, color: colors.deep, fontWeight: "800", letterSpacing: -0.8 },
+  pageTitle: { fontSize: 28, lineHeight: 34, color: colors.deep, fontWeight: "800", letterSpacing: -0.7 },
+  pageSubtitle: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 4 },
+  metricsRow: { flexDirection: "row", gap: 9 },
+  metricCard: { flex: 1, minWidth: 0, height: 146, borderRadius: 22, padding: 13, alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  metricIcon: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
+  metricValue: { marginTop: 8, color: colors.deep, fontSize: 23, fontWeight: "800", letterSpacing: -0.5 },
+  metricLabel: { color: colors.muted, fontSize: 9, fontWeight: "700", textAlign: "center" },
+  metricNote: { color: colors.muted, fontSize: 8, marginTop: 4, textAlign: "center" },
+  metricLine: { position: "absolute", left: 15, right: 15, bottom: 10, height: 3, borderRadius: 2 },
+  nextCard: { backgroundColor: "rgba(255,255,255,0.94)", borderRadius: 24, padding: 17, gap: 12, shadowColor: "#214C38", shadowOpacity: 0.1, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 4, overflow: "hidden" },
+  listPanel: { backgroundColor: "rgba(255,255,255,0.92)", borderRadius: 24, padding: 15, gap: 9, shadowColor: "#214C38", shadowOpacity: 0.06, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 2 },
   sectionHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 4 },
   eyebrow: { color: colors.primary, fontSize: 9, letterSpacing: 1.3, fontWeight: "800", marginBottom: 4 },
   cardTitle: { maxWidth: 235, fontSize: 15, lineHeight: 20, color: colors.deep, fontWeight: "800" },
-  sectionTitle: { color: colors.deep, fontSize: 15, fontWeight: "800" },
+  sectionTitle: { color: colors.deep, fontSize: 14, fontWeight: "800" },
   sectionSubtitle: { color: colors.muted, fontSize: 10, marginTop: 3, lineHeight: 15 },
+  viewAllButton: { flexDirection: "row", alignItems: "center", gap: 4 },
   viewAll: { color: colors.primary, fontSize: 11, fontWeight: "800" },
+  listLabel: { color: colors.deep, fontSize: 13, fontWeight: "800", marginTop: 5 },
   locationRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   locationText: { color: colors.deep, fontSize: 12, flex: 1 },
   metaRow: { flexDirection: "row", paddingVertical: 9, borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#edf1ee" },
@@ -354,15 +374,16 @@ const styles = StyleSheet.create({
   metaLabel: { color: colors.muted, fontSize: 8, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: "700" },
   metaValue: { marginTop: 3, color: colors.deep, fontSize: 11, fontWeight: "700" },
   actionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 9 },
-  primaryButton: { minHeight: 44, paddingHorizontal: 16, borderRadius: 8, flexDirection: "row", gap: 7, alignItems: "center", justifyContent: "center", backgroundColor: colors.primary },
+  primaryButton: { minHeight: 46, paddingHorizontal: 16, borderRadius: 14, flexDirection: "row", gap: 7, alignItems: "center", justifyContent: "center", backgroundColor: colors.primary, shadowColor: colors.primary, shadowOpacity: 0.16, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
   primaryButtonText: { color: colors.white, fontSize: 12, fontWeight: "800" },
   flexButton: { flex: 1 },
-  outlineButton: { minHeight: 44, paddingHorizontal: 14, borderRadius: 8, borderWidth: 1, borderColor: "#8bcba0", flexDirection: "row", gap: 6, alignItems: "center", justifyContent: "center", backgroundColor: colors.white },
+  outlineButton: { minHeight: 46, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1, borderColor: "#B9D7C4", flexDirection: "row", gap: 6, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.82)" },
   outlineButtonText: { color: colors.primary, fontSize: 12, fontWeight: "800" },
   disabled: { opacity: 0.45 },
-  assignmentCard: { backgroundColor: colors.white, borderWidth: 1, borderColor: "#e1ebe4", borderRadius: 13, padding: 13, gap: 10 },
+  assignmentCard: { backgroundColor: "rgba(255,255,255,0.94)", borderWidth: 1, borderColor: "rgba(223,233,226,0.9)", borderRadius: 18, padding: 14, gap: 10, marginBottom: 2 },
+  assignmentCardCompact: { borderRadius: 15, paddingVertical: 10, paddingHorizontal: 11, shadowColor: "#214C38", shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 1 },
   assignmentTop: { flexDirection: "row", alignItems: "center", gap: 9 },
-  projectIcon: { width: 38, height: 38, borderRadius: 10, backgroundColor: colors.paleStrong, alignItems: "center", justifyContent: "center" },
+  projectIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: colors.paleStrong, alignItems: "center", justifyContent: "center" },
   assignmentMain: { flex: 1 },
   assignmentName: { color: colors.deep, fontSize: 13, lineHeight: 17, fontWeight: "800" },
   assignmentId: { color: colors.muted, fontSize: 9, marginTop: 3 },
@@ -379,15 +400,20 @@ const styles = StyleSheet.create({
   chipActive: { borderColor: colors.primary, backgroundColor: colors.paleStrong },
   chipText: { color: colors.muted, fontSize: 10, fontWeight: "700" },
   chipTextActive: { color: colors.primary },
-  tabBar: { height: 68, paddingTop: 8, paddingBottom: 6, backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.border, flexDirection: "row" },
-  tab: { flex: 1, alignItems: "center", justifyContent: "center", gap: 3 },
+  tabBar: { height: 70, marginHorizontal: 14, marginBottom: 10, padding: 7, backgroundColor: "rgba(255,255,255,0.96)", borderWidth: 1, borderColor: "rgba(255,255,255,0.9)", borderRadius: 25, flexDirection: "row", shadowColor: "#173B2A", shadowOpacity: 0.12, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 7 },
+  tab: { flex: 1, alignItems: "center", justifyContent: "center", gap: 3, borderRadius: 18 },
+  tabActive: { backgroundColor: colors.paleStrong },
   tabText: { color: colors.slate, fontSize: 8, fontWeight: "700" },
   tabTextActive: { color: colors.primary },
   empty: { padding: 36, alignItems: "center", justifyContent: "center" },
   emptyTitle: { marginTop: 9, color: colors.deep, fontSize: 14, fontWeight: "800" },
   emptyText: { marginTop: 5, color: colors.muted, textAlign: "center", fontSize: 11, lineHeight: 17 },
+  summaryStrip: { gap: 9, paddingVertical: 2 },
+  summaryCard: { width: 112, height: 122, borderRadius: 21, padding: 14, justifyContent: "center" },
+  summaryValue: { color: colors.deep, fontSize: 23, fontWeight: "800", marginTop: 8 },
+  summaryLabel: { color: colors.muted, fontSize: 9, fontWeight: "700", marginTop: 2 },
   syncSummary: { flexDirection: "row", gap: 8 },
-  metricMini: { flex: 1, alignItems: "center", backgroundColor: colors.white, borderRadius: 12, borderWidth: 1, borderColor: "#e1ebe4", paddingVertical: 13 },
+  metricMini: { flex: 1, alignItems: "center", backgroundColor: "rgba(255,255,255,0.94)", borderRadius: 20, paddingVertical: 15 },
   metricMiniValue: { color: colors.deep, fontSize: 20, fontWeight: "800", marginTop: 4 },
   metricMiniLabel: { color: colors.muted, fontSize: 9, fontWeight: "700", marginTop: 2 },
   queueCard: { backgroundColor: colors.white, borderRadius: 13, borderWidth: 1, borderColor: colors.border, overflow: "hidden" },
