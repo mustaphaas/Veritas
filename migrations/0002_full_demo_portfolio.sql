@@ -3,7 +3,6 @@
 -- needed by the dashboard/Gemini reporting layer.
 
 PRAGMA foreign_keys = ON;
-BEGIN TRANSACTION;
 
 ALTER TABLE projects ADD COLUMN reporting_month TEXT;
 ALTER TABLE projects ADD COLUMN portfolio_status TEXT;
@@ -218,5 +217,3 @@ CREATE INDEX IF NOT EXISTS idx_projects_portfolio_status
   ON projects(portfolio_status,verified);
 CREATE INDEX IF NOT EXISTS idx_users_role_firm
   ON users(role,consultant_firm,status);
-
-COMMIT;
