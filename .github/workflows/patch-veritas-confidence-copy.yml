@@ -1,4 +1,4 @@
-name: Patch exact Veritas component totals
+name: Patch exact Veritas component cross-tabs
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  patch-worker:
+  patch-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,23 +19,29 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
-      - name: Add exact component aggregates
+      - name: Add full-database component state programme cross-tabs
         run: |
           python - <<'PY'
           from pathlib import Path
           p = Path('worker/index.js')
           s = p.read_text()
-          s = s.replace('const BUILD_ID = "veritas-2026-09-11-output-3000-r1";', 'const BUILD_ID = "veritas-2026-09-11-exact-component-totals-r1";')
-          a = '    programmePerformance: aggregateBy(projects, "programme", (label, group) => projectSummary(label, group, "programme")),\n    statePerformance:'
-          b = '    programmePerformance: aggregateBy(projects, "programme", (label, group) => projectSummary(label, group, "programme")),\n    componentPerformance: aggregateBy(projects, "component", (label, group) => projectSummary(label, group, "component")),\n    statePerformance:'
-          if a not in s:
-              raise SystemExit('aggregate insertion point not found')
-          s = s.replace(a, b, 1)
-          old = 'Aggregate portfolio/state/programme/contractor/consultant summaries cover the full live dataset even when the project list is sampled.'
-          new = 'Aggregate portfolio/state/programme/component/contractor/consultant summaries cover the full live dataset even when the project list is sampled. For counts, totals, percentages, rankings, and comparisons, use the exact full-database aggregates whenever available. Never estimate or extrapolate a portfolio-wide figure from the sampled project list. If an exact aggregate is unavailable, say so rather than estimating from the sample.'
-          if old not in s:
-              raise SystemExit('prompt insertion point not found')
-          s = s.replace(old, new, 1)
+          s = s.replace('const BUILD_ID = "veritas-2026-09-11-exact-component-totals-r1";', 'const BUILD_ID = "veritas-2026-09-11-component-crosstab-r1";')
+          marker = '  const projectSummary = (label, group, labelKey) => ({\n'
+          insert = '''  const componentStateProgramme = [...new Map(\n    projects.map((project) => {\n      const key = `${project.component || "Unknown"}||${project.state || "Unknown"}||${project.programme || "Unknown"}`;\n      return [key, {\n        component: project.component || "Unknown",\n        state: project.state || "Unknown",\n        programme: project.programme || "Unknown",\n      }];\n    }),\n  ).values()].map((row) => ({\n    ...row,\n    projects: projects.filter((project) =>\n      (project.component || "Unknown") === row.component &&\n      (project.state || "Unknown") === row.state &&\n      (project.programme || "Unknown") === row.programme,\n    ).length,\n  }));\n\n'''
+          if 'const componentStateProgramme =' not in s:
+              if marker not in s:
+                  raise SystemExit('projectSummary marker not found')
+              s = s.replace(marker, insert + marker, 1)
+          aggregate_marker = '    componentPerformance: aggregateBy(projects, "component", (label, group) => projectSummary(label, group, "component")),\n'
+          aggregate_insert = aggregate_marker + '    componentStateProgramme,\n'
+          if '    componentStateProgramme,\n' not in s:
+              if aggregate_marker not in s:
+                  raise SystemExit('componentPerformance marker not found')
+              s = s.replace(aggregate_marker, aggregate_insert, 1)
+          old = 'Aggregate portfolio/state/programme/component/contractor/consultant summaries cover the full live dataset even when the project list is sampled. For counts, totals, percentages, rankings, and comparisons, use the exact full-database aggregates whenever available. Never estimate or extrapolate a portfolio-wide figure from the sampled project list. If an exact aggregate is unavailable, say so rather than estimating from the sample.'
+          new = 'Aggregate portfolio/state/programme/component/contractor/consultant summaries and componentStateProgramme cross-tabs cover the full live dataset even when the project list is sampled. For counts, totals, percentages, rankings, and comparisons, use the exact full-database aggregates whenever available. For questions that combine component with state and/or programme, use componentStateProgramme rather than the sampled project list. Never estimate or extrapolate a portfolio-wide figure from the sampled project list. If an exact aggregate is unavailable, say so rather than estimating from the sample.'
+          if old in s:
+              s = s.replace(old, new, 1)
           p.write_text(s)
           PY
       - name: Commit worker fix
@@ -43,5 +49,28 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add worker/index.js
-          git commit -m 'Use exact D1 component totals in Veritas'
+          git commit -m 'Use exact state programme component breakdowns in Veritas'
           git push origin main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Build client
+        run: npm run build:client
+      - name: Provision D1 and optional R2 bindings
+        run: node scripts/provision-cloudflare.mjs
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Apply database migrations
+        run: npx wrangler@latest d1 migrations apply veritas-production --remote --config wrangler.generated.json
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Deploy patched Worker and assets
+        run: npx wrangler@latest deploy --config wrangler.generated.json --keep-vars
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
