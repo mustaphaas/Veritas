@@ -18,5 +18,13 @@
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
     "run_worker_first": true
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "veritas-production",
+      "database_id": "abe5f8ae-ba0e-4d9e-b694-6380c6649f23",
+      "migrations_dir": "migrations"
+    }
+  ]
 }
