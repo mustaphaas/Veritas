@@ -57,6 +57,19 @@ describe("field officer mobile domain", () => {
       "publicInstitutionPublicFacilities",
     ]);
     assert.ok(keys("Mini Grid").includes("batteryCapacityKwh"));
+    assert.equal(keys("Mini Grid").includes("totalProjectCostDollar"), false);
     assert.ok(keys("SAS").includes("customerPhoneNumber"));
+
+    const dateFields = formSections["Mini Grid"].flatMap((section) => section.fields)
+      .filter((field) => field.key.endsWith("DateYear") || field.key.endsWith("DateMonth"));
+    assert.ok(dateFields.every((field) => (field.options?.length ?? 0) > 0));
+  });
+
+  it("includes Mustapha's Durumi GPS test assignment", () => {
+    const durumi = demoAssignments.find((item) => item.id === "REA-FCT-MG-DEMO-001");
+    assert.equal(durumi?.officer, "Mustapha Aliyu");
+    assert.equal(durumi?.community, "Durumi");
+    assert.equal(durumi?.latitude, 9.0232043);
+    assert.equal(durumi?.longitude, 7.4518017);
   });
 });
