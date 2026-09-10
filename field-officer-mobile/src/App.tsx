@@ -92,7 +92,7 @@ function LoginScreen() {
             <TextInput value={identifier} onChangeText={setIdentifier} autoCapitalize="none" keyboardType="default" style={styles.input} />
           </FieldLabel>
           <FieldLabel label="Password">
-            <TextInput value={password} onChangeText={setPassword} secureTextEntry style={styles.input} />
+            <TextInput value={password} onChangeText={setPassword} secureTextEntry autoCapitalize="none" autoCorrect={false} style={styles.input} />
           </FieldLabel>
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
           <Pressable onPress={() => void submit()} disabled={busy} style={styles.primaryButton}>
