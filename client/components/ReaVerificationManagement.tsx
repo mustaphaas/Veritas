@@ -160,8 +160,8 @@ export default function ReaVerificationManagement(){
   };
 
   const heading = tab === "awaiting" ? "Awaiting REA" : tab === "verified" ? "Verified inspection reports" : "Re-inspection reports";
-  const dateHeading = tab === "awaiting" ? "Awaiting since" : tab === "verified" ? "Verified" : "Returned";
-  const rowDate = (item: InspectionAssignment) => tab === "awaiting" ? awaitingAt(item) : tab === "verified" ? verifiedAt(item) : reinspectionAt(item);
+  const dateHeading = tab === "verified" ? "Verified" : "Returned";
+  const rowDate = (item: InspectionAssignment) => tab === "verified" ? verifiedAt(item) : reinspectionAt(item);
 
   return <section className="rea-v-workspace"><div className="rea-v-shell">
     <div className="rea-v-heading"><div><p className="rea-v-kicker">REA final verification</p><h2>Verification</h2><p>Consultant-approved reports move to Awaiting REA. REA can verify a report or return it for re-inspection, and all completed decisions remain available in their respective registers.</p></div><div className="rea-v-flow" aria-label="Verification workflow"><span>Field Officer</span><b>→</b><span>Consultant Admin</span><b>→</b><span className="rea-v-flow-active">REA</span><b>→</b><span>Verified / Re-inspection</span></div></div>
@@ -177,19 +177,31 @@ export default function ReaVerificationManagement(){
     </div>
 
     <div className="rea-v-table-wrap"><div className="rea-v-table-head"><div><h3>{heading}</h3><p>{rows.length} report{rows.length===1?"":"s"} in this classification</p></div><button type="button" onClick={()=>refresh((value)=>value+1)}>Refresh</button></div><div className="rea-v-table-scroll">
-      <table className="rea-v-table"><thead><tr><th>Project</th><th>Location</th><th>Contractor</th><th>Capacity</th><th>Beneficiaries</th><th>GPS</th><th>{dateHeading}</th><th>Report</th>{tab==="reinspection"&&<th>Reason</th>}{tab==="awaiting"&&<th>REA decision</th>}</tr></thead><tbody>{rows.length?rows.map((item)=><tr key={item.id}>
-        <td><strong>{item.id}</strong><small>{item.projectName}</small></td>
-        <td>{item.community}, {item.lga}, {item.state}</td>
-        <td>{item.report?.contractor || item.contractor}</td>
-        <td><strong>{capacityLabel(item)}</strong></td>
-        <td><strong>{beneficiariesLabel(item)}</strong></td>
-        <td><span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold ${gpsVerified(item)?"bg-emerald-50 text-emerald-700":"bg-slate-100 text-slate-500"}`}>{gpsVerified(item)?"Verified":"Not verified"}</span></td>
-        <td>{formatDate(rowDate(item))}</td>
-        <td><div className="flex flex-wrap gap-2"><button type="button" onClick={()=>openReport(item)} className="inline-flex items-center gap-1.5 rounded-md border border-[#b9d9c5] bg-white px-3 py-2 text-[11px] font-bold text-[#08733f] hover:bg-[#f0f8f3]"><Eye className="h-3.5 w-3.5"/>View</button><button type="button" onClick={()=>openReport(item,true)} className="inline-flex items-center gap-1.5 rounded-md bg-[#08733f] px-3 py-2 text-[11px] font-bold text-white hover:bg-[#065f34]"><FileDown className="h-3.5 w-3.5"/>PDF</button></div></td>
-        {tab==="reinspection"&&<td><small className="rea-v-note">{item.report?.reviewNote || "Re-inspection requested"}</small></td>}
-        {tab==="awaiting"&&<td><div className="rea-v-actions"><button type="button" className="rea-v-approve" onClick={()=>decide(item.id,"Verified")}>Approve & Verify</button><button type="button" className="rea-v-reject" onClick={()=>decide(item.id,"Re-inspection")}><RotateCcw className="mr-1 inline h-3 w-3"/>Reject</button></div></td>}
-      </tr>):<tr><td colSpan={tab==="awaiting"?9:tab==="reinspection"?9:8} className="rea-v-empty">No {tab==="awaiting"?"reports are currently awaiting REA verification":tab==="verified"?"verified reports are available":"re-inspection reports are available"}.</td></tr>}</tbody></table>
+      {tab === "awaiting" ? (
+        <table className="rea-v-table"><thead><tr><th>Project</th><th>Location</th><th>Contractor</th><th>Capacity</th><th>Beneficiaries</th><th>GPS</th><th>Awaiting since</th><th>Actions</th></tr></thead><tbody>{awaiting.length?awaiting.map((item)=><tr key={item.id} className="align-middle">
+          <td className="min-w-[190px]"><strong>{item.id}</strong><small>{item.projectName}</small></td>
+          <td className="min-w-[170px]">{item.community}, {item.lga}, {item.state}</td>
+          <td className="min-w-[150px]">{item.report?.contractor || item.contractor}</td>
+          <td><strong>{capacityLabel(item)}</strong></td>
+          <td><strong>{beneficiariesLabel(item)}</strong></td>
+          <td><span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-[10px] font-bold ${gpsVerified(item)?"bg-emerald-50 text-emerald-700":"bg-slate-100 text-slate-500"}`}>{gpsVerified(item)?"Verified":"Not verified"}</span></td>
+          <td className="min-w-[145px] text-[11px] text-slate-600">{formatDate(awaitingAt(item))}</td>
+          <td className="min-w-[225px]"><div className="flex flex-col gap-2"><div className="flex gap-2"><button type="button" onClick={()=>openReport(item)} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 hover:border-[#b9d9c5] hover:bg-[#f5faf7] hover:text-[#08733f]"><Eye className="h-3.5 w-3.5"/>View</button><button type="button" onClick={()=>openReport(item,true)} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 hover:border-[#b9d9c5] hover:bg-[#f5faf7] hover:text-[#08733f]"><FileDown className="h-3.5 w-3.5"/>PDF</button></div><div className="flex gap-2"><button type="button" onClick={()=>decide(item.id,"Verified")} className="flex-1 rounded-md bg-[#08733f] px-3 py-2 text-[11px] font-bold text-white shadow-sm hover:bg-[#065f34]">Verify</button><button type="button" onClick={()=>decide(item.id,"Re-inspection")} className="inline-flex flex-1 items-center justify-center gap-1 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-bold text-red-700 hover:bg-red-100"><RotateCcw className="h-3.5 w-3.5"/>Re-inspect</button></div></div></td>
+        </tr>):<tr><td colSpan={8} className="rea-v-empty">No reports are currently awaiting REA verification.</td></tr>}</tbody></table>
+      ) : (
+        <table className="rea-v-table"><thead><tr><th>Project</th><th>Location</th><th>Contractor</th><th>Capacity</th><th>Beneficiaries</th><th>GPS</th><th>{dateHeading}</th><th>Report</th>{tab==="reinspection"&&<th>Reason</th>}</tr></thead><tbody>{rows.length?rows.map((item)=><tr key={item.id}>
+          <td><strong>{item.id}</strong><small>{item.projectName}</small></td>
+          <td>{item.community}, {item.lga}, {item.state}</td>
+          <td>{item.report?.contractor || item.contractor}</td>
+          <td><strong>{capacityLabel(item)}</strong></td>
+          <td><strong>{beneficiariesLabel(item)}</strong></td>
+          <td><span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold ${gpsVerified(item)?"bg-emerald-50 text-emerald-700":"bg-slate-100 text-slate-500"}`}>{gpsVerified(item)?"Verified":"Not verified"}</span></td>
+          <td>{formatDate(rowDate(item))}</td>
+          <td><div className="flex flex-wrap gap-2"><button type="button" onClick={()=>openReport(item)} className="inline-flex items-center gap-1.5 rounded-md border border-[#b9d9c5] bg-white px-3 py-2 text-[11px] font-bold text-[#08733f] hover:bg-[#f0f8f3]"><Eye className="h-3.5 w-3.5"/>View</button><button type="button" onClick={()=>openReport(item,true)} className="inline-flex items-center gap-1.5 rounded-md bg-[#08733f] px-3 py-2 text-[11px] font-bold text-white hover:bg-[#065f34]"><FileDown className="h-3.5 w-3.5"/>PDF</button></div></td>
+          {tab==="reinspection"&&<td><small className="rea-v-note">{item.report?.reviewNote || "Re-inspection requested"}</small></td>}
+        </tr>):<tr><td colSpan={tab==="reinspection"?9:8} className="rea-v-empty">No {tab==="verified"?"verified reports are available":"re-inspection reports are available"}.</td></tr>}</tbody></table>
+      )}
     </div></div>
-    <div className="mt-3 flex items-start gap-2 rounded-lg border border-slate-200 bg-white p-3 text-[10px] text-slate-500"><FileDown className="mt-0.5 h-4 w-4 shrink-0 text-[#08733f]"/><p>Awaiting REA, Verified and Re-inspection now use the same inspection register format with project, location, contractor, capacity, beneficiaries, GPS status, workflow date, <b>View</b> and <b>PDF</b>. Re-inspection also displays the reason for return.</p></div>
+    <div className="mt-3 flex items-start gap-2 rounded-lg border border-slate-200 bg-white p-3 text-[10px] text-slate-500"><FileDown className="mt-0.5 h-4 w-4 shrink-0 text-[#08733f]"/><p>Awaiting REA has been simplified so report controls and REA decisions sit together in one compact Actions column. Verified and Re-inspection registers remain unchanged.</p></div>
   </div></section>;
 }
