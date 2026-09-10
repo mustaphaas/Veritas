@@ -62,119 +62,127 @@ export function isFormComplete(
     .every((field) => String(values[field.key] ?? "").trim().length > 0);
 }
 
-const projectFields: FormSection = {
-  title: "Project and location information",
-  fields: [
-    { key: "programName", label: "Program Name", assigned: "programme" },
-    { key: "organizationName", label: "Organization Name", assigned: "contractor" },
-    { key: "state", label: "State", assigned: "state" },
-    { key: "lga", label: "LGA", assigned: "lga" },
-    { key: "identifierCode", label: "Identifier / Code", assigned: "id" },
-    { key: "projectName", label: "Project Name", assigned: "projectName" },
-    { key: "projectCommunity", label: "Project Community", assigned: "community" },
-    { key: "latitude", label: "Latitude", assigned: "latitude" },
-    { key: "longitude", label: "Longitude", assigned: "longitude" },
-  ],
-};
-
-const implementationFields: FormSection = {
-  title: "Implementation status and dates",
-  fields: [
-    { key: "implementationStatus", label: "Status", options: ["Not Started", "Ongoing", "Completed"] },
-    { key: "startYear", label: "Start Year", keyboard: "numeric" },
-    { key: "startMonth", label: "Start Month", options: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"] },
-    { key: "completionYear", label: "Completion Year", keyboard: "numeric" },
-    { key: "completionMonth", label: "Completion Month", options: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"] },
-  ],
-};
+const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const statuses = ["Not Started", "Ongoing", "Completed"];
+const commonProjectFields = [
+  { key: "programName", label: "Program Name", assigned: "programme" as const },
+  { key: "organizationName", label: "Organization Name", assigned: "contractor" as const },
+  { key: "state", label: "State", assigned: "state" as const },
+  { key: "lga", label: "LGA", assigned: "lga" as const },
+  { key: "identifierCode", label: "Identifier/ Code", assigned: "id" as const },
+];
+const locationFields = [
+  { key: "projectName", label: "Project Name", assigned: "projectName" as const },
+  { key: "projectCommunity", label: "Project Community", assigned: "community" as const },
+  { key: "latitude", label: "Latitude", assigned: "latitude" as const },
+  { key: "longitude", label: "Longitude", assigned: "longitude" as const },
+];
+const implementationFields = [
+  { key: "status", label: "Status", options: statuses },
+  { key: "startDateYear", label: "Year", group: "Start Date", keyboard: "numeric" as const },
+  { key: "startDateMonth", label: "Month", group: "Start Date", options: months },
+  { key: "completionDateYear", label: "Year", group: "Date of Completion", keyboard: "numeric" as const },
+  { key: "completionDateMonth", label: "Month", group: "Date of Completion", options: months },
+];
+const publicInstitutionFields = [
+  { key: "publicInstitutionHospitals", label: "Hospitals", group: "Public Institution Electrified", keyboard: "numeric" as const },
+  { key: "publicInstitutionSchools", label: "Schools", group: "Public Institution Electrified", keyboard: "numeric" as const },
+  { key: "publicInstitutionPublicFacilities", label: "Public Facilities", group: "Public Institution Electrified", keyboard: "numeric" as const },
+];
 
 export const formSections: Record<ProjectComponent, FormSection[]> = {
   "Grid Extension": [
-    projectFields,
-    implementationFields,
+    { title: "Project and location information", fields: [...commonProjectFields, ...locationFields] },
+    { title: "Implementation status and dates", fields: implementationFields },
     {
       title: "Technical",
       fields: [
-        { key: "communitiesElectrified", label: "Communities electrified", keyboard: "numeric" },
-        { key: "transformers200", label: "200 KVA transformers", keyboard: "numeric" },
-        { key: "transformers300", label: "300 KVA transformers", keyboard: "numeric" },
-        { key: "transformers500", label: "500 KVA transformers", keyboard: "numeric" },
-        { key: "transformers7500", label: "7,500 KVA transformers", keyboard: "numeric" },
-        { key: "transformers15000", label: "15,000 KVA transformers", keyboard: "numeric" },
-        { key: "transformerCapacity", label: "Total transformer capacity (KVA)", keyboard: "decimal-pad" },
-        { key: "networkBuilt", label: "Network built (km)", keyboard: "decimal-pad" },
-        { key: "poles", label: "Number of poles", keyboard: "numeric" },
+        { key: "communitiesElectrifiedByGridExtension", label: "Number of Communities electrified by grid extension", keyboard: "numeric" },
+        { key: "transformersKva200", label: "200", group: "Number of Transformers (KVA)", keyboard: "numeric" },
+        { key: "transformersKva300", label: "300", group: "Number of Transformers (KVA)", keyboard: "numeric" },
+        { key: "transformersKva500", label: "500", group: "Number of Transformers (KVA)", keyboard: "numeric" },
+        { key: "transformersKva7500", label: "7500", group: "Number of Transformers (KVA)", keyboard: "numeric" },
+        { key: "transformersKva15000", label: "15000", group: "Number of Transformers (KVA)", keyboard: "numeric" },
+        { key: "totalTransformerCapacityKva", label: "Total Transformer Capacity(KVA)", keyboard: "decimal-pad" },
+        { key: "kmOfNetworkBuilt", label: "KM of network built", keyboard: "decimal-pad" },
+        { key: "numberOfPoles", label: "Number of poles", keyboard: "numeric" },
       ],
     },
-    { title: "Financial", fields: [{ key: "projectCostNaira", label: "Total project cost (₦)", keyboard: "decimal-pad" }] },
-    {
-      title: "Public institutions",
-      fields: [
-        { key: "hospitals", label: "Hospitals electrified", keyboard: "numeric" },
-        { key: "schools", label: "Schools electrified", keyboard: "numeric" },
-        { key: "publicFacilities", label: "Public facilities electrified", keyboard: "numeric" },
-      ],
-    },
+    { title: "Financial", fields: [{ key: "totalProjectCostNaira", label: "₦", group: "Total Project Cost", keyboard: "decimal-pad" }] },
+    { title: "Public institutions", fields: publicInstitutionFields },
   ],
   "Mini Grid": [
-    projectFields,
+    {
+      title: "Project and location information",
+      fields: [
+        ...commonProjectFields,
+        { key: "projectName", label: "Project Name", assigned: "projectName" },
+        { key: "typeOfMiniGrid", label: "Type of Mini-Grid", options: ["Isolated", "Interconnected"] },
+        { key: "projectCommunity", label: "Project Community", assigned: "community" },
+        { key: "latitude", label: "Latitude", assigned: "latitude" },
+        { key: "longtitude", label: "Longtitude", assigned: "longitude" },
+      ],
+    },
     {
       title: "Connections and implementation status",
       fields: [
-        { key: "miniGridType", label: "Type of mini-grid", options: ["Isolated", "Interconnected"] },
-        { key: "totalConnections", label: "Total connections", keyboard: "numeric" },
+        { key: "totalNumberOfConnections", label: "Total Number of Connections", keyboard: "numeric" },
         { key: "residentialConnections", label: "Residential connections", keyboard: "numeric" },
-        { key: "commercialConnections", label: "Commercial / PUE connections", keyboard: "numeric" },
+        { key: "commercialPueConnections", label: "Commercial / PUE Connections", keyboard: "numeric" },
         { key: "tariff", label: "Tariff", keyboard: "decimal-pad" },
-        ...implementationFields.fields,
+        ...implementationFields,
+      ],
+    },
+    {
+      title: "Financial",
+      fields: [
+        { key: "totalProjectCostDollar", label: "$", group: "Total Project Cost", keyboard: "decimal-pad" },
+        { key: "totalProjectCostNaira", label: "₦", group: "Total Project Cost", keyboard: "decimal-pad" },
+        { key: "grantPerConnection", label: "Grant per Connection", keyboard: "decimal-pad" },
       ],
     },
     {
       title: "Technical",
       fields: [
-        { key: "miniGridCount", label: "Number of mini-grids", keyboard: "numeric" },
-        { key: "installedPv", label: "Installed PV (kWp)", keyboard: "decimal-pad" },
-        { key: "inverterCapacity", label: "Inverter capacity (kW)", keyboard: "decimal-pad" },
-        { key: "batteryCapacity", label: "Battery capacity (kWh)", keyboard: "decimal-pad" },
+        { key: "numberOfMiniGrid", label: "Number of Mini-grid", keyboard: "numeric" },
+        { key: "installedPvKwp", label: "Installed PV (kWp)", group: "System Capacity", keyboard: "decimal-pad" },
+        { key: "inverterCapacityKw", label: "Inverter Capacity (kW)", group: "System Capacity", keyboard: "decimal-pad" },
+        { key: "batteryCapacityKwh", label: "Battery Capacity (kWh)", group: "System Capacity", keyboard: "decimal-pad" },
       ],
     },
-    {
-      title: "Financial and institutions",
-      fields: [
-        { key: "projectCostDollar", label: "Total project cost ($)", keyboard: "decimal-pad" },
-        { key: "projectCostNaira", label: "Total project cost (₦)", keyboard: "decimal-pad" },
-        { key: "grantPerConnection", label: "Grant per connection", keyboard: "decimal-pad" },
-        { key: "hospitals", label: "Hospitals electrified", keyboard: "numeric" },
-        { key: "schools", label: "Schools electrified", keyboard: "numeric" },
-      ],
-    },
+    { title: "Public institutions", fields: publicInstitutionFields },
   ],
   SAS: [
     {
-      ...projectFields,
       title: "Program, customer and location information",
       fields: [
-        ...projectFields.fields,
+        ...commonProjectFields,
         { key: "customerName", label: "Customer name" },
-        { key: "customerGender", label: "Gender of customer", options: ["Female", "Male", "Prefer not to say"] },
-        { key: "customerPhone", label: "Customer phone number", keyboard: "phone-pad" },
+        { key: "genderOfCustomer", label: "Gender of Customer", options: ["Female", "Male", "Prefer not to say"] },
+        { key: "customerPhoneNumber", label: "Customer Phone Number", keyboard: "phone-pad" },
       ],
     },
     {
       title: "Connection and implementation status",
       fields: [
-        { key: "connectionType", label: "Type of connection", options: ["Residential", "Commercial / PUE", "Public Institution"] },
-        ...implementationFields.fields,
+        { key: "status", label: "Status", options: statuses },
+        { key: "typeOfConnection", label: "Type of Connection", options: ["Residential", "Commercial / PUE", "Public Institution"] },
+        ...implementationFields.slice(1),
       ],
     },
     {
-      title: "Financial and technical",
+      title: "Financial",
       fields: [
-        { key: "projectCostNaira", label: "Total project cost (₦)", keyboard: "decimal-pad" },
-        { key: "grantPerConnection", label: "Grant per connection", keyboard: "decimal-pad" },
-        { key: "sasUnits", label: "Number of SAS units", keyboard: "numeric" },
-        { key: "installedPv", label: "Installed PV (kWp)", keyboard: "decimal-pad" },
-        { key: "batteryCapacity", label: "Battery capacity (hours)", keyboard: "decimal-pad" },
+        { key: "totalProjectCostNaira", label: "₦", group: "Total Project Cost", keyboard: "decimal-pad" },
+        { key: "grantPerConnection", label: "Grant per Connection", keyboard: "decimal-pad" },
+      ],
+    },
+    {
+      title: "Technical",
+      fields: [
+        { key: "numberOfSasUnits", label: "Number of SAS Units", keyboard: "numeric" },
+        { key: "installedPvKwp", label: "Installed PV (kWp)", group: "System Capacity", keyboard: "decimal-pad" },
+        { key: "batteryCapacityH", label: "Battery Capacity ( h)", group: "System Capacity", keyboard: "decimal-pad" },
       ],
     },
   ],

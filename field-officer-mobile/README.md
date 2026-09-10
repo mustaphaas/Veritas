@@ -4,13 +4,14 @@ Native React Native/Expo Android application for Veritas field officers. It is a
 
 ## Included
 
+- Immersive Android presentation with the official REA identity
 - Field-officer-only authentication and navigation
 - Assigned-project overview, inspections and dedicated drafts
-- Component-specific Grid Extension, Mini Grid and SAS forms
+- Grid Extension, Mini Grid and SAS forms aligned field-for-field with the Veritas dashboard
 - Automatic on-device draft persistence
 - GPS arrival verification with a 250 m project geofence
 - Google Maps navigation
-- Camera evidence stamped with project, time, GPS, inspector and device metadata
+- Persistent photo and video evidence stamped with project, time, GPS, inspector and device metadata
 - Locked submitted/approved/verified reports
 - Offline queue with sequential synchronization state
 - Preview APK and production AAB build profiles
@@ -30,7 +31,7 @@ The included demo field-officer account is:
 
 ## Build Android
 
-Connect the folder to an Expo project first, which replaces the placeholder `extra.eas.projectId` in `app.json`:
+The folder is linked to the `@mustaphaas/veritas-field-officer` Expo project. To reconnect it under another account:
 
 ```bash
 npx eas-cli@latest login

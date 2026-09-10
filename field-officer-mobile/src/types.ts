@@ -20,7 +20,7 @@ export type ArrivalRecord = {
 export type EvidenceRecord = {
   id: string;
   uri: string;
-  type: "photo";
+  type: "photo" | "video";
   capturedAt: string;
   latitude: number;
   longitude: number;
@@ -63,6 +63,7 @@ export type FormField = {
   keyboard?: "default" | "numeric" | "phone-pad" | "decimal-pad";
   assigned?: keyof Assignment;
   options?: string[];
+  group?: string;
 };
 
 export type FormSection = {

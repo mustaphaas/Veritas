@@ -5,24 +5,25 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/rea-logo.png",
     "scheme": "veritas-field",
     "splash": {
-      "image": "./assets/icon.png",
+      "image": "./assets/rea-logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#f4faf6"
     },
     "android": {
-      "package": "ng.gov.rea.veritas.fieldofficer.native",
+      "package": "ng.gov.rea.veritas.fieldofficer",
       "versionCode": 1,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#f4faf6"
+        "foregroundImage": "./assets/rea-logo.png",
+        "backgroundColor": "#ffffff"
       },
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
-        "CAMERA"
+        "CAMERA",
+        "RECORD_AUDIO"
       ]
     },
     "plugins": [
@@ -36,14 +37,26 @@
         "expo-image-picker",
         {
           "photosPermission": "Veritas uses project photos as inspection evidence.",
-          "cameraPermission": "Veritas uses the camera to capture project evidence."
+          "cameraPermission": "Veritas uses the camera to capture project photo and video evidence.",
+          "microphonePermission": "Veritas uses the microphone when recording project video evidence."
         }
-      ]
+      ],
+      "expo-font",
+      "expo-navigation-bar"
     ],
+    "androidStatusBar": {
+      "hidden": true,
+      "translucent": true
+    },
+    "androidNavigationBar": {
+      "visible": "sticky-immersive",
+      "barStyle": "dark-content",
+      "backgroundColor": "#ffffff"
+    },
     "extra": {
       "apiBaseUrl": "https://veritas.mustaphaaliyu236.workers.dev/api",
       "eas": {
-        "projectId": "REPLACE_WITH_EXPO_PROJECT_ID"
+        "projectId": "f66faeee-9d38-428f-b773-f72d71b8d8bb"
       }
     }
   }
