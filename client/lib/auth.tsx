@@ -46,7 +46,14 @@ export function authenticateDemoAccount(email:string,password:string):LoginAccou
  return demoAccounts.find(x=>x.email.toLowerCase()===normalized&&x.password===password&&x.role!=="field"&&x.role!=="rea")??null;
 }
 
+function hasUsableCloudSession(session:AuthSession){
+ if(!session.apiToken||!session.apiExpiresAt)return false;
+ const expiresAt=Date.parse(session.apiExpiresAt);
+ return Number.isFinite(expiresAt)&&expiresAt>Date.now()+30_000;
+}
+
 function hydrateSession(session:AuthSession):AuthSession|null{
+ if(!hasUsableCloudSession(session))return null;
  if(session.role==="rea"){
   const staff=readReaStaff().find(account=>account.email.toLowerCase()===session.email.toLowerCase());
   if(!staff||staff.status!=="Active")return null;
