@@ -1,6 +1,6 @@
 import { handleFieldApi } from "./field-api.js";
 
-const BUILD_ID = "veritas-2026-09-11-exact-component-totals-r1";
+const BUILD_ID = "veritas-2026-09-11-component-crosstab-r1";
 const encoder = new TextEncoder();
 
 const json = (body, status = 200) =>
@@ -138,6 +138,24 @@ async function liveDatabaseContext(env) {
   const installedCapacityKw = projects.reduce((sum, project) => sum + Number(project.installedCapacityKw || 0), 0);
   const households = projects.reduce((sum, project) => sum + Number(project.households || 0), 0);
 
+  const componentStateProgramme = [...new Map(
+    projects.map((project) => {
+      const key = `${project.component || "Unknown"}||${project.state || "Unknown"}||${project.programme || "Unknown"}`;
+      return [key, {
+        component: project.component || "Unknown",
+        state: project.state || "Unknown",
+        programme: project.programme || "Unknown",
+      }];
+    }),
+  ).values()].map((row) => ({
+    ...row,
+    projects: projects.filter((project) =>
+      (project.component || "Unknown") === row.component &&
+      (project.state || "Unknown") === row.state &&
+      (project.programme || "Unknown") === row.programme,
+    ).length,
+  }));
+
   const projectSummary = (label, group, labelKey) => ({
     [labelKey]: label,
     projects: group.length,
@@ -162,6 +180,7 @@ async function liveDatabaseContext(env) {
     },
     programmePerformance: aggregateBy(projects, "programme", (label, group) => projectSummary(label, group, "programme")),
     componentPerformance: aggregateBy(projects, "component", (label, group) => projectSummary(label, group, "component")),
+    componentStateProgramme,
     statePerformance: aggregateBy(projects, "state", (label, group) => projectSummary(label, group, "state")),
     contractorPerformance: aggregateBy(projects, "contractor", (label, group) => projectSummary(label, group, "contractor")),
     consultantPerformance: aggregateBy(projects, "consultantFirm", (label, group) => projectSummary(label, group, "consultantFirm")),
@@ -220,7 +239,7 @@ function buildInput(messages, databaseContext) {
 
 Answer naturally, intelligently, and directly. Use reasoning to explain findings, comparisons, implications, risks, and next actions when useful.
 
-The CURRENT VERITAS CONTEXT below is generated directly from the live Cloudflare D1 production database for this request and is authoritative for internal Veritas questions. Never substitute browser state or invent an internal figure. Aggregate portfolio/state/programme/component/contractor/consultant summaries cover the full live dataset even when the project list is sampled. For counts, totals, percentages, rankings, and comparisons, use the exact full-database aggregates whenever available. Never estimate or extrapolate a portfolio-wide figure from the sampled project list. If an exact aggregate is unavailable, say so rather than estimating from the sample.
+The CURRENT VERITAS CONTEXT below is generated directly from the live Cloudflare D1 production database for this request and is authoritative for internal Veritas questions. Never substitute browser state or invent an internal figure. Aggregate portfolio/state/programme/component/contractor/consultant summaries and componentStateProgramme cross-tabs cover the full live dataset even when the project list is sampled. For counts, totals, percentages, rankings, and comparisons, use the exact full-database aggregates whenever available. For questions that combine component with state and/or programme, use componentStateProgramme rather than the sampled project list. Never estimate or extrapolate a portfolio-wide figure from the sampled project list. If an exact aggregate is unavailable, say so rather than estimating from the sample.
 
 For general questions that do not require private Veritas data, answer from your general knowledge. Never expose passwords, password hashes, salts, session tokens, personal phone numbers, email addresses, signatures, device IDs, or precise private evidence coordinates.
 
