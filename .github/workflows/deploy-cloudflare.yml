@@ -32,7 +32,7 @@ jobs:
       - name: Build client
         run: npm run build:client
 
-      - name: Provision D1 and R2 bindings
+      - name: Provision D1 and optional R2 bindings
         run: node scripts/provision-cloudflare.mjs
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

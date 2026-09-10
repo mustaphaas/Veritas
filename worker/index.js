@@ -232,7 +232,8 @@ export default {
         geminiKeyConfigured: Boolean(env.GEMINI_API_KEY),
         geminiPrimary: true,
         localFreeMode: false,
-        fieldStorageConfigured: Boolean(env.DB && env.EVIDENCE),
+        fieldStorageConfigured: Boolean(env.DB),
+        evidenceStorageConfigured: Boolean(env.EVIDENCE),
       });
     }
 

@@ -15,8 +15,14 @@ if (!database) {
 }
 if (!database?.uuid && !database?.id) throw new Error("Unable to resolve the Veritas D1 database ID.");
 
-const buckets = run("r2", "bucket", "list");
-if (!buckets.includes(bucketName)) run("r2", "bucket", "create", bucketName);
+let evidenceStorageEnabled = false;
+try {
+  const buckets = run("r2", "bucket", "list");
+  if (!buckets.includes(bucketName)) run("r2", "bucket", "create", bucketName);
+  evidenceStorageEnabled = true;
+} catch {
+  console.warn("R2 is not enabled. Deploying authentication, assignments and forms with D1 only; evidence uploads will remain unavailable.");
+}
 
 const config = {
   name: "veritas",
@@ -27,7 +33,7 @@ const config = {
   vars: { GEMINI_MODEL: "gemini-3.6-flash" },
   assets: { directory: "./dist/spa", binding: "ASSETS", not_found_handling: "single-page-application", run_worker_first: true },
   d1_databases: [{ binding: "DB", database_name: databaseName, database_id: database.uuid ?? database.id, migrations_dir: "migrations" }],
-  r2_buckets: [{ binding: "EVIDENCE", bucket_name: bucketName }],
+  ...(evidenceStorageEnabled ? { r2_buckets: [{ binding: "EVIDENCE", bucket_name: bucketName }] } : {}),
 };
 writeFileSync("wrangler.generated.json", `${JSON.stringify(config, null, 2)}\n`);
-console.log(`Prepared Cloudflare bindings for ${databaseName} and ${bucketName}.`);
+console.log(`Prepared Cloudflare bindings for ${databaseName}${evidenceStorageEnabled ? ` and ${bucketName}` : " (R2 evidence disabled)"}.`);

@@ -162,6 +162,7 @@ async function saveDraft(request, env, user, assignment) {
 }
 
 async function uploadEvidence(request, env, user, assignment, evidenceId) {
+  if (!env.EVIDENCE) return response({ error: "Evidence storage is not enabled. This upload will remain queued on the device." }, 503);
   if (user.role !== "field_officer" || assignment.officer_id !== user.id) return response({ error: "Not assigned to this officer." }, 403);
   if (!assignment.arrival_json) return response({ error: "GPS verification is required." }, 423);
   if (["Submitted", "Approved", "Verified"].includes(assignment.status)) return response({ error: "Inspection is locked." }, 423);
@@ -213,7 +214,7 @@ async function review(request, env, user, assignment) {
 export async function handleFieldApi(request, env) {
   const url = new URL(request.url), path = url.pathname;
   if (!path.startsWith("/api/field/")) return null;
-  if (!env.DB || !env.EVIDENCE) return response({ error: "Veritas field storage is not configured." }, 503);
+  if (!env.DB) return response({ error: "Veritas field database is not configured." }, 503);
   if (path === "/api/field/auth/login" && request.method === "POST") return login(request, env);
   const user = await currentUser(request, env);
   if (!user) return response({ error: "Authentication required." }, 401);
