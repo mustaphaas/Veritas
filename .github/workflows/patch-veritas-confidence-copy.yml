@@ -1,0 +1,51 @@
+name: Patch Veritas confidence copy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/patch-veritas-confidence-copy.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-copy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Replace legacy demo wording
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('client/components/VeritasAssistant.tsx')
+          text = path.read_text()
+          replacements = {
+              'Welcome to Veritas. I can answer presentation questions across the REA, Field Officer and Consultant Admin demo dashboards, including projects, programmes, contractors, assignments, inspection forms, reports and verification performance.': 'Welcome to Veritas. I can analyse current REA, Field Officer and Consultant Admin data, including projects, programmes, contractors, assignments, inspection forms, reports and verification performance.',
+              'How many field officers and assignments are in the demo?': 'How many field officers and assignments are currently in Veritas?',
+              'Presentation-safe demo data across the REA Dashboard, Field Officer Dashboard and Consultant Admin Dashboard, plus the shared inspection workflow.': 'Current Veritas operational data across the REA Dashboard, Field Officer Dashboard and Consultant Admin Dashboard, plus the shared inspection workflow.',
+              'Management-safe demo fields only. Passwords, personal phone numbers, signatures, device IDs, precise evidence coordinates and private evidence are excluded.': 'Management-safe operational fields only. Passwords, personal phone numbers, signatures, device IDs, precise evidence coordinates and private evidence are excluded.',
+              'REA · Field Officer · Consultant Admin demo intelligence': 'REA · Field Officer · Consultant Admin intelligence',
+              'Grounded in all dashboard demo data': 'Grounded in live Veritas production data',
+              'Ask any demo dashboard question': 'Ask any Veritas data question',
+              'Analysing dashboard demo data…': 'Analysing live Veritas data…',
+          }
+          missing = [old for old in replacements if old not in text]
+          if missing:
+              raise SystemExit('Expected text not found: ' + repr(missing))
+          for old, new in replacements.items():
+              text = text.replace(old, new)
+          path.write_text(text)
+          PY
+      - name: Commit confidence copy update
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add client/components/VeritasAssistant.tsx
+          git commit -m 'Present Veritas as live production intelligence'
+          git push origin main
