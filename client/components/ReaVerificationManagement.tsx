@@ -20,7 +20,39 @@ function formatDate(value?: string) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" });
 }
 
-function reportHtml(assignment: InspectionAssignment) {
+function reportValue(assignment: InspectionAssignment, keys: string[]) {
+  const values = assignment.report?.componentValues || {};
+  for (const key of keys) {
+    const value = values[key];
+    if (value !== undefined && value !== null && String(value).trim()) return String(value);
+  }
+  return "";
+}
+
+function capacityLabel(assignment: InspectionAssignment) {
+  const raw = reportValue(assignment, ["capacityKw", "installedCapacityKw", "totalCapacityKw", "capacity", "systemCapacityKw"])
+    || assignment.report?.capacity
+    || "";
+  if (!raw) return "—";
+  return /kw|mw|kva/i.test(raw) ? raw : `${raw} kW`;
+}
+
+function beneficiariesLabel(assignment: InspectionAssignment) {
+  return reportValue(assignment, ["beneficiaries", "numberOfBeneficiaries", "householdsReached", "households", "connections"])
+    || assignment.report?.beneficiaries
+    || "—";
+}
+
+function gpsVerified(assignment: InspectionAssignment) {
+  return Boolean(assignment.arrival && assignment.arrival.distance <= assignment.geofenceRadius);
+}
+
+function verifiedAt(assignment: InspectionAssignment) {
+  const event = [...assignment.audit].reverse().find((item) => /verified by rea|rea verified|verified/i.test(item.action));
+  return event?.at || assignment.report?.submittedAt || assignment.report?.inspectedAt;
+}
+
+function reportHtml(assignment: InspectionAssignment, autoPrint = false) {
   const report = assignment.report;
   if (!report) return "";
   const logoUrl = typeof window !== "undefined" ? `${window.location.origin}/rea-brand-mark.svg` : "/rea-brand-mark.svg";
@@ -78,16 +110,16 @@ function reportHtml(assignment: InspectionAssignment) {
   <section><h2>QUALITY ASSURANCE</h2><div class="grid"><div class="field"><span>Consultant outcome</span><strong>${assignment.status === "Submitted" ? "Awaiting Consultant QA" : "Approved"}</strong></div><div class="field"><span>Reviewed at</span><strong>${escapeHtml(formatDate(qaAudit?.at))}</strong></div><div class="field"><span>Reviewed by</span><strong>${escapeHtml(qaAudit?.actor || "Consultant Admin")}</strong></div><div class="field"><span>Notes</span><strong>${escapeHtml(report.reviewNote || "—")}</strong></div></div></section>
   <section class="verified-block"><h2>REA FINAL VERIFICATION</h2><div class="grid"><div class="field"><span>REA status</span><strong>${stateLabel}</strong></div><div class="field"><span>Verified at</span><strong>${assignment.status === "Verified" ? escapeHtml(formatDate(reaAudit?.at)) : "Pending REA decision"}</strong></div><div class="field"><span>Verified by</span><strong>${assignment.status === "Verified" ? escapeHtml(reaAudit?.actor || "REA Admin") : "—"}</strong></div><div class="field"><span>Audit events</span><strong>${assignment.audit.length}</strong></div></div></section>
   <footer class="footer">Report ${escapeHtml(assignment.id)} · Captured ${escapeHtml(formatDate(report.inspectedAt))} · Generated ${escapeHtml(generated)} · Every workflow action remains recorded in the Veritas audit trail.</footer>
-  </main></body></html>`;
+  </main>${autoPrint ? `<script>window.addEventListener("load",()=>setTimeout(()=>window.print(),250));</script>` : ""}</body></html>`;
 }
 
-function openReport(assignment: InspectionAssignment) {
+function openReport(assignment: InspectionAssignment, print = false) {
   if (!assignment.report) {
     window.alert("No inspection report is attached to this record yet.");
     return;
   }
   try {
-    const html = reportHtml(assignment);
+    const html = reportHtml(assignment, print);
     const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const popup = window.open(url, "_blank");
@@ -115,11 +147,24 @@ export default function ReaVerificationManagement(){
     if(note===null||decision==="Re-inspection"&&!note.trim())return;
     reaReviewReport(id,decision,note);
   };
+
   return <section className="rea-v-workspace"><div className="rea-v-shell">
-    <div className="rea-v-heading"><div><p className="rea-v-kicker">REA final verification</p><h2>Verification</h2><p>Consultant-approved reports are classified as Awaiting REA until a final REA decision is recorded. Verified reports remain available with the same complete report view.</p></div><div className="rea-v-flow" aria-label="Verification workflow"><span>Field Officer</span><b>→</b><span>Consultant Admin</span><b>→</b><span className="rea-v-flow-active">REA</span><b>→</b><span>Verified</span></div></div>
+    <div className="rea-v-heading"><div><p className="rea-v-kicker">REA final verification</p><h2>Verification</h2><p>Consultant-approved reports are classified as Awaiting REA until a final REA decision is recorded. Verified reports remain available as a permanent inspection register.</p></div><div className="rea-v-flow" aria-label="Verification workflow"><span>Field Officer</span><b>→</b><span>Consultant Admin</span><b>→</b><span className="rea-v-flow-active">REA</span><b>→</b><span>Verified</span></div></div>
     <div className="grid gap-3 sm:grid-cols-2"><article className="rea-v-card-approved flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4"><span className="rea-v-icon"><ClipboardCheck aria-hidden="true"/></span><div><strong className="block text-2xl">{awaiting.length}</strong><small>Awaiting REA</small></div></article><article className="rea-v-card-verified flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4"><span className="rea-v-icon"><BadgeCheck aria-hidden="true"/></span><div><strong className="block text-2xl">{verified.length}</strong><small>Verified</small></div></article></div>
     <div className="mt-4 flex flex-wrap gap-2 border-b border-slate-200 pb-3"><button type="button" onClick={()=>setTab("awaiting")} className={`rounded-lg px-4 py-2 text-xs font-bold transition ${tab==="awaiting"?"bg-[#08733f] text-white shadow-sm":"bg-white text-slate-600 hover:bg-slate-50"}`}>Awaiting REA <span className="ml-1 opacity-80">({awaiting.length})</span></button><button type="button" onClick={()=>setTab("verified")} className={`rounded-lg px-4 py-2 text-xs font-bold transition ${tab==="verified"?"bg-[#08733f] text-white shadow-sm":"bg-white text-slate-600 hover:bg-slate-50"}`}>Verified <span className="ml-1 opacity-80">({verified.length})</span></button></div>
-    <div className="rea-v-table-wrap"><div className="rea-v-table-head"><div><h3>{tab==="awaiting"?"Awaiting REA":"Verified inspection reports"}</h3><p>{rows.length} report{rows.length===1?"":"s"} in this classification</p></div><button type="button" onClick={()=>refresh((value)=>value+1)}>Refresh</button></div><div className="rea-v-table-scroll"><table className="rea-v-table"><thead><tr><th>Project</th><th>Officer</th><th>Status</th><th>Location</th><th>Evidence</th><th>Report</th>{tab==="awaiting"&&<th>REA decision</th>}</tr></thead><tbody>{rows.length?rows.map((item)=><tr key={item.id}><td><strong>{item.projectName}</strong><small>{item.id} · {item.programme} · {item.component}</small></td><td>{item.officer}</td><td><span className={statusClass(item.status)}>{item.status==="Approved"?"Awaiting REA":"Verified"}</span>{item.report?.reviewNote&&<small className="rea-v-note">{item.report.reviewNote}</small>}</td><td>{item.community}, {item.state}</td><td><strong>{item.report?.evidence?.length||0}</strong> file{(item.report?.evidence?.length||0)===1?"":"s"}</td><td><button type="button" onClick={()=>openReport(item)} className="inline-flex items-center gap-1.5 rounded-md border border-[#b9d9c5] bg-white px-3 py-2 text-[11px] font-bold text-[#08733f] hover:bg-[#f0f8f3]"><Eye className="h-3.5 w-3.5"/>View PDF</button></td>{tab==="awaiting"&&<td><div className="rea-v-actions"><button type="button" className="rea-v-approve" onClick={()=>decide(item.id,"Verified")}>Approve & Verify</button><button type="button" className="rea-v-reject" onClick={()=>decide(item.id,"Re-inspection")}><RotateCcw className="mr-1 inline h-3 w-3"/>Reject</button></div></td>}</tr>):<tr><td colSpan={tab==="awaiting"?7:6} className="rea-v-empty">No {tab==="awaiting"?"reports are currently awaiting REA verification":"verified reports are available"}.</td></tr>}</tbody></table></div></div>
-    <div className="mt-3 flex items-start gap-2 rounded-lg border border-slate-200 bg-white p-3 text-[10px] text-slate-500"><FileDown className="mt-0.5 h-4 w-4 shrink-0 text-[#08733f]"/><p>The View PDF action opens the complete inspection report using the REA logo and all fields captured in the assigned component form, plus GPS verification, evidence, attestations, Consultant QA and REA verification details. Use <b>Print / Save PDF</b> in the report view to generate the PDF file.</p></div>
+
+    <div className="rea-v-table-wrap"><div className="rea-v-table-head"><div><h3>{tab==="awaiting"?"Awaiting REA":"Verified inspection reports"}</h3><p>{rows.length} report{rows.length===1?"":"s"} in this classification</p></div><button type="button" onClick={()=>refresh((value)=>value+1)}>Refresh</button></div><div className="rea-v-table-scroll">
+      {tab==="verified" ? <table className="rea-v-table"><thead><tr><th>Project</th><th>Location</th><th>Contractor</th><th>Capacity</th><th>Beneficiaries</th><th>GPS</th><th>Verified</th><th>Report</th></tr></thead><tbody>{verified.length?verified.map((item)=><tr key={item.id}>
+        <td><strong>{item.id}</strong><small>{item.projectName}</small></td>
+        <td>{item.community}, {item.lga}, {item.state}</td>
+        <td>{item.report?.contractor || item.contractor}</td>
+        <td><strong>{capacityLabel(item)}</strong></td>
+        <td><strong>{beneficiariesLabel(item)}</strong></td>
+        <td><span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold ${gpsVerified(item)?"bg-emerald-50 text-emerald-700":"bg-slate-100 text-slate-500"}`}>{gpsVerified(item)?"Verified":"Not verified"}</span></td>
+        <td>{formatDate(verifiedAt(item))}</td>
+        <td><div className="flex flex-wrap gap-2"><button type="button" onClick={()=>openReport(item)} className="inline-flex items-center gap-1.5 rounded-md border border-[#b9d9c5] bg-white px-3 py-2 text-[11px] font-bold text-[#08733f] hover:bg-[#f0f8f3]"><Eye className="h-3.5 w-3.5"/>View</button><button type="button" onClick={()=>openReport(item,true)} className="inline-flex items-center gap-1.5 rounded-md bg-[#08733f] px-3 py-2 text-[11px] font-bold text-white hover:bg-[#065f34]"><FileDown className="h-3.5 w-3.5"/>PDF</button></div></td>
+      </tr>):<tr><td colSpan={8} className="rea-v-empty">No verified reports are available.</td></tr>}</tbody></table> : <table className="rea-v-table"><thead><tr><th>Project</th><th>Officer</th><th>Status</th><th>Location</th><th>Evidence</th><th>Report</th><th>REA decision</th></tr></thead><tbody>{awaiting.length?awaiting.map((item)=><tr key={item.id}><td><strong>{item.projectName}</strong><small>{item.id} · {item.programme} · {item.component}</small></td><td>{item.officer}</td><td><span className={statusClass(item.status)}>Awaiting REA</span>{item.report?.reviewNote&&<small className="rea-v-note">{item.report.reviewNote}</small>}</td><td>{item.community}, {item.state}</td><td><strong>{item.report?.evidence?.length||0}</strong> file{(item.report?.evidence?.length||0)===1?"":"s"}</td><td><button type="button" onClick={()=>openReport(item)} className="inline-flex items-center gap-1.5 rounded-md border border-[#b9d9c5] bg-white px-3 py-2 text-[11px] font-bold text-[#08733f] hover:bg-[#f0f8f3]"><Eye className="h-3.5 w-3.5"/>View</button></td><td><div className="rea-v-actions"><button type="button" className="rea-v-approve" onClick={()=>decide(item.id,"Verified")}>Approve & Verify</button><button type="button" className="rea-v-reject" onClick={()=>decide(item.id,"Re-inspection")}><RotateCcw className="mr-1 inline h-3 w-3"/>Reject</button></div></td></tr>):<tr><td colSpan={7} className="rea-v-empty">No reports are currently awaiting REA verification.</td></tr>}</tbody></table>}
+    </div></div>
+    <div className="mt-3 flex items-start gap-2 rounded-lg border border-slate-200 bg-white p-3 text-[10px] text-slate-500"><FileDown className="mt-0.5 h-4 w-4 shrink-0 text-[#08733f]"/><p>Verified reports now show the project ID and title, location, contractor, installed capacity, beneficiaries, GPS verification and verification date. <b>View</b> opens the complete REA inspection report; <b>PDF</b> opens the same populated report and immediately launches the browser print/save-PDF dialog.</p></div>
   </div></section>;
 }
