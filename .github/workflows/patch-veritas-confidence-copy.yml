@@ -1,4 +1,4 @@
-name: Patch Veritas confidence copy
+name: Patch exact Veritas component totals
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  patch-copy:
+  patch-worker:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,33 +19,29 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
-      - name: Replace legacy demo wording
+      - name: Add exact component aggregates
         run: |
           python - <<'PY'
           from pathlib import Path
-          path = Path('client/components/VeritasAssistant.tsx')
-          text = path.read_text()
-          replacements = {
-              'Welcome to Veritas. I can answer presentation questions across the REA, Field Officer and Consultant Admin demo dashboards, including projects, programmes, contractors, assignments, inspection forms, reports and verification performance.': 'Welcome to Veritas. I can analyse current REA, Field Officer and Consultant Admin data, including projects, programmes, contractors, assignments, inspection forms, reports and verification performance.',
-              'How many field officers and assignments are in the demo?': 'How many field officers and assignments are currently in Veritas?',
-              'Presentation-safe demo data across the REA Dashboard, Field Officer Dashboard and Consultant Admin Dashboard, plus the shared inspection workflow.': 'Current Veritas operational data across the REA Dashboard, Field Officer Dashboard and Consultant Admin Dashboard, plus the shared inspection workflow.',
-              'Management-safe demo fields only. Passwords, personal phone numbers, signatures, device IDs, precise evidence coordinates and private evidence are excluded.': 'Management-safe operational fields only. Passwords, personal phone numbers, signatures, device IDs, precise evidence coordinates and private evidence are excluded.',
-              'REA · Field Officer · Consultant Admin demo intelligence': 'REA · Field Officer · Consultant Admin intelligence',
-              'Grounded in all dashboard demo data': 'Grounded in live Veritas production data',
-              'Ask any demo dashboard question': 'Ask any Veritas data question',
-              'Analysing dashboard demo data…': 'Analysing live Veritas data…',
-          }
-          missing = [old for old in replacements if old not in text]
-          if missing:
-              raise SystemExit('Expected text not found: ' + repr(missing))
-          for old, new in replacements.items():
-              text = text.replace(old, new)
-          path.write_text(text)
+          p = Path('worker/index.js')
+          s = p.read_text()
+          s = s.replace('const BUILD_ID = "veritas-2026-09-11-output-3000-r1";', 'const BUILD_ID = "veritas-2026-09-11-exact-component-totals-r1";')
+          a = '    programmePerformance: aggregateBy(projects, "programme", (label, group) => projectSummary(label, group, "programme")),\n    statePerformance:'
+          b = '    programmePerformance: aggregateBy(projects, "programme", (label, group) => projectSummary(label, group, "programme")),\n    componentPerformance: aggregateBy(projects, "component", (label, group) => projectSummary(label, group, "component")),\n    statePerformance:'
+          if a not in s:
+              raise SystemExit('aggregate insertion point not found')
+          s = s.replace(a, b, 1)
+          old = 'Aggregate portfolio/state/programme/contractor/consultant summaries cover the full live dataset even when the project list is sampled.'
+          new = 'Aggregate portfolio/state/programme/component/contractor/consultant summaries cover the full live dataset even when the project list is sampled. For counts, totals, percentages, rankings, and comparisons, use the exact full-database aggregates whenever available. Never estimate or extrapolate a portfolio-wide figure from the sampled project list. If an exact aggregate is unavailable, say so rather than estimating from the sample.'
+          if old not in s:
+              raise SystemExit('prompt insertion point not found')
+          s = s.replace(old, new, 1)
+          p.write_text(s)
           PY
-      - name: Commit confidence copy update
+      - name: Commit worker fix
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add client/components/VeritasAssistant.tsx
-          git commit -m 'Present Veritas as live production intelligence'
+          git add worker/index.js
+          git commit -m 'Use exact D1 component totals in Veritas'
           git push origin main
