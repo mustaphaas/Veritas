@@ -1,14 +1,15 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { assignmentValues, displayStatus, distanceMetres, formSections, isFormComplete, isReportLocked, isWithinProjectGeofence } from "./domain.ts";
+import { assignmentValues, assignmentsForSection, displayStatus, distanceMetres, formSections, isFormComplete, isReportLocked, isWithinProjectGeofence } from "./domain.ts";
 import { demoAssignments } from "./demoData.ts";
 
 describe("field officer mobile domain", () => {
-  it("uses the same four-stage display workflow as the dashboard", () => {
+  it("shows each field inspection workflow status clearly", () => {
     assert.equal(displayStatus("Assigned"), "Assigned");
-    assert.equal(displayStatus("Re-inspection"), "Draft");
-    assert.equal(displayStatus("Submitted"), "Draft");
+    assert.equal(displayStatus("Draft"), "Draft");
+    assert.equal(displayStatus("Re-inspection"), "Re-inspection");
+    assert.equal(displayStatus("Submitted"), "Submitted");
     assert.equal(displayStatus("Approved"), "Approved");
     assert.equal(displayStatus("Verified"), "Verified");
   });
@@ -18,6 +19,12 @@ describe("field officer mobile domain", () => {
     assert.equal(isReportLocked("Submitted"), true);
     assert.equal(isReportLocked("Approved"), true);
     assert.equal(isReportLocked("Verified"), true);
+  });
+
+  it("keeps assignments, drafts and inspection history separate", () => {
+    assert.ok(assignmentsForSection(demoAssignments, "assignments").every((item) => item.status === "Assigned"));
+    assert.ok(assignmentsForSection(demoAssignments, "drafts").every((item) => item.status === "Draft"));
+    assert.ok(assignmentsForSection(demoAssignments, "inspections").every((item) => ["Submitted", "Approved", "Verified", "Re-inspection"].includes(item.status)));
   });
 
   it("checks the 250 metre project geofence", () => {
