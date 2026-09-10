@@ -23,6 +23,7 @@ function formatDate(value?: string) {
 function reportHtml(assignment: InspectionAssignment) {
   const report = assignment.report;
   if (!report) return "";
+  const logoUrl = typeof window !== "undefined" ? `${window.location.origin}/rea-brand-mark.svg` : "/rea-brand-mark.svg";
   const supported = isSupportedAssignmentComponent(report.assignedComponent);
   const formSections = supported
     ? COMPONENT_FORM_SECTIONS[report.assignedComponent].map((section, index) => {
@@ -54,10 +55,10 @@ function reportHtml(assignment: InspectionAssignment) {
   const generated = new Date().toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" });
   const stateLabel = assignment.status === "Verified" ? "VERIFIED" : "AWAITING REA";
 
-  return `<!doctype html><html><head><meta charset="utf-8"><title>Inspection Report ${escapeHtml(assignment.id)}</title><style>
-    @page{size:A4;margin:13mm}*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;color:#25332d;background:#eef2ef}main{width:210mm;max-width:100%;margin:20px auto;background:#fff;padding:16mm;box-shadow:0 10px 30px #0001}.toolbar{position:sticky;top:0;z-index:5;display:flex;justify-content:flex-end;gap:8px;margin:-16mm -16mm 12mm;padding:10px 16mm;background:#173b2a}.toolbar button{border:0;border-radius:6px;padding:9px 13px;font-weight:700;cursor:pointer}.toolbar .primary{background:#fff;color:#08733f}.header{display:flex;align-items:center;gap:18px;border-bottom:3px solid #08733f;padding-bottom:16px;margin-bottom:20px}.logo{width:78px;height:78px;object-fit:contain}.title h1{margin:0;font-size:23px;letter-spacing:.4px}.title p{margin:4px 0 0;color:#64746c;font-size:12px}.status{margin-left:auto;border:2px solid #08733f;color:#08733f;padding:7px 10px;border-radius:999px;font-size:10px;font-weight:800}section{break-inside:avoid;margin:0 0 18px}h2{font-size:13px;color:#08733f;margin:0 0 9px;padding-bottom:5px;border-bottom:1px solid #dce6df;letter-spacing:.3px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:0 22px}.field{display:grid;grid-template-columns:46% 54%;gap:8px;padding:7px 0;border-bottom:1px solid #edf1ee;font-size:10px}.field span{color:#68756f}.field strong{color:#25332d}.notice{padding:10px 12px;background:#edf8f1;border-left:4px solid #08733f;font-size:10px}.plates{display:grid;grid-template-columns:1fr 1fr;gap:14px}.plate{break-inside:avoid}.plate img,.plate video,.media-placeholder{width:100%;height:260px;object-fit:cover;background:#111;border-radius:3px}.media-placeholder{display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px}.plate p{font-size:9px;margin:6px 0 2px}.plate small{font-size:8px;color:#6c7772}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:18px}.signature{font-size:9px}.signature img,.signature-box,.signature-name{height:72px;width:100%;object-fit:contain;border-bottom:1px solid #65736b;display:flex;align-items:flex-end;justify-content:center;padding:8px;font-family:cursive;font-size:18px}.signature b{display:block;margin-top:5px}.footer{margin-top:24px;padding-top:10px;border-top:1px solid #dce6df;font-size:8px;color:#6b756f}.verified-block{border:1px solid #b8dbc5;background:#f2faf5;padding:12px}.verified-block strong{color:#08733f}@media print{body{background:#fff}main{width:auto;margin:0;padding:0;box-shadow:none}.toolbar{display:none}.plate img,.plate video,.media-placeholder{height:245px}}
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Inspection Report ${escapeHtml(assignment.id)}</title><style>
+    @page{size:A4;margin:13mm}*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;color:#25332d;background:#eef2ef}main{width:210mm;max-width:100%;margin:20px auto;background:#fff;padding:16mm;box-shadow:0 10px 30px #0001}.toolbar{position:sticky;top:0;z-index:5;display:flex;justify-content:flex-end;gap:8px;margin:-16mm -16mm 12mm;padding:10px 16mm;background:#173b2a}.toolbar button{border:0;border-radius:6px;padding:9px 13px;font-weight:700;cursor:pointer}.toolbar .primary{background:#fff;color:#08733f}.header{display:flex;align-items:center;gap:18px;border-bottom:3px solid #08733f;padding-bottom:16px;margin-bottom:20px}.logo{width:78px;height:78px;object-fit:contain}.title h1{margin:0;font-size:23px;letter-spacing:.4px}.title p{margin:4px 0 0;color:#64746c;font-size:12px}.status{margin-left:auto;border:2px solid #08733f;color:#08733f;padding:7px 10px;border-radius:999px;font-size:10px;font-weight:800}section{break-inside:avoid;margin:0 0 18px}h2{font-size:13px;color:#08733f;margin:0 0 9px;padding-bottom:5px;border-bottom:1px solid #dce6df;letter-spacing:.3px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:0 22px}.field{display:grid;grid-template-columns:46% 54%;gap:8px;padding:7px 0;border-bottom:1px solid #edf1ee;font-size:10px}.field span{color:#68756f}.field strong{color:#25332d}.notice{padding:10px 12px;background:#edf8f1;border-left:4px solid #08733f;font-size:10px}.plates{display:grid;grid-template-columns:1fr 1fr;gap:14px}.plate{break-inside:avoid}.plate img,.plate video,.media-placeholder{width:100%;height:260px;object-fit:cover;background:#111;border-radius:3px}.media-placeholder{display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px}.plate p{font-size:9px;margin:6px 0 2px}.plate small{font-size:8px;color:#6c7772}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:18px}.signature{font-size:9px}.signature img,.signature-box,.signature-name{height:72px;width:100%;object-fit:contain;border-bottom:1px solid #65736b;display:flex;align-items:flex-end;justify-content:center;padding:8px;font-family:cursive;font-size:18px}.signature b{display:block;margin-top:5px}.footer{margin-top:24px;padding-top:10px;border-top:1px solid #dce6df;font-size:8px;color:#6b756f}.verified-block{border:1px solid #b8dbc5;background:#f2faf5;padding:12px}.verified-block strong{color:#08733f}@media(max-width:700px){main{width:100%;margin:0;padding:18px;box-shadow:none}.toolbar{margin:-18px -18px 20px;padding:10px 18px}.header{align-items:flex-start;flex-wrap:wrap}.status{margin-left:0}.grid,.plates,.signatures{grid-template-columns:1fr}}@media print{body{background:#fff}main{width:auto;margin:0;padding:0;box-shadow:none}.toolbar{display:none}.plate img,.plate video,.media-placeholder{height:245px}}
   </style></head><body><main><div class="toolbar"><button onclick="window.close()">Close</button><button class="primary" onclick="window.print()">Print / Save PDF</button></div>
-  <header class="header"><img class="logo" src="/rea-brand-mark.svg" alt="REA logo"><div class="title"><h1>RURAL ELECTRIFICATION AGENCY</h1><p>Field Inspection & Verification Report · Veritas</p></div><div class="status">${stateLabel}</div></header>
+  <header class="header"><img class="logo" src="${escapeHtml(logoUrl)}" alt="REA logo"><div class="title"><h1>RURAL ELECTRIFICATION AGENCY</h1><p>Field Inspection & Verification Report · Veritas</p></div><div class="status">${stateLabel}</div></header>
   <section><h2>1. PROJECT IDENTIFICATION</h2><div class="grid">
     <div class="field"><span>Project ID</span><strong>${escapeHtml(assignment.id)}</strong></div><div class="field"><span>Inspection date</span><strong>${escapeHtml(formatDate(report.inspectedAt))}</strong></div>
     <div class="field"><span>Project title</span><strong>${escapeHtml(assignment.projectName)}</strong></div><div class="field"><span>Programme</span><strong>${escapeHtml(assignment.programme)}</strong></div>
@@ -85,14 +86,21 @@ function openReport(assignment: InspectionAssignment) {
     window.alert("No inspection report is attached to this record yet.");
     return;
   }
-  const popup = window.open("", "_blank", "noopener,noreferrer");
-  if (!popup) {
-    window.alert("Please allow pop-ups to view the inspection PDF report.");
-    return;
+  try {
+    const html = reportHtml(assignment);
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const popup = window.open(url, "_blank");
+    if (!popup) {
+      URL.revokeObjectURL(url);
+      window.alert("Please allow pop-ups to view the inspection report.");
+      return;
+    }
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  } catch (error) {
+    console.error("Unable to open REA inspection report", error);
+    window.alert("The inspection report could not be opened. Please refresh and try again.");
   }
-  popup.document.open();
-  popup.document.write(reportHtml(assignment));
-  popup.document.close();
 }
 
 export default function ReaVerificationManagement(){
