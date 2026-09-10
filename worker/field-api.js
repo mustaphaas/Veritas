@@ -81,7 +81,15 @@ async function login(request, env) {
   if (!body?.identifier || !body?.password) return response({ error: "Phone/email and password are required." }, 400);
   const identifier = String(body.identifier).trim().toLowerCase();
   const user = await env.DB.prepare("SELECT * FROM users WHERE (lower(email)=? OR phone=?) AND status='active'").bind(identifier, identifier).first();
-  if (!user || !(await verifyPassword(String(body.password), user.password_salt, user.password_hash))) return response({ error: "Invalid credentials." }, 401);
+  if (!user) return response({ error: "Invalid credentials." }, 401);
+  let passwordMatches = false;
+  try {
+    passwordMatches = await verifyPassword(String(body.password), user.password_salt, user.password_hash);
+  } catch (error) {
+    console.error(JSON.stringify({ event: "password-verification-failed", name: error?.name, message: error?.message }));
+    return response({ error: "The authentication service could not verify this account.", code: "PASSWORD_VERIFICATION_FAILED", detail: error?.message || error?.name || "Unknown verification error." }, 500);
+  }
+  if (!passwordMatches) return response({ error: "Invalid credentials." }, 401);
   const sessionToken = token(), createdAt = now(), expiresAt = new Date(Date.now() + SESSION_DAYS * 86400000).toISOString();
   await env.DB.prepare("INSERT INTO sessions(token_hash,user_id,created_at,expires_at,last_seen_at) VALUES(?,?,?,?,?)").bind(await digest(sessionToken), user.id, createdAt, expiresAt, createdAt).run();
   await audit(env, request, user, null, "login", { sessionExpiresAt: expiresAt });
