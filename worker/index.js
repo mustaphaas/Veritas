@@ -1,6 +1,6 @@
 import { handleFieldApi } from "./field-api.js";
 
-const BUILD_ID = "veritas-2026-09-11-priority-reasoning-r1";
+const BUILD_ID = "veritas-2026-09-11-output-3000-r1";
 const encoder = new TextEncoder();
 
 const json = (body, status = 200) =>
@@ -283,7 +283,7 @@ async function veritasResponse(request, env) {
       headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: buildInput(body.messages, databaseContext) }] }],
-        generationConfig: { maxOutputTokens: 1800, temperature: 0.45 },
+        generationConfig: { maxOutputTokens: 3000, temperature: 0.45 },
       }),
     },
   );
