@@ -6,7 +6,7 @@ export type AssignmentStatus =
   | "Verified"
   | "Re-inspection";
 
-export type DisplayStatus = "Assigned" | "Draft" | "Approved" | "Verified";
+export type DisplayStatus = AssignmentStatus;
 export type SyncStatus = "synced" | "queued" | "uploading" | "failed";
 export type ProjectComponent = "Grid Extension" | "Mini Grid" | "SAS";
 
