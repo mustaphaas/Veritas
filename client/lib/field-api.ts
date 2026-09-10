@@ -15,6 +15,15 @@ async function call(path: string, init: RequestInit = {}) {
   return payload;
 }
 
+async function consultantCall(path: string, init: RequestInit = {}) {
+  const apiToken = token();
+  if (!apiToken) throw new Error("Cloud workflow session is unavailable.");
+  const response = await fetch(`/api/consultant${path}`, { ...init, headers: { Accept: "application/json", "Content-Type": "application/json", Authorization: `Bearer ${apiToken}`, ...init.headers } });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || `Veritas API returned ${response.status}.`);
+  return payload;
+}
+
 export async function authenticateFieldApi(identifier: string, password: string) {
   const response = await fetch("/api/field/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ identifier, password }) });
   const payload = await response.json().catch(() => ({}));
@@ -26,6 +35,7 @@ export const fetchFieldAssignments = () => call("/assignments");
 export const reviewFieldAssignment = (id: string, status: string, note: string) => call(`/assignments/${encodeURIComponent(id)}/review`, { method: "PATCH", body: JSON.stringify({ status, note }) });
 export const createFieldAssignment = (assignment: unknown) => call("/assignments", { method: "POST", body: JSON.stringify(assignment) });
 export const createFieldOfficerApi = (officer: unknown) => call("/users/field-officers", { method: "POST", body: JSON.stringify(officer) });
+export const fetchConsultantFieldOfficers = () => consultantCall("/field-officers");
 
 export function normalizeCloudAssignment(item: any) {
   const report = item.report ? {
