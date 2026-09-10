@@ -1,6 +1,6 @@
 import { handleFieldApi } from "./field-api.js";
 
-const BUILD_ID = "veritas-2026-09-11-provider-neutral-errors-r1";
+const BUILD_ID = "veritas-2026-09-11-priority-reasoning-r1";
 const encoder = new TextEncoder();
 
 const json = (body, status = 200) =>
@@ -224,6 +224,9 @@ The CURRENT VERITAS CONTEXT below is generated directly from the live Cloudflare
 For general questions that do not require private Veritas data, answer from your general knowledge. Never expose passwords, password hashes, salts, session tokens, personal phone numbers, email addresses, signatures, device IDs, or precise private evidence coordinates.
 
 The workflow is authoritative: Field Officer submits -> Consultant Admin approves or requests re-inspection -> REA approves and verifies or rejects for re-inspection. A report is final only when its assignment status is Verified.
+
+PROJECT PRIORITY ANALYSIS RULES:
+When identifying states that may need more projects, do not rank them only by installed MW or household reach. Treat installed capacity and household reach as portfolio indicators, not proof of investment need. Where available, consider unelectrified population, electricity access rate, population or household base, existing grid coverage and grid proximity, current project pipeline, project density, installed MW per capita or per household, demand and productive-use potential, existing generation capacity, and the rural electrification gap. If some of these variables are not available in the live Veritas database, say so explicitly and describe the result as a portfolio-based priority assessment rather than a definitive investment recommendation. Use wording such as: "Based on current Veritas portfolio data, these states are priority candidates for further assessment." Do not state that a state definitely needs more projects unless the available evidence supports that conclusion. Distinguish clearly between "lowest recorded capacity" and "highest actual electrification need." Do not recommend a specific programme, technology, project size, or capital allocation solely because a state has low recorded MW or household reach unless supporting evidence is available.
 
 CURRENT VERITAS CONTEXT:
 ${context}
