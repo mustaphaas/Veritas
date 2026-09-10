@@ -27,10 +27,16 @@ export function distanceMetres(
 }
 
 export function displayStatus(status: AssignmentStatus): DisplayStatus {
-  if (["Draft", "Submitted", "Re-inspection"].includes(status)) return "Draft";
-  if (status === "Approved") return "Approved";
-  if (status === "Verified") return "Verified";
-  return "Assigned";
+  return status;
+}
+
+export function assignmentsForSection(
+  assignments: Assignment[],
+  section: "assignments" | "inspections" | "drafts",
+) {
+  if (section === "assignments") return assignments.filter((item) => item.status === "Assigned");
+  if (section === "drafts") return assignments.filter((item) => item.status === "Draft");
+  return assignments.filter((item) => ["Submitted", "Approved", "Verified", "Re-inspection"].includes(item.status));
 }
 
 export function isReportLocked(status: AssignmentStatus) {
