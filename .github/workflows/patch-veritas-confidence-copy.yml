@@ -1,4 +1,4 @@
-name: Harden Veritas OpenRouter failover
+name: Make Veritas cross-tab answers deterministic
 
 on:
   push:
@@ -19,42 +19,88 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
-      - name: Add OpenRouter timeout and direct Gemini failover
+      - name: Add deterministic component state programme answer
         run: |
           python - <<'PY'
           from pathlib import Path
-          import re
 
           p = Path('worker/index.js')
           s = p.read_text()
           s = s.replace(
-              'const BUILD_ID = "veritas-2026-09-11-openrouter-gemini-r1";',
-              'const BUILD_ID = "veritas-2026-09-11-openrouter-resilience-r1";'
+              'const BUILD_ID = "veritas-2026-09-11-openrouter-resilience-r1";',
+              'const BUILD_ID = "veritas-2026-09-11-deterministic-crosstab-r1";'
           )
 
-          start = s.index('  let upstream;\n  let payload;\n  let provider;\n  let model;\n')
-          end_marker = '  const answer = provider === "openrouter" ? extractOpenRouterText(payload) : extractGeminiText(payload);\n'
-          end = s.index(end_marker, start) + len(end_marker)
+          marker = 'async function veritasResponse(request, env) {\n'
+          helper = r'''function exactComponentStateProgrammeAnswer(question, databaseContext) {
+  const normalized = String(question || "").toLowerCase();
+  const asksStateProgramme =
+    normalized.includes("state") &&
+    (normalized.includes("programme") || normalized.includes("program"));
+  if (!asksStateProgramme) return "";
 
-          replacement = '''  let upstream;\n  let payload = {};\n  let provider = "gemini";\n  let model = env.GEMINI_MODEL || "gemini-3.6-flash";\n  let answer = "";\n\n  if (env.OPENROUTER_API_KEY) {\n    provider = "openrouter";\n    model = env.OPENROUTER_MODEL || "google/gemini-3.8-flash";\n    try {\n      upstream = await fetch("https://openrouter.ai/api/v1/chat/completions", {\n        method: "POST",\n        headers: {\n          "Authorization": `Bearer ${env.OPENROUTER_API_KEY}`,\n          "Content-Type": "application/json",\n          "HTTP-Referer": "https://veritas.mustaphaaliyu236.workers.dev",\n          "X-Title": "Veritas",\n        },\n        body: JSON.stringify({\n          model,\n          messages: [{ role: "user", content: prompt }],\n          max_tokens: 3000,\n          temperature: 0.3,\n          provider: { allow_fallbacks: true, sort: "throughput" },\n        }),\n        signal: AbortSignal.timeout(25000),\n      });\n      payload = await upstream.json().catch(() => ({}));\n      if (upstream.ok) answer = extractOpenRouterText(payload);\n    } catch (error) {\n      console.error(JSON.stringify({\n        event: "veritas_openrouter_timeout_or_network_error",\n        message: error instanceof Error ? error.message : "Unknown error",\n        build: BUILD_ID,\n      }));\n    }\n\n    if (!upstream?.ok || !answer) {\n      console.error(JSON.stringify({\n        event: "veritas_openrouter_fallback",\n        status: upstream?.status || 0,\n        model,\n        upstreamMessage: String(payload?.error?.message || payload?.error || ""),\n        build: BUILD_ID,\n      }));\n    }\n  }\n\n  if (!answer && env.GEMINI_API_KEY) {\n    provider = "gemini";\n    model = env.GEMINI_MODEL || "gemini-3.6-flash";\n    try {\n      upstream = await fetch(\n        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,\n        {\n          method: "POST",\n          headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },\n          body: JSON.stringify({\n            contents: [{ role: "user", parts: [{ text: prompt }] }],\n            generationConfig: { maxOutputTokens: 3000, temperature: 0.45 },\n          }),\n          signal: AbortSignal.timeout(30000),\n        },\n      );\n      payload = await upstream.json().catch(() => ({}));\n      if (upstream.ok) answer = extractGeminiText(payload);\n    } catch (error) {\n      console.error(JSON.stringify({\n        event: "veritas_direct_gemini_timeout_or_network_error",\n        message: error instanceof Error ? error.message : "Unknown error",\n        build: BUILD_ID,\n      }));\n    }\n  }\n\n  if (!answer) {\n    console.error(JSON.stringify({\n      event: "veritas_all_ai_routes_failed",\n      provider,\n      status: upstream?.status || 0,\n      model,\n      upstreamMessage: String(payload?.error?.message || payload?.error || ""),\n      build: BUILD_ID,\n    }));\n    return json({ error: publicVeritasError(upstream?.status || 503), build: BUILD_ID }, upstream?.status === 429 ? 429 : 503);\n  }\n'''
-          s = s[:start] + replacement + s[end:]
+  const components = Array.isArray(databaseContext?.componentPerformance)
+    ? databaseContext.componentPerformance.map((row) => String(row.component || "")).filter(Boolean)
+    : [];
+  const component = components.find((name) => normalized.includes(name.toLowerCase()));
+  if (!component) return "";
+
+  const crossTab = (databaseContext?.componentStateProgramme || []).filter(
+    (row) => String(row.component || "") === component,
+  );
+  if (!crossTab.length) return "";
+
+  const states = [...new Set(
+    (databaseContext?.statePerformance || []).map((row) => String(row.state || "")).filter(Boolean),
+  )].sort((a, b) => a.localeCompare(b));
+  const programmeNames = [...new Set(crossTab.map((row) => String(row.programme || "Unknown")))];
+  const preferred = ["NEP", "DARES", "AMP"];
+  const programmes = [
+    ...preferred.filter((name) => programmeNames.includes(name)),
+    ...programmeNames.filter((name) => !preferred.includes(name)).sort((a, b) => a.localeCompare(b)),
+  ];
+
+  const counts = new Map();
+  for (const row of crossTab) {
+    counts.set(`${row.state}||${row.programme}`, Number(row.projects || 0));
+  }
+
+  const programmeTotals = Object.fromEntries(programmes.map((programme) => [programme, 0]));
+  let grandTotal = 0;
+  const lines = states.map((state) => {
+    const values = programmes.map((programme) => {
+      const value = counts.get(`${state}||${programme}`) || 0;
+      programmeTotals[programme] += value;
+      grandTotal += value;
+      return `${programme} ${value}`;
+    });
+    const stateTotal = values.reduce((sum, entry) => sum + Number(entry.split(" ").at(-1) || 0), 0);
+    return `${state}: ${values.join(" | ")} | Total ${stateTotal}`;
+  });
+
+  const totalsLine = programmes.map((programme) => `${programme} ${programmeTotals[programme]}`).join(" | ");
+  return `Full production database breakdown for ${component} by state and programme (${grandTotal} projects):\n\n${lines.join("\n")}\n\nProgramme totals: ${totalsLine} | Total ${grandTotal}\n\nSource: live Veritas D1 componentStateProgramme aggregate. No sampled project list was used.`;
+}
+
+'''
+          if 'function exactComponentStateProgrammeAnswer(' not in s:
+              if marker not in s:
+                  raise SystemExit('veritasResponse marker not found')
+              s = s.replace(marker, helper + marker, 1)
+
+          old = '''  const databaseContext = await liveDatabaseContext(env);\n  const prompt = buildInput(body.messages, databaseContext);\n'''
+          new = '''  const databaseContext = await liveDatabaseContext(env);\n  const exactCrossTabAnswer = exactComponentStateProgrammeAnswer(question, databaseContext);\n  if (exactCrossTabAnswer) {\n    return json({ answer: exactCrossTabAnswer, sources: [], mode: "veritas-live-d1-exact", build: BUILD_ID });\n  }\n  const prompt = buildInput(body.messages, databaseContext);\n'''
+          if old not in s:
+              raise SystemExit('databaseContext prompt marker not found')
+          s = s.replace(old, new, 1)
           p.write_text(s)
-
-          c = Path('client/components/VeritasAssistant.tsx')
-          cs = c.read_text()
-          old = '      const response = await fetch("/api/veritas", {\n        method: "POST",'
-          new = '      const response = await fetch("/api/veritas", {\n        method: "POST",\n        signal: AbortSignal.timeout(60000),'
-          if old not in cs:
-              raise SystemExit('Client fetch marker not found')
-          cs = cs.replace(old, new, 1)
-          c.write_text(cs)
           PY
-      - name: Commit resilience fix
+      - name: Commit deterministic cross-tab response
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add worker/index.js client/components/VeritasAssistant.tsx
-          git commit -m 'Add resilient OpenRouter fallback and request timeouts'
+          git add worker/index.js
+          git commit -m 'Return exact D1 cross-tab answers without AI timeout'
           git push origin main
       - uses: actions/setup-node@v4
         with:
