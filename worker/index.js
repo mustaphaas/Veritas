@@ -1,7 +1,7 @@
 import { handleFieldApi } from "./field-api.js";
 import { analyticsCatalog, analyticsAnswerPrompt, executeAnalyticsPlan, parsePlannerJson, plannerPrompt, validateAnalyticsPlan } from "./analytics.js";
 
-const BUILD_ID = "veritas-2026-09-11-safe-dynamic-analytics-r1";
+const BUILD_ID = "veritas-2026-09-11-direct-safe-analytics-r1";
 const encoder = new TextEncoder();
 
 const json = (body, status = 200) =>
@@ -394,7 +394,8 @@ async function veritasResponse(request, env) {
   let databaseContext = null;
   let prompt;
   if (analyticsResult) {
-    prompt = analyticsAnswerPrompt(question, analyticsResult);
+    const exactAnswer = deterministicAnalyticsAnswer(analyticsResult);
+    return json({ answer: exactAnswer, sources: [], mode: "veritas-safe-analytics", build: BUILD_ID });
   } else {
     databaseContext = await liveDatabaseContext(env);
     const exactCrossTabAnswer = typeof exactComponentStateProgrammeAnswer === "function" ? exactComponentStateProgrammeAnswer(question, databaseContext) : "";
