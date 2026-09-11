@@ -1,4 +1,4 @@
-name: Safe Veritas Analytics Deploy
+name: Hide Veritas Internal Analytics Names
 
 on:
   push:
@@ -6,8 +6,6 @@ on:
       - main
     paths:
       - '.github/workflows/patch-veritas-confidence-copy.yml'
-      - 'scripts/patch-safe-analytics.mjs'
-      - 'worker/analytics.js'
 
 permissions:
   contents: write
@@ -21,31 +19,51 @@ jobs:
         with:
           ref: main
 
+      - name: Remove internal implementation names from user-facing prompts
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('worker/index.js')
+          s = p.read_text()
+          s = s.replace(
+            'Aggregate portfolio/state/programme/component/contractor/consultant summaries and componentStateProgramme cross-tabs cover the full live dataset even when the project list is sampled.',
+            'Authoritative aggregate summaries and multidimensional production analytics cover the full live dataset even when the project list is sampled.'
+          )
+          s = s.replace(
+            'For questions that combine component with state and/or programme, use componentStateProgramme rather than the sampled project list.',
+            'For questions that combine multiple dimensions such as component, state, and programme, use the authoritative full-database aggregate results rather than the sampled project list.'
+          )
+          s = s.replace(
+            'Source: live Veritas D1 componentStateProgramme aggregate. No sampled project list was used.',
+            'Source: live Veritas production database. No sampled project list was used.'
+          )
+          s = s.replace(
+            'based on the authoritative `componentStateProgramme` aggregates in the live Veritas database',
+            'based on authoritative live Veritas production data'
+          )
+          p.write_text(s)
+          PY
+
+      - name: Validate worker
+        run: node --check worker/index.js
+
+      - name: Commit wording cleanup
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add worker/index.js
+          if git diff --cached --quiet; then
+            echo 'No wording changes to commit'
+          else
+            git commit -m 'Hide internal analytics names from Veritas responses'
+            git push origin main
+          fi
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
-      - name: Apply analytics wiring
-        run: node scripts/patch-safe-analytics.mjs
-
-      - name: Validate worker files
-        run: |
-          node --check worker/analytics.js
-          node --check worker/index.js
-
-      - name: Commit analytics wiring
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add worker/index.js worker/analytics.js
-          if git diff --cached --quiet; then
-            echo 'No analytics wiring changes to commit'
-          else
-            git commit -m 'Wire safe dynamic D1 analytics into Veritas'
-            git push origin main
-          fi
 
       - name: Install dependencies
         run: npm ci
