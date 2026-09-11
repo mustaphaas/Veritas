@@ -129,4 +129,14 @@ describe("REA dashboard filter-driven map data", () => {
     expect(indexSource).not.toContain("const sampleRows = [");
     expect(indexSource).not.toContain("return [...sampleRows, ...portfolioRows]");
   });
+
+  it("loads Recent Activity from the authenticated D1 audit feed instead of static UI entries", () => {
+    const indexSource = fs.readFileSync("client/pages/Index.tsx", "utf8");
+    const workerSource = fs.readFileSync("worker/index.js", "utf8");
+
+    expect(indexSource).toContain("fetchReaRecentActivity");
+    expect(indexSource).toContain("recentActivity");
+    expect(workerSource).toContain("/api/rea/recent-activity");
+    expect(workerSource).toContain("audit_events");
+  });
 });
