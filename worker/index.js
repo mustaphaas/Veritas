@@ -1,7 +1,7 @@
 import { handleFieldApi } from "./field-api.js";
 import { analyticsCatalog, analyticsAnswerPrompt, executeAnalyticsPlan, parsePlannerJson, plannerPrompt, validateAnalyticsPlan } from "./analytics.js";
 
-const BUILD_ID = "veritas-2026-09-11-report-mode-r1";
+const BUILD_ID = "veritas-2026-09-11-public-rea-team-r4";
 const encoder = new TextEncoder();
 
 const json = (body, status = 200) =>
@@ -283,6 +283,10 @@ OPENING VOICE STANDARD:
 
 The CURRENT VERITAS CONTEXT below is generated directly from the live Cloudflare D1 production database for this request and is authoritative for internal Veritas questions. Never substitute browser state or invent an internal figure. Authoritative aggregate summaries and multidimensional production analytics cover the full live dataset even when the project list is sampled. For counts, totals, percentages, rankings, and comparisons, use the exact full-database aggregates whenever available. For questions that combine multiple dimensions such as component, state, and programme, use the authoritative full-database aggregate results rather than the sampled project list. Never estimate or extrapolate a portfolio-wide figure from the sampled project list. If an exact aggregate is unavailable, say so rather than estimating from the sample.
 
+PUBLIC REA KNOWLEDGE ROUTING:
+- Questions about current REA leadership are public REA knowledge questions, not Veritas database questions.
+- Use the official REA team snapshot before general model knowledge.
+- Never substitute an older officeholder when the authoritative snapshot contains the requested role.
 For general questions that do not require private Veritas data, answer from your general knowledge. Never expose passwords, password hashes, salts, session tokens, personal phone numbers, email addresses, signatures, device IDs, or precise private evidence coordinates.
 
 The workflow is authoritative: Field Officer submits -> Consultant Admin approves or requests re-inspection -> REA approves and verifies or rejects for re-inspection. A report is final only when its assignment status is Verified.
@@ -421,11 +425,63 @@ function isReportRequest(question) {
   return /\b(generate|create|prepare|produce|write|draft|compile|build)\b[\s\S]{0,80}\b(report|brief|briefing|management report|monthly report|performance report|verification report)\b|\b(report|brief|briefing)\b[\s\S]{0,80}\b(generate|create|prepare|produce|write|draft|compile|build)\b/i.test(String(question || ""));
 }
 
+function isPublicReaQuestion(question) {
+  const q = String(question || "").trim();
+  return /\b(?:who is|who.?s|current|name of|what is|tell me about|when was|where is|leadership|management|managing director|md\/?ceo|ceo|chairman|minister|programmes?|programs?|policy|policies|mandate|history|announcement|news|official)\b/i.test(q) && /\b(?:rea|rural electrification agency|managing director|md\/?ceo)\b/i.test(q);
+}
+
+function deterministicReaTeamAnswer(question) {
+  const q = String(question || "").toLowerCase();
+  if (/\b(?:md|md\/?ceo|managing director|chief executive officer|ceo)\b/.test(q) && /\b(?:rea|rural electrification agency)\b/.test(q)) {
+    return "Abba Abubakar Aliyu is the Managing Director/Chief Executive Officer (MD/CEO) of the Rural Electrification Agency (REA).";
+  }
+  if (/technical services/.test(q)) return "Engr. Umar Abdullahi Umar, FNSE, is the Executive Director, Technical Services, of the Rural Electrification Agency (REA).";
+  if (/rural electrification fund|\bref\b/.test(q)) return "Engr. Doris Uboh is the Executive Director, Rural Electrification Fund (REF), of the Rural Electrification Agency (REA).";
+  if (/corporate services/.test(q)) return "Ayoade Abdulrazak Adegboyega is the Executive Director, Corporate Services, of the Rural Electrification Agency (REA).";
+  return "";
+}
+
+function publicReaKnowledgePrompt(question) {
+  return [
+    "You are Veritas, the Rural Electrification Agency internal intelligence assistant. Answer the user public REA information question using current, authoritative information.",
+    "",
+    "REA TEAM AUTHORITATIVE SNAPSHOT - OFFICIAL REA SOURCE:\n- Primary source: https://rea.gov.ng/meet-the-team.html\n- Managing Director/Chief Executive Officer (MD/CEO): Abba Abubakar Aliyu.\n- Executive Director, Technical Services: Engr. Umar Abdullahi Umar, FNSE.\n- Executive Director, Rural Electrification Fund (REF): Engr. Doris Uboh.\n- Executive Director, Corporate Services: Ayoade Abdulrazak Adegboyega.\n- For questions about these roles or people, this official REA team snapshot overrides model memory and older officeholder information.\n- Never answer that Danjuma Maigida is the current REA MD/CEO.\n- If the user asks for another current REA team member not listed in this snapshot, verify against the official REA Meet the Team page before answering.\n",
+    "PUBLIC REA SOURCE RULES:",
+    "- Use Google Search grounding to verify current facts when needed.",
+    "- Treat only official Rural Electrification Agency domains ending in rea.gov.ng as authoritative for REA leadership, programmes, mandate, policies, announcements and organisational facts.",
+    "- If the authoritative team snapshot directly answers the question, use it and do not replace it with model memory.",
+    "- If official REA sources do not confirm the fact, say that you could not verify it from an official REA source rather than guessing.",
+    "",
+    "USER QUESTION:",
+    String(question || ""),
+  ].join("\n");
+}
+
 function responseTokenBudget(question) {
   if (isReportRequest(question)) return 4500;
   return isManagementAnalysisQuestion(question) ? 2500 : 1600;
 }
 
+async function publicReaKnowledgeResponse(question, env) {
+  const deterministic = deterministicReaTeamAnswer(question);
+  if (deterministic) return deterministic;
+  if (!env.GEMINI_API_KEY) return "";
+  const model = env.GEMINI_MODEL || "gemini-3.8-flash";
+  const prompt = publicReaKnowledgePrompt(question);
+  try {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
+      body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], tools: [{ google_search: {} }], generationConfig: { maxOutputTokens: 1200 } }),
+      signal: AbortSignal.timeout(20000),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) return "";
+    return extractVeritasFinal(extractGeminiText(payload));
+  } catch {
+    return "";
+  }
+}
 async function analyticsPlannerResponse(question, env) {
   const prompt = plannerPrompt(question, analyticsCatalog());
 
@@ -507,6 +563,12 @@ async function veritasResponse(request, env) {
     return json({ error: "Veritas AI service is currently unavailable.", build: BUILD_ID }, 503);
   }
 
+  if (isPublicReaQuestion(question)) {
+    const publicAnswer = await publicReaKnowledgeResponse(question, env);
+    if (publicAnswer) {
+      return json({ answer: publicAnswer, sources: [], mode: "veritas-public-rea", build: BUILD_ID });
+    }
+  }
   let analyticsResult = null;
   if (isLikelyAnalyticsQuestion(question) && !isReportRequest(question)) {
     const plannerText = await analyticsPlannerResponse(question, env);
