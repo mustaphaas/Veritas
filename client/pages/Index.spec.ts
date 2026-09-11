@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import fs from "node:fs";
 import {
   defaultFilters,
   matchingProjects,
@@ -121,5 +122,11 @@ describe("REA dashboard filter-driven map data", () => {
     expect(kano?.byComponent).toEqual([
       { name: "Mini Grid", value: filtered.length },
     ]);
+  });
+
+  it("does not inject hard-coded programme performance rows outside the D1 portfolio", () => {
+    const indexSource = fs.readFileSync("client/pages/Index.tsx", "utf8");
+    expect(indexSource).not.toContain("const sampleRows = [");
+    expect(indexSource).not.toContain("return [...sampleRows, ...portfolioRows]");
   });
 });
