@@ -10,6 +10,7 @@ on:
       - 'scripts/patch-veritas-request-response.mjs'
       - 'scripts/patch-veritas-no-invented-thresholds.mjs'
       - 'scripts/patch-veritas-evidence-claims.mjs'
+      - 'scripts/patch-veritas-management-analytics.mjs'
 
 permissions:
   contents: write
@@ -41,6 +42,9 @@ jobs:
       - name: Apply evidence and causality guardrails
         run: node scripts/patch-veritas-evidence-claims.mjs
 
+      - name: Apply management analytics routing
+        run: node scripts/patch-veritas-management-analytics.mjs
+
       - name: Validate worker and client syntax
         run: |
           node --check worker/index.js
@@ -50,11 +54,11 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add worker/index.js client/components/VeritasAssistant.tsx
+          git add worker/index.js worker/analytics.js client/components/VeritasAssistant.tsx
           if git diff --cached --quiet; then
             echo 'No runtime changes to commit'
           else
-            git commit -m 'Harden Veritas evidence-backed recommendations'
+            git commit -m 'Add reasoned management analytics responses'
             git push origin main
           fi
 
