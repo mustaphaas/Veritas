@@ -1,4 +1,4 @@
-name: Add OpenRouter Gemini routing to Veritas
+name: Harden Veritas OpenRouter failover
 
 on:
   push:
@@ -19,43 +19,42 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
-      - name: Prefer OpenRouter Gemini with direct Gemini fallback
+      - name: Add OpenRouter timeout and direct Gemini failover
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
+
           p = Path('worker/index.js')
           s = p.read_text()
-
           s = s.replace(
-              'const BUILD_ID = "veritas-2026-09-11-component-crosstab-r1";',
-              'const BUILD_ID = "veritas-2026-09-11-openrouter-gemini-r1";'
+              'const BUILD_ID = "veritas-2026-09-11-openrouter-gemini-r1";',
+              'const BUILD_ID = "veritas-2026-09-11-openrouter-resilience-r1";'
           )
 
-          gemini_extractor = '''function extractGeminiText(payload) {\n  const parts = [];\n  for (const candidate of payload?.candidates || []) {\n    for (const part of candidate?.content?.parts || []) {\n      if (typeof part?.text === "string" && part.text.trim()) parts.push(part.text.trim());\n    }\n  }\n  return parts.join("\\n\\n").trim();\n}\n'''
+          start = s.index('  let upstream;\n  let payload;\n  let provider;\n  let model;\n')
+          end_marker = '  const answer = provider === "openrouter" ? extractOpenRouterText(payload) : extractGeminiText(payload);\n'
+          end = s.index(end_marker, start) + len(end_marker)
 
-          openrouter_extractor = gemini_extractor + '''\nfunction extractOpenRouterText(payload) {\n  const content = payload?.choices?.[0]?.message?.content;\n  if (typeof content === "string") return content.trim();\n  if (Array.isArray(content)) {\n    return content\n      .map((part) => (typeof part?.text === "string" ? part.text.trim() : ""))\n      .filter(Boolean)\n      .join("\\n\\n")\n      .trim();\n  }\n  return "";\n}\n'''
-
-          if 'function extractOpenRouterText(payload)' not in s:
-              if gemini_extractor not in s:
-                  raise SystemExit('Gemini extractor marker not found')
-              s = s.replace(gemini_extractor, openrouter_extractor, 1)
-
-          old_block = '''  if (!env.GEMINI_API_KEY) {\n    console.error(JSON.stringify({ event: "veritas_provider_unconfigured", provider: "gemini", build: BUILD_ID }));\n    return json({ error: "Veritas AI service is currently unavailable.", build: BUILD_ID }, 503);\n  }\n\n  const databaseContext = await liveDatabaseContext(env);\n  const model = env.GEMINI_MODEL || "gemini-3.6-flash";\n  const upstream = await fetch(\n    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,\n    {\n      method: "POST",\n      headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },\n      body: JSON.stringify({\n        contents: [{ role: "user", parts: [{ text: buildInput(body.messages, databaseContext) }] }],\n        generationConfig: { maxOutputTokens: 3000, temperature: 0.45 },\n      }),\n    },\n  );\n\n  const payload = await upstream.json().catch(() => ({}));\n  if (!upstream.ok) {\n    console.error(JSON.stringify({\n      event: "veritas_provider_error",\n      provider: "gemini",\n      status: upstream.status,\n      model,\n      upstreamMessage: String(payload?.error?.message || ""),\n      build: BUILD_ID,\n    }));\n    return json({ error: publicVeritasError(upstream.status), build: BUILD_ID }, upstream.status === 429 ? 429 : 503);\n  }\n\n  const answer = extractGeminiText(payload);\n'''
-
-          new_block = '''  if (!env.OPENROUTER_API_KEY && !env.GEMINI_API_KEY) {\n    console.error(JSON.stringify({ event: "veritas_provider_unconfigured", provider: "veritas-ai", build: BUILD_ID }));\n    return json({ error: "Veritas AI service is currently unavailable.", build: BUILD_ID }, 503);\n  }\n\n  const databaseContext = await liveDatabaseContext(env);\n  const prompt = buildInput(body.messages, databaseContext);\n  let upstream;\n  let payload;\n  let provider;\n  let model;\n\n  if (env.OPENROUTER_API_KEY) {\n    provider = "openrouter";\n    model = env.OPENROUTER_MODEL || "google/gemini-3.8-flash";\n    upstream = await fetch("https://openrouter.ai/api/v1/chat/completions", {\n      method: "POST",\n      headers: {\n        "Authorization": `Bearer ${env.OPENROUTER_API_KEY}`,\n        "Content-Type": "application/json",\n        "HTTP-Referer": "https://veritas.mustaphaaliyu236.workers.dev",\n        "X-Title": "Veritas",\n      },\n      body: JSON.stringify({\n        model,\n        messages: [{ role: "user", content: prompt }],\n        max_tokens: 3000,\n        temperature: 0.3,\n        provider: { allow_fallbacks: true, sort: "throughput" },\n      }),\n    });\n    payload = await upstream.json().catch(() => ({}));\n  } else {\n    provider = "gemini";\n    model = env.GEMINI_MODEL || "gemini-3.6-flash";\n    upstream = await fetch(\n      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,\n      {\n        method: "POST",\n        headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },\n        body: JSON.stringify({\n          contents: [{ role: "user", parts: [{ text: prompt }] }],\n          generationConfig: { maxOutputTokens: 3000, temperature: 0.45 },\n        }),\n      },\n    );\n    payload = await upstream.json().catch(() => ({}));\n  }\n\n  if (!upstream.ok) {\n    console.error(JSON.stringify({\n      event: "veritas_provider_error",\n      provider,\n      status: upstream.status,\n      model,\n      upstreamMessage: String(payload?.error?.message || payload?.error || ""),\n      build: BUILD_ID,\n    }));\n    return json({ error: publicVeritasError(upstream.status), build: BUILD_ID }, upstream.status === 429 ? 429 : 503);\n  }\n\n  const answer = provider === "openrouter" ? extractOpenRouterText(payload) : extractGeminiText(payload);\n'''
-
-          if old_block not in s:
-              raise SystemExit('Provider block marker not found')
-          s = s.replace(old_block, new_block, 1)
-
+          replacement = '''  let upstream;\n  let payload = {};\n  let provider = "gemini";\n  let model = env.GEMINI_MODEL || "gemini-3.6-flash";\n  let answer = "";\n\n  if (env.OPENROUTER_API_KEY) {\n    provider = "openrouter";\n    model = env.OPENROUTER_MODEL || "google/gemini-3.8-flash";\n    try {\n      upstream = await fetch("https://openrouter.ai/api/v1/chat/completions", {\n        method: "POST",\n        headers: {\n          "Authorization": `Bearer ${env.OPENROUTER_API_KEY}`,\n          "Content-Type": "application/json",\n          "HTTP-Referer": "https://veritas.mustaphaaliyu236.workers.dev",\n          "X-Title": "Veritas",\n        },\n        body: JSON.stringify({\n          model,\n          messages: [{ role: "user", content: prompt }],\n          max_tokens: 3000,\n          temperature: 0.3,\n          provider: { allow_fallbacks: true, sort: "throughput" },\n        }),\n        signal: AbortSignal.timeout(25000),\n      });\n      payload = await upstream.json().catch(() => ({}));\n      if (upstream.ok) answer = extractOpenRouterText(payload);\n    } catch (error) {\n      console.error(JSON.stringify({\n        event: "veritas_openrouter_timeout_or_network_error",\n        message: error instanceof Error ? error.message : "Unknown error",\n        build: BUILD_ID,\n      }));\n    }\n\n    if (!upstream?.ok || !answer) {\n      console.error(JSON.stringify({\n        event: "veritas_openrouter_fallback",\n        status: upstream?.status || 0,\n        model,\n        upstreamMessage: String(payload?.error?.message || payload?.error || ""),\n        build: BUILD_ID,\n      }));\n    }\n  }\n\n  if (!answer && env.GEMINI_API_KEY) {\n    provider = "gemini";\n    model = env.GEMINI_MODEL || "gemini-3.6-flash";\n    try {\n      upstream = await fetch(\n        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,\n        {\n          method: "POST",\n          headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },\n          body: JSON.stringify({\n            contents: [{ role: "user", parts: [{ text: prompt }] }],\n            generationConfig: { maxOutputTokens: 3000, temperature: 0.45 },\n          }),\n          signal: AbortSignal.timeout(30000),\n        },\n      );\n      payload = await upstream.json().catch(() => ({}));\n      if (upstream.ok) answer = extractGeminiText(payload);\n    } catch (error) {\n      console.error(JSON.stringify({\n        event: "veritas_direct_gemini_timeout_or_network_error",\n        message: error instanceof Error ? error.message : "Unknown error",\n        build: BUILD_ID,\n      }));\n    }\n  }\n\n  if (!answer) {\n    console.error(JSON.stringify({\n      event: "veritas_all_ai_routes_failed",\n      provider,\n      status: upstream?.status || 0,\n      model,\n      upstreamMessage: String(payload?.error?.message || payload?.error || ""),\n      build: BUILD_ID,\n    }));\n    return json({ error: publicVeritasError(upstream?.status || 503), build: BUILD_ID }, upstream?.status === 429 ? 429 : 503);\n  }\n'''
+          s = s[:start] + replacement + s[end:]
           p.write_text(s)
+
+          c = Path('client/components/VeritasAssistant.tsx')
+          cs = c.read_text()
+          old = '      const response = await fetch("/api/veritas", {\n        method: "POST",'
+          new = '      const response = await fetch("/api/veritas", {\n        method: "POST",\n        signal: AbortSignal.timeout(60000),'
+          if old not in cs:
+              raise SystemExit('Client fetch marker not found')
+          cs = cs.replace(old, new, 1)
+          c.write_text(cs)
           PY
-      - name: Commit OpenRouter routing
+      - name: Commit resilience fix
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add worker/index.js
-          git commit -m 'Route Veritas through OpenRouter Gemini with fallback'
+          git add worker/index.js client/components/VeritasAssistant.tsx
+          git commit -m 'Add resilient OpenRouter fallback and request timeouts'
           git push origin main
       - uses: actions/setup-node@v4
         with:
