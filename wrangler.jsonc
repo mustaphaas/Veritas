@@ -8,7 +8,8 @@
     "command": "npm run build:client"
   },
   "vars": {
-    "GEMINI_MODEL": "gemini-3.6-flash"
+    "GEMINI_MODEL": "gemini-3.7-flash",
+    "GEMINI_MODEL_FALLBACKS": "gemini-3.6-flash,gemini-3.5-flash"
   },
   "secrets": {
     "required": ["GEMINI_API_KEY"]

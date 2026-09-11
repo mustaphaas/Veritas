@@ -465,25 +465,80 @@ function responseTokenBudget(question) {
   return isManagementAnalysisQuestion(question) ? 2500 : 1600;
 }
 
+function geminiModelsToTry(env) {
+  const primary = env.GEMINI_MODEL || "gemini-3.8-flash";
+  const fallbacks = String(env.GEMINI_MODEL_FALLBACKS || "")
+    .split(",")
+    .map((m) => m.trim())
+    .filter((m) => m && m !== primary);
+  return [primary, ...fallbacks];
+}
+
+// Calls Gemini's generateContent, rotating through GEMINI_MODEL and
+// GEMINI_MODEL_FALLBACKS in order. Only moves to the next model on 429
+// (quota exhausted) or 404 (model unavailable to this key) - any other
+// failure (bad request, network error) is returned immediately rather than
+// masked by silently retrying against a different model.
+async function callGeminiWithFallback(env, requestBody, { timeoutMs = 20000 } = {}) {
+  const models = geminiModelsToTry(env);
+  let lastStatus = 0;
+  let lastMessage = "Veritas AI service is currently unavailable.";
+
+  for (const model of models) {
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
+          body: JSON.stringify(requestBody),
+          signal: AbortSignal.timeout(timeoutMs),
+        },
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (response.ok) {
+        return { ok: true, model, payload };
+      }
+      lastStatus = response.status;
+      lastMessage = String(payload?.error?.message || payload?.error || "Unknown upstream error");
+      console.error(JSON.stringify({
+        event: "veritas_gemini_model_failure",
+        model,
+        status: response.status,
+        message: lastMessage,
+        build: BUILD_ID,
+      }));
+      if (response.status !== 429 && response.status !== 404) {
+        return { ok: false, model, status: response.status, message: lastMessage };
+      }
+      // 429/404: fall through and try the next model in the list.
+    } catch (error) {
+      lastStatus = 0;
+      lastMessage = error instanceof Error ? error.message : "Network or timeout error";
+      console.error(JSON.stringify({
+        event: "veritas_gemini_model_network_error",
+        model,
+        message: lastMessage,
+        build: BUILD_ID,
+      }));
+    }
+  }
+
+  return { ok: false, model: models[models.length - 1], status: lastStatus, message: lastMessage };
+}
+
 async function publicReaKnowledgeResponse(question, env) {
   const deterministic = deterministicReaTeamAnswer(question);
   if (deterministic) return deterministic;
   if (!env.GEMINI_API_KEY) return "";
-  const model = env.GEMINI_MODEL || "gemini-3.8-flash";
   const prompt = publicReaKnowledgePrompt(question);
-  try {
-    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
-      body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], tools: [{ google_search: {} }], generationConfig: { maxOutputTokens: 1200 } }),
-      signal: AbortSignal.timeout(20000),
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) return "";
-    return extractVeritasFinal(extractGeminiText(payload));
-  } catch {
-    return "";
-  }
+  const result = await callGeminiWithFallback(env, {
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    tools: [{ google_search: {} }],
+    generationConfig: { maxOutputTokens: 1200 },
+  });
+  if (!result.ok) return "";
+  return extractVeritasFinal(extractGeminiText(result.payload));
 }
 async function analyticsPlannerResponse(question, env) {
   const prompt = plannerPrompt(question, analyticsCatalog());
@@ -519,25 +574,11 @@ async function analyticsPlannerResponse(question, env) {
   }
 
   if (env.GEMINI_API_KEY) {
-    try {
-      const model = env.GEMINI_MODEL || "gemini-3.8-flash";
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
-          body: JSON.stringify({
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: { maxOutputTokens: 700 },
-          }),
-          signal: AbortSignal.timeout(12000),
-        },
-      );
-      const payload = await response.json().catch(() => ({}));
-      if (response.ok) return extractGeminiText(payload);
-    } catch (error) {
-      console.error(JSON.stringify({ event: "veritas_analytics_planner_gemini_failure", message: error instanceof Error ? error.message : "Unknown error", build: BUILD_ID }));
-    }
+    const result = await callGeminiWithFallback(env, {
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: 700 },
+    }, { timeoutMs: 12000 });
+    if (result.ok) return extractGeminiText(result.payload);
   }
 
   return "";
@@ -679,50 +720,26 @@ async function veritasResponse(request, env) {
     }
   }
 
+  let geminiStatus = 0;
   if (!answer && env.GEMINI_API_KEY) {
     provider = "gemini";
-    model = env.GEMINI_MODEL || "gemini-3.8-flash";
-    try {
-      upstream = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
-          body: JSON.stringify({
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: { maxOutputTokens: outputTokenBudget },
-          }),
-          signal: AbortSignal.timeout(30000),
-        },
-      );
-      payload = await upstream.json().catch(() => ({}));
-      if (upstream.ok) {
-        answer = extractVeritasFinal(extractGeminiText(payload));
-        if (!answer) {
-          console.error(JSON.stringify({
-            event: "veritas_direct_gemini_empty_answer",
-            status: upstream.status,
-            finishReason: payload?.candidates?.[0]?.finishReason || null,
-            blockReason: payload?.promptFeedback?.blockReason || null,
-            model,
-            build: BUILD_ID,
-          }));
-        }
-      } else {
+    const result = await callGeminiWithFallback(env, {
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { maxOutputTokens: outputTokenBudget },
+    }, { timeoutMs: 30000 });
+    model = result.model;
+    geminiStatus = result.ok ? 200 : result.status;
+    if (result.ok) {
+      answer = extractVeritasFinal(extractGeminiText(result.payload));
+      if (!answer) {
         console.error(JSON.stringify({
-          event: "veritas_direct_gemini_http_failure",
-          status: upstream.status,
+          event: "veritas_direct_gemini_empty_answer",
+          finishReason: result.payload?.candidates?.[0]?.finishReason || null,
+          blockReason: result.payload?.promptFeedback?.blockReason || null,
           model,
-          upstreamMessage: String(payload?.error?.message || payload?.error || ""),
           build: BUILD_ID,
         }));
       }
-    } catch (error) {
-      console.error(JSON.stringify({
-        event: "veritas_direct_gemini_timeout_or_network_error",
-        message: error instanceof Error ? error.message : "Unknown error",
-        build: BUILD_ID,
-      }));
     }
   }
 
@@ -731,23 +748,24 @@ async function veritasResponse(request, env) {
   }
 
   if (!answer) {
+    const failureStatus = geminiStatus || upstream?.status || 0;
     console.error(JSON.stringify({
       event: "veritas_all_ai_routes_failed",
       provider,
-      status: upstream?.status || 0,
+      status: failureStatus,
       model,
       upstreamMessage: String(payload?.error?.message || payload?.error || ""),
       build: BUILD_ID,
     }));
     return json({
-      error: publicVeritasError(upstream?.status || 503),
+      error: publicVeritasError(failureStatus || 503),
       code: "VERITAS_AI_PROVIDERS_FAILED",
       attemptedProviders: {
         openrouter: Boolean(env.OPENROUTER_API_KEY),
         gemini: Boolean(env.GEMINI_API_KEY),
       },
       build: BUILD_ID,
-    }, upstream?.status === 429 ? 429 : 503);
+    }, failureStatus === 429 ? 429 : 503);
   }
   if (!answer) {
     console.error(JSON.stringify({ event: "veritas_empty_provider_response", provider: "gemini", model, build: BUILD_ID }));
@@ -757,9 +775,116 @@ async function veritasResponse(request, env) {
   return json({ answer, sources: [], mode: analyticsResult ? "veritas-safe-analytics" : "veritas-live-d1", build: BUILD_ID });
 }
 
+async function pingGemini(env) {
+  if (!env.GEMINI_API_KEY) return { configured: false };
+  // Checks each configured model individually (rather than just the first
+  // that succeeds) so the health check surfaces exactly which models are
+  // rate-limited or unavailable today, not just whether Veritas overall works.
+  const models = geminiModelsToTry(env);
+  const perModel = [];
+  for (const model of models) {
+    try {
+      const upstream = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: "ping" }] }],
+            generationConfig: { maxOutputTokens: 8 },
+          }),
+          signal: AbortSignal.timeout(8000),
+        },
+      );
+      const payload = await upstream.json().catch(() => ({}));
+      perModel.push({
+        model,
+        ok: upstream.ok,
+        status: upstream.status,
+        message: upstream.ok ? "" : String(payload?.error?.message || payload?.error || "Unknown upstream error"),
+      });
+    } catch (error) {
+      perModel.push({
+        model,
+        ok: false,
+        status: 0,
+        message: error instanceof Error ? error.message : "Network or timeout error",
+      });
+    }
+  }
+  return { configured: true, models: perModel, ok: perModel.some((m) => m.ok) };
+}
+
+async function pingOpenRouter(env) {
+  if (!env.OPENROUTER_API_KEY) return { configured: false };
+  const model = env.OPENROUTER_MODEL || "google/gemini-3.8-flash";
+  try {
+    const upstream = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${env.OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: "ping" }],
+        max_tokens: 8,
+      }),
+      signal: AbortSignal.timeout(8000),
+    });
+    const payload = await upstream.json().catch(() => ({}));
+    return {
+      configured: true,
+      model,
+      ok: upstream.ok,
+      status: upstream.status,
+      message: upstream.ok ? "" : String(payload?.error?.message || payload?.error || "Unknown upstream error"),
+    };
+  } catch (error) {
+    return {
+      configured: true,
+      model,
+      ok: false,
+      status: 0,
+      message: error instanceof Error ? error.message : "Network or timeout error",
+    };
+  }
+}
+
+async function veritasHealthResponse(request, env, url) {
+  const wantsLive = url.searchParams.get("live") === "1";
+
+  if (!wantsLive) {
+    return json({
+      build: BUILD_ID,
+      openrouter: { configured: Boolean(env.OPENROUTER_API_KEY) },
+      gemini: { configured: Boolean(env.GEMINI_API_KEY) },
+      note: "Add ?live=1 with a valid session Authorization header to run a live upstream check.",
+    });
+  }
+
+  const user = await authenticatedDatabaseUser(request, env);
+  if (!user) {
+    return json({ error: "A valid session is required for a live health check." }, 401);
+  }
+
+  const [openrouter, gemini] = await Promise.all([pingOpenRouter(env), pingGemini(env)]);
+  return json({ build: BUILD_ID, openrouter, gemini });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    if (url.pathname === "/api/veritas/health") {
+      if (request.method !== "GET") return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
+      try {
+        return await veritasHealthResponse(request, env, url);
+      } catch (error) {
+        console.error(JSON.stringify({ event: "veritas_health_failure", message: error instanceof Error ? error.message : "Unknown error", build: BUILD_ID }));
+        return json({ error: "Unable to run the Veritas health check." }, 503);
+      }
+    }
 
     if (url.pathname === "/api/consultant/field-officers") {
       if (request.method !== "GET") return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
