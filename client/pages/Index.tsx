@@ -57,6 +57,7 @@ import {
 } from "../lib/dashboard-data";
 import { useAuth } from "../lib/auth";
 import { fetchReaMapProjects, reaRecordToDashboardProject } from "../lib/rea-project-map-data";
+import { fetchReaRecentActivity, type ReaRecentActivity } from "../lib/rea-recent-activity";
 import ReaAnalyticsDashboard from "../components/ReaAnalyticsDashboard";
 import ReaUserManagement from "../components/ReaUserManagement";
 import ReaAuditTrail from "../components/ReaAuditTrail";
@@ -316,6 +317,8 @@ export default function Index() {
   const [showAllProjects, setShowAllProjects] = useState(false);
   const [portfolioProjects, setPortfolioProjects] = useState<Project[]>([]);
   const [portfolioLoadError, setPortfolioLoadError] = useState("");
+  const [recentActivity, setRecentActivity] = useState<ReaRecentActivity[]>([]);
+  const [recentActivityError, setRecentActivityError] = useState("");
   useEffect(() => {
     if (!session?.apiToken) return;
     let cancelled = false;
@@ -335,6 +338,37 @@ export default function Index() {
   const [mapFocus, setMapFocus] = useState<MapPoint>({ x: 325, y: 150 });
   const [mapTooltip, setMapTooltip] = useState<{ state: string; x: number; y: number } | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!session?.apiToken) {
+      setRecentActivity([]);
+      return;
+    }
+
+    let cancelled = false;
+    setRecentActivityError("");
+
+    const loadRecentActivity = () => {
+      fetchReaRecentActivity(session.apiToken)
+        .then((activities) => {
+          if (!cancelled) setRecentActivity(activities);
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setRecentActivity([]);
+            setRecentActivityError("Unable to load recent activity.");
+          }
+        });
+    };
+
+    loadRecentActivity();
+    const timer = window.setInterval(loadRecentActivity, 60000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [session?.apiToken]);
+
   const visibleProjects = useMemo(() => matchingProjects(filters, undefined, portfolioProjects), [filters, portfolioProjects]);
   const displayedProjects = showAllProjects ? visibleProjects : visibleProjects.slice(0, 20);
   useEffect(() => setShowAllProjects(false), [filters]);
@@ -345,12 +379,8 @@ export default function Index() {
     const verified = matching.filter((project) => project.verified).length;
     return { programme, fullName: programme, projects: matching.length, capacity: matching.reduce((total, project) => total + project.kw, 0) / 1000, households: matching.reduce((total, project) => total + project.households, 0), verified: matching.length ? Math.round((verified / matching.length) * 100) : 0 };
     });
-    const sampleRows = [
-      { programme: "EEP", fullName: "Energizing Education Programme", projects: 26, capacity: 14.8, households: 18400, verified: 76 },
-      { programme: "NPSSI", fullName: "National Public Sector Solarization Initiative", projects: 19, capacity: 11.3, households: 12650, verified: 68 },
-    ];
     const order = ["EEP", "NPSSI", "NEP", "DARES", "AMP"];
-    return [...sampleRows, ...portfolioRows].sort((left, right) => {
+    return portfolioRows.sort((left, right) => {
       const leftIndex = order.indexOf(left.programme);
       const rightIndex = order.indexOf(right.programme);
       return (leftIndex < 0 ? order.length : leftIndex) - (rightIndex < 0 ? order.length : rightIndex);
@@ -525,15 +555,100 @@ export default function Index() {
           <section className="mt-4 grid gap-4 lg:grid-cols-2">
             <article className="flex min-h-[330px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
               <div className="flex items-start justify-between border-b border-slate-100 bg-gradient-to-r from-[#eef9f3] via-white to-[#f2f7ff] px-5 py-4"><div className="flex items-start gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#18a15b] to-[#08733f] text-white shadow-[0_9px_20px_rgba(8,115,63,.22)]"><Activity className="h-5 w-5" /></div><div><h2 className="text-sm font-bold text-[#173b2a]">Recent Activity</h2><p className="mt-1 text-xs text-slate-500">Live programme and inspection updates</p></div></div><button className="group flex items-center gap-1.5 rounded-full border border-[#cce6d5] bg-white px-3 py-1.5 text-[10px] font-bold text-[#08733f] shadow-sm transition-all hover:border-[#87c99e] hover:shadow"><span>View all</span><ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" /></button></div>
-              <div className="flex-1 px-4 py-2">{visibleProjects.slice(0, 4).map((project, index) => <div key={project.name} className="group relative flex items-center gap-3 rounded-xl px-2 py-3 transition-colors hover:bg-slate-50/80"><div className="relative flex shrink-0 flex-col items-center"><div className={`flex h-11 w-11 items-center justify-center rounded-2xl border border-white shadow-sm transition-all duration-300 group-hover:-translate-y-0.5 group-hover:shadow-md ${project.verified ? "bg-gradient-to-br from-[#e3f8eb] to-[#f5fcf7] text-[#08733f]" : project.status === "Pending" ? "bg-gradient-to-br from-[#fff0c9] to-[#fffaf0] text-[#c27a00]" : "bg-gradient-to-br from-[#dfeeff] to-[#f5f9ff] text-[#3772ad]"}`}>{project.verified ? <CheckCircle2 className="h-5 w-5" /> : project.status === "Pending" ? <ScanSearch className="h-5 w-5" /> : <CloudUpload className="h-5 w-5" />}</div>{index < 3 && <span className="absolute top-11 h-3 w-px bg-slate-200" />}</div><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><p className="truncate text-xs font-bold text-[#173b2a]">{project.name}</p><span className={`h-1.5 w-1.5 shrink-0 rounded-full ${project.verified ? "bg-[#18a15b]" : project.status === "Pending" ? "bg-[#e6ad21]" : "bg-[#377fd2]"}`} /></div><p className="mt-1 text-[11px] text-slate-500">{project.verified ? "Inspection verified successfully" : project.status === "Pending" ? "Report awaiting technical review" : "Inspection evidence uploaded"}</p></div><span className="shrink-0 rounded-full border border-slate-100 bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-500 shadow-sm">{index === 0 ? "Just now" : `${index + 1}d ago`}</span></div>)}</div>
-            </article>
-            <article className="flex min-h-[330px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-              <div className="flex items-start gap-3 border-b border-slate-100 bg-gradient-to-r from-[#eef5ff] via-white to-[#faf5ff] px-5 py-4"><div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#568dcc] to-[#285f96] text-white shadow-[0_9px_20px_rgba(55,114,173,.22)]"><PanelsTopLeft className="h-5 w-5" /></div><div><h2 className="text-sm font-bold text-[#173b2a]">Quick Actions</h2><p className="mt-1 text-xs text-slate-500">Start a common dashboard workflow</p></div></div>
-              <div className="grid flex-1 grid-cols-2 gap-3 p-4">
-                <button onClick={() => setActiveNav("Projects")} className="group flex min-h-[112px] flex-col items-start justify-between rounded-2xl border border-[#cce8d5] bg-gradient-to-br from-[#eaf9ef] to-white p-4 text-left transition-all duration-300 hover:-translate-y-1 hover:border-[#86c99d] hover:shadow-lg"><span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#08733f] text-white shadow-[0_7px_16px_rgba(8,115,63,.20)] transition-transform group-hover:rotate-3"><Plus className="h-5 w-5" /></span><span className="flex w-full items-end justify-between gap-2"><span><strong className="block text-xs text-[#173b2a]">Add Project</strong><small className="mt-1 block text-[10px] text-slate-500">Create a new record</small></span><ArrowRight className="h-4 w-4 text-[#08733f] transition-transform group-hover:translate-x-1" /></span></button>
-                <button className="group flex min-h-[112px] flex-col items-start justify-between rounded-2xl border border-[#cfdef2] bg-gradient-to-br from-[#eaf3ff] to-white p-4 text-left transition-all duration-300 hover:-translate-y-1 hover:border-[#91b7df] hover:shadow-lg"><span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#3772ad] text-white shadow-[0_7px_16px_rgba(55,114,173,.20)] transition-transform group-hover:-rotate-3"><CloudUpload className="h-5 w-5" /></span><span className="flex w-full items-end justify-between gap-2"><span><strong className="block text-xs text-[#173b2a]">Upload Report</strong><small className="mt-1 block text-[10px] text-slate-500">Import inspection data</small></span><ArrowRight className="h-4 w-4 text-[#3772ad] transition-transform group-hover:translate-x-1" /></span></button>
-                <button onClick={() => setActiveNav("Claims")} className="group flex min-h-[112px] flex-col items-start justify-between rounded-2xl border border-[#dcd9f3] bg-gradient-to-br from-[#f1edfc] to-white p-4 text-left transition-all duration-300 hover:-translate-y-1 hover:border-[#aaa2df] hover:shadow-lg"><span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#7452bd] text-white shadow-[0_7px_16px_rgba(116,82,189,.20)] transition-transform group-hover:rotate-3"><UserPlus className="h-5 w-5" /></span><span className="flex w-full items-end justify-between gap-2"><span><strong className="block text-xs text-[#173b2a]">Assign Inspector</strong><small className="mt-1 block text-[10px] text-slate-500">Allocate field work</small></span><ArrowRight className="h-4 w-4 text-[#6757bd] transition-transform group-hover:translate-x-1" /></span></button>
-                <button onClick={() => setActiveNav("Claims")} className="group flex min-h-[112px] flex-col items-start justify-between rounded-2xl border border-[#f1dca9] bg-gradient-to-br from-[#fff5d9] to-white p-4 text-left transition-all duration-300 hover:-translate-y-1 hover:border-[#dfbd68] hover:shadow-lg"><span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#d28a00] text-white shadow-[0_7px_16px_rgba(210,138,0,.20)] transition-transform group-hover:-rotate-3"><ScanSearch className="h-5 w-5" /></span><span className="flex w-full items-end justify-between gap-2"><span><strong className="block text-xs text-[#173b2a]">Pending Review</strong><small className="mt-1 block text-[10px] text-slate-500">{visibleProjects.filter((project) => !project.verified).length} reports waiting</small></span><ArrowRight className="h-4 w-4 text-[#c27a00] transition-transform group-hover:translate-x-1" /></span></button>
+              <div className="flex-1 px-4 py-2">
+                {recentActivityError ? (
+                  <div className="flex h-full min-h-[220px] items-center justify-center px-4 text-center text-xs text-rose-600">
+                    {recentActivityError}
+                  </div>
+                ) : recentActivity.length === 0 ? (
+                  <div className="flex h-full min-h-[220px] items-center justify-center px-4 text-center text-xs text-slate-500">
+                    No recent system activity yet.
+                  </div>
+                ) : (
+                  recentActivity.slice(0, 4).map((activity, index) => {
+                    const action = activity.action.toLowerCase();
+                    const verified = action.includes("verified") || action.includes("approved");
+                    const pending =
+                      action.includes("submitted") ||
+                      action.includes("pending") ||
+                      action.includes("review");
+
+                    const actionLabel = activity.action
+                      .replace(/[_-]+/g, " ")
+                      .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+                    const created = new Date(activity.createdAt);
+                    const ageMs = Date.now() - created.getTime();
+                    const ageMinutes = Math.max(0, Math.floor(ageMs / 60000));
+                    const timeLabel =
+                      ageMinutes < 1
+                        ? "Just now"
+                        : ageMinutes < 60
+                          ? `${ageMinutes}m ago`
+                          : ageMinutes < 1440
+                            ? `${Math.floor(ageMinutes / 60)}h ago`
+                            : ageMinutes < 10080
+                              ? `${Math.floor(ageMinutes / 1440)}d ago`
+                              : created.toLocaleDateString();
+
+                    return (
+                      <div
+                        key={activity.id}
+                        className="group relative flex items-center gap-3 rounded-xl px-2 py-3 transition-colors hover:bg-slate-50/80"
+                      >
+                        <div className="relative flex shrink-0 flex-col items-center">
+                          <div
+                            className={`flex h-11 w-11 items-center justify-center rounded-2xl border border-white shadow-sm transition-all duration-300 group-hover:-translate-y-0.5 group-hover:shadow-md ${
+                              verified
+                                ? "bg-gradient-to-br from-[#e3f8eb] to-[#f5fcf7] text-[#08733f]"
+                                : pending
+                                  ? "bg-gradient-to-br from-[#fff0c9] to-[#fffaf0] text-[#c27a00]"
+                                  : "bg-gradient-to-br from-[#dfeeff] to-[#f5f9ff] text-[#3772ad]"
+                            }`}
+                          >
+                            {verified ? (
+                              <CheckCircle2 className="h-5 w-5" />
+                            ) : pending ? (
+                              <ScanSearch className="h-5 w-5" />
+                            ) : (
+                              <CloudUpload className="h-5 w-5" />
+                            )}
+                          </div>
+                          {index < Math.min(recentActivity.length, 4) - 1 && (
+                            <span className="absolute top-11 h-3 w-px bg-slate-200" />
+                          )}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="truncate text-xs font-bold text-[#173b2a]">
+                              {activity.projectName || actionLabel}
+                            </p>
+                            <span
+                              className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                                verified
+                                  ? "bg-[#18a15b]"
+                                  : pending
+                                    ? "bg-[#e6ad21]"
+                                    : "bg-[#377fd2]"
+                              }`}
+                            />
+                          </div>
+
+                          <p className="mt-1 truncate text-[11px] text-slate-500">
+                            {actionLabel}
+                            {activity.actorName ? ` · ${activity.actorName}` : ""}
+                            {activity.state ? ` · ${activity.state}` : ""}
+                          </p>
+                        </div>
+
+                        <span className="shrink-0 rounded-full border border-slate-100 bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-500 shadow-sm">
+                          {timeLabel}
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </article>
           </section>

@@ -89,6 +89,66 @@ async function reaProjectsResponse(request, env) {
   });
 }
 
+
+async function reaRecentActivityResponse(request, env) {
+  const user = await authenticatedDatabaseUser(request, env);
+  if (!user) return json({ error: "Authentication required." }, 401);
+  if (user.role !== "rea_admin") return json({ error: "REA access required." }, 403);
+
+  const result = await env.DB.prepare(`
+    SELECT
+      ae.id,
+      ae.assignment_id AS assignmentId,
+      ae.actor_id AS actorId,
+      ae.action,
+      ae.details_json AS detailsJson,
+      ae.created_at AS createdAt,
+      u.name AS actorName,
+      u.role AS actorRole,
+      p.id AS projectId,
+      p.name AS projectName,
+      p.programme,
+      p.component,
+      p.contractor,
+      p.state,
+      p.lga
+    FROM audit_events ae
+    LEFT JOIN users u ON u.id = ae.actor_id
+    LEFT JOIN assignments a ON a.id = ae.assignment_id
+    LEFT JOIN projects p ON p.id = a.project_id
+    ORDER BY ae.created_at DESC
+    LIMIT 50
+  `).all();
+
+  return json({
+    activities: (result.results || []).map((row) => {
+      let details = {};
+      try {
+        details = JSON.parse(row.detailsJson || "{}");
+      } catch {}
+
+      return {
+        id: row.id,
+        assignmentId: row.assignmentId || null,
+        actorId: row.actorId,
+        actorName: row.actorName || row.actorId,
+        actorRole: row.actorRole || "",
+        action: row.action,
+        projectId: row.projectId || null,
+        projectName: row.projectName || null,
+        programme: row.programme || null,
+        component: row.component || null,
+        contractor: row.contractor || null,
+        state: row.state || null,
+        lga: row.lga || null,
+        details,
+        createdAt: row.createdAt,
+      };
+    }),
+    serverTime: new Date().toISOString(),
+  });
+}
+
 function latestQuestion(messages = []) {
   return [...messages]
     .reverse()
@@ -951,6 +1011,22 @@ export default {
       } catch (error) {
         console.error(JSON.stringify({ event: "rea_projects_failure", message: error instanceof Error ? error.message : "Unknown error", build: BUILD_ID }));
         return json({ error: "Unable to load REA projects." }, 503);
+      }
+    }
+
+    if (url.pathname === "/api/rea/recent-activity") {
+      if (request.method !== "GET") {
+        return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
+      }
+      try {
+        return await reaRecentActivityResponse(request, env);
+      } catch (error) {
+        console.error(JSON.stringify({
+          event: "rea_recent_activity_failure",
+          message: error instanceof Error ? error.message : "Unknown error",
+          build: BUILD_ID,
+        }));
+        return json({ error: "Unable to load recent activity." }, 503);
       }
     }
 
