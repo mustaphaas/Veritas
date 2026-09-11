@@ -114,11 +114,11 @@ describe("REA dashboard filter-driven map data", () => {
     const indexSource = fs.readFileSync("client/pages/Index.tsx", "utf8");
 
     expect(indexSource).toContain("filteredRecentActivity");
-    expect(indexSource).toContain("activity.programme === filters.programs");
-    expect(indexSource).toContain("activity.component === filters.components");
-    expect(indexSource).toContain("activity.state === filters.states");
-    expect(indexSource).toContain("activity.contractor === filters.contractors");
-    expect(indexSource).toContain("activity.reportingMonth === filters.months");
+    expect(indexSource).toMatch(/activity\.programme\s*(?:===|!==)\s*filters\.programs/);
+    expect(indexSource).toMatch(/activity\.component\s*(?:===|!==)\s*filters\.components/);
+    expect(indexSource).toMatch(/activity\.state\s*(?:===|!==)\s*filters\.states/);
+    expect(indexSource).toMatch(/activity\.contractor\s*(?:===|!==)\s*filters\.contractors/);
+    expect(indexSource).toMatch(/activity\.reportingMonth\s*(?:===|!==)\s*filters\.months/);
     expect(indexSource).toContain("filteredRecentActivity.slice(0, 4)");
   });
 });
