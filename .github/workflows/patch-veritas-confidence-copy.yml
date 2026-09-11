@@ -1,10 +1,13 @@
-name: Wire safe dynamic analytics into Veritas
+name: Safe Veritas Analytics Deploy
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
       - '.github/workflows/patch-veritas-confidence-copy.yml'
+      - 'scripts/patch-safe-analytics.mjs'
+      - 'worker/analytics.js'
 
 permissions:
   contents: write
@@ -13,171 +16,55 @@ jobs:
   patch-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           ref: main
-      - uses: actions/setup-python@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          python-version: '3.x'
-      - name: Wire structured analytics planner and D1 executor
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import re
+          node-version: 22
+          cache: npm
 
-          p = Path('worker/index.js')
-          s = p.read_text()
+      - name: Apply analytics wiring
+        run: node scripts/patch-safe-analytics.mjs
 
-          if 'from "./analytics.js"' not in s:
-              s = s.replace(
-                  'import { handleFieldApi } from "./field-api.js";\n',
-                  'import { handleFieldApi } from "./field-api.js";\nimport { analyticsCatalog, analyticsAnswerPrompt, executeAnalyticsPlan, parsePlannerJson, plannerPrompt, validateAnalyticsPlan } from "./analytics.js";\n',
-                  1,
-              )
-
-          s = re.sub(
-              r'const BUILD_ID = "[^"]+";',
-              'const BUILD_ID = "veritas-2026-09-11-safe-dynamic-analytics-r1";',
-              s,
-              count=1,
-          )
-
-          marker = 'async function veritasResponse(request, env) {\n'
-          helpers = r'''function isLikelyAnalyticsQuestion(question) {
-  return /\b(how many|count|total|break\s*down|breakdown|compare|rank|highest|lowest|average|sum|by state|by programme|by program|by component|by contractor|by consultant|by officer|verified|pending|verification|capacity|households?|assignments?|projects?)\b/i.test(String(question || ""));
-}
-
-async function analyticsPlannerResponse(question, env) {
-  const prompt = plannerPrompt(question, analyticsCatalog());
-
-  if (env.OPENROUTER_API_KEY) {
-    try {
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${env.OPENROUTER_API_KEY}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": "https://veritas.mustaphaaliyu236.workers.dev",
-          "X-Title": "Veritas",
-        },
-        body: JSON.stringify({
-          model: env.OPENROUTER_MODEL || "google/gemini-3.8-flash",
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: 700,
-          temperature: 0,
-          provider: { allow_fallbacks: true, sort: "throughput" },
-        }),
-        signal: AbortSignal.timeout(12000),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (response.ok) {
-        const text = extractOpenRouterText(payload);
-        if (text) return text;
-      }
-    } catch (error) {
-      console.error(JSON.stringify({ event: "veritas_analytics_planner_openrouter_failure", message: error instanceof Error ? error.message : "Unknown error", build: BUILD_ID }));
-    }
-  }
-
-  if (env.GEMINI_API_KEY) {
-    try {
-      const model = env.GEMINI_MODEL || "gemini-3.6-flash";
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
-          body: JSON.stringify({
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: { maxOutputTokens: 700, temperature: 0 },
-          }),
-          signal: AbortSignal.timeout(12000),
-        },
-      );
-      const payload = await response.json().catch(() => ({}));
-      if (response.ok) return extractGeminiText(payload);
-    } catch (error) {
-      console.error(JSON.stringify({ event: "veritas_analytics_planner_gemini_failure", message: error instanceof Error ? error.message : "Unknown error", build: BUILD_ID }));
-    }
-  }
-
-  return "";
-}
-
-function deterministicAnalyticsAnswer(result) {
-  const rows = Array.isArray(result?.rows) ? result.rows : [];
-  if (!rows.length) return "No matching records were found in the current Veritas production database.";
-
-  const lines = rows.map((row) =>
-    Object.entries(row)
-      .map(([key, value]) => `${key}: ${value ?? "—"}`)
-      .join(" | "),
-  );
-  const limitNote = result.truncated
-    ? "\n\nThe result reached the configured row limit, so it may not include every matching group."
-    : "";
-  return `Authoritative Veritas production database result (${rows.length} row${rows.length === 1 ? "" : "s"}):\n\n${lines.join("\n")}${limitNote}`;
-}
-
-'''
-          if 'function isLikelyAnalyticsQuestion(' not in s:
-              if marker not in s:
-                  raise SystemExit('veritasResponse marker not found')
-              s = s.replace(marker, helpers + marker, 1)
-
-          old = '''  const databaseContext = await liveDatabaseContext(env);\n  const exactCrossTabAnswer = exactComponentStateProgrammeAnswer(question, databaseContext);\n  if (exactCrossTabAnswer) {\n    return json({ answer: exactCrossTabAnswer, sources: [], mode: "veritas-live-d1-exact", build: BUILD_ID });\n  }\n  const prompt = buildInput(body.messages, databaseContext);\n'''
-          if old not in s:
-              old = '''  const databaseContext = await liveDatabaseContext(env);\n  const prompt = buildInput(body.messages, databaseContext);\n'''
-
-          new = '''  let analyticsResult = null;\n  if (isLikelyAnalyticsQuestion(question)) {\n    const plannerText = await analyticsPlannerResponse(question, env);\n    const rawPlan = parsePlannerJson(plannerText);\n    const plan = validateAnalyticsPlan(rawPlan);\n    if (plan) {\n      try {\n        analyticsResult = await executeAnalyticsPlan(env, plan);\n      } catch (error) {\n        console.error(JSON.stringify({ event: "veritas_analytics_execution_failure", message: error instanceof Error ? error.message : "Unknown error", build: BUILD_ID }));\n      }\n    }\n  }\n\n  let databaseContext = null;\n  let prompt;\n  if (analyticsResult) {\n    prompt = analyticsAnswerPrompt(question, analyticsResult);\n  } else {\n    databaseContext = await liveDatabaseContext(env);\n    const exactCrossTabAnswer = typeof exactComponentStateProgrammeAnswer === "function"\n      ? exactComponentStateProgrammeAnswer(question, databaseContext)\n      : "";\n    if (exactCrossTabAnswer) {\n      return json({ answer: exactCrossTabAnswer, sources: [], mode: "veritas-live-d1-exact", build: BUILD_ID });\n    }\n    prompt = buildInput(body.messages, databaseContext);\n  }\n'''
-
-          if old not in s:
-              raise SystemExit('Could not locate Veritas prompt setup block')
-          s = s.replace(old, new, 1)
-
-          failure = '''  if (!answer) {\n    console.error(JSON.stringify({\n      event: "veritas_all_ai_routes_failed",'''
-          replacement = '''  if (!answer && analyticsResult) {\n    answer = deterministicAnalyticsAnswer(analyticsResult);\n  }\n\n  if (!answer) {\n    console.error(JSON.stringify({\n      event: "veritas_all_ai_routes_failed",'''
-          if failure not in s:
-              raise SystemExit('AI failure block marker not found')
-          s = s.replace(failure, replacement, 1)
-
-          s = s.replace(
-              'return json({ answer, sources: [], mode: "veritas-live-d1", build: BUILD_ID });',
-              'return json({ answer, sources: [], mode: analyticsResult ? "veritas-safe-analytics" : "veritas-live-d1", build: BUILD_ID });',
-              1,
-          )
-
-          p.write_text(s)
-          PY
-      - name: Verify analytics module imports
+      - name: Validate worker files
         run: |
           node --check worker/analytics.js
           node --check worker/index.js
-      - name: Commit safe analytics wiring
+
+      - name: Commit analytics wiring
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add worker/index.js worker/analytics.js
-          git commit -m 'Wire safe dynamic D1 analytics into Veritas'
-          git push origin main
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
+          if git diff --cached --quiet; then
+            echo 'No analytics wiring changes to commit'
+          else
+            git commit -m 'Wire safe dynamic D1 analytics into Veritas'
+            git push origin main
+          fi
+
       - name: Install dependencies
         run: npm ci
+
       - name: Build client
         run: npm run build:client
+
       - name: Provision D1 and optional R2 bindings
         run: node scripts/provision-cloudflare.mjs
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
       - name: Apply database migrations
         run: npx wrangler@latest d1 migrations apply veritas-production --remote --config wrangler.generated.json
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
       - name: Deploy Worker and assets
         run: npx wrangler@latest deploy --config wrangler.generated.json --keep-vars
         env:
