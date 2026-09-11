@@ -3,7 +3,7 @@ import fs from 'node:fs';
 const workerPath = 'worker/index.js';
 let s = fs.readFileSync(workerPath, 'utf8');
 
-s = s.replace(/const BUILD_ID = "[^"]+";/, 'const BUILD_ID = "veritas-2026-09-11-management-analytics-r1";');
+s = s.replace(/const BUILD_ID = "[^"]+";/, 'const BUILD_ID = "veritas-2026-09-11-management-analytics-r2";');
 
 const analyticsDetector = `function isLikelyAnalyticsQuestion(question) {
   return /\\b(how many|count|total|break\\s*down|breakdown|compare|rank|highest|lowest|average|sum|by state|by programme|by program|by component|by contractor|by consultant|by officer|verified|pending|verification|capacity|households?|assignments?|projects?)\\b/i.test(String(question || ""));
@@ -52,9 +52,16 @@ const newRoute = `  let databaseContext = null;
     prompt = buildInput(body.messages, databaseContext);
   }`;
 
-if (!s.includes(newRoute)) {
-  if (!s.includes(oldRoute)) throw new Error('analytics response routing block not found');
-  s = s.replace(oldRoute, newRoute);
+const routeAlreadyApplied =
+  s.includes('if (analyticsResult && !isManagementAnalysisQuestion(question))') &&
+  s.includes('prompt = analyticsAnswerPrompt(question, analyticsResult);');
+
+if (!routeAlreadyApplied) {
+  if (s.includes(oldRoute)) {
+    s = s.replace(oldRoute, newRoute);
+  } else if (!s.includes(newRoute)) {
+    throw new Error('analytics response routing block not found');
+  }
 }
 
 fs.writeFileSync(workerPath, s);
