@@ -1,4 +1,4 @@
-name: Deploy Veritas OpenRouter Fallbacks
+name: Deploy Compact Veritas Request Pipeline
 
 on:
   push:
@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/patch-veritas-confidence-copy.yml'
       - 'scripts/patch-openrouter-resilience.mjs'
+      - 'scripts/patch-veritas-request-response.mjs'
 
 permissions:
   contents: write
@@ -29,18 +30,23 @@ jobs:
       - name: Apply OpenRouter fallback patch
         run: node scripts/patch-openrouter-resilience.mjs
 
-      - name: Validate worker
-        run: node --check worker/index.js
+      - name: Apply request and response optimization
+        run: node scripts/patch-veritas-request-response.mjs
 
-      - name: Commit resilience update
+      - name: Validate worker and client syntax
+        run: |
+          node --check worker/index.js
+          node --check worker/analytics.js
+
+      - name: Commit runtime changes
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add worker/index.js
+          git add worker/index.js client/components/VeritasAssistant.tsx
           if git diff --cached --quiet; then
-            echo 'No resilience changes to commit'
+            echo 'No runtime changes to commit'
           else
-            git commit -m 'Add OpenRouter model-level fallbacks'
+            git commit -m 'Optimize Veritas request construction and response handling'
             git push origin main
           fi
 
