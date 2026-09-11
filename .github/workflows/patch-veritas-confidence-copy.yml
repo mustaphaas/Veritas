@@ -18,6 +18,8 @@ on:
       - 'scripts/patch-veritas-final-answer-contract.mjs'
       - 'scripts/patch-veritas-report-mode.mjs'
       - 'scripts/patch-veritas-public-rea-knowledge.mjs'
+      - 'scripts/patch-veritas-gemini-resilience.mjs'
+      - 'tests/gemini-resilience-patch.test.mjs'
 
 permissions:
   contents: write
@@ -36,6 +38,11 @@ jobs:
         with:
           node-version: 22
           cache: npm
+
+      - name: Validate Gemini resilience patch
+        run: |
+          node --check scripts/patch-veritas-gemini-resilience.mjs
+          node --test tests/gemini-resilience-patch.test.mjs
 
       - name: Apply OpenRouter fallback patch
         run: node scripts/patch-openrouter-resilience.mjs
@@ -70,6 +77,9 @@ jobs:
       - name: Apply report generation mode
         run: node scripts/patch-veritas-report-mode.mjs
 
+      - name: Apply Gemini empty-response resilience
+        run: node scripts/patch-veritas-gemini-resilience.mjs
+
       - name: Apply official REA public knowledge routing
         run: node scripts/patch-veritas-public-rea-knowledge.mjs
 
@@ -86,7 +96,7 @@ jobs:
           if git diff --cached --quiet; then
             echo 'No runtime changes to commit'
           else
-            git commit -m 'Route public REA questions to official sources'
+            git commit -m 'Improve Gemini response resilience'
             git push origin main
           fi
 
