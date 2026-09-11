@@ -111,7 +111,8 @@ async function reaRecentActivityResponse(request, env) {
       p.component,
       p.contractor,
       p.state,
-      p.lga
+      p.lga,
+      p.reporting_month AS reportingMonth
     FROM audit_events ae
     LEFT JOIN users u ON u.id = ae.actor_id
     LEFT JOIN assignments a ON a.id = ae.assignment_id
@@ -141,6 +142,7 @@ async function reaRecentActivityResponse(request, env) {
         contractor: row.contractor || null,
         state: row.state || null,
         lga: row.lga || null,
+        reportingMonth: row.reportingMonth || null,
         details,
         createdAt: row.createdAt,
       };

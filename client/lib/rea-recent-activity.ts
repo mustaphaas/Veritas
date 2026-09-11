@@ -12,6 +12,7 @@ export type ReaRecentActivity = {
   contractor: string | null;
   state: string | null;
   lga: string | null;
+  reportingMonth: string | null;
   details: Record<string, unknown>;
   createdAt: string;
 };

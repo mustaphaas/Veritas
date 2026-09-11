@@ -370,6 +370,14 @@ export default function Index() {
   }, [session?.apiToken]);
 
   const visibleProjects = useMemo(() => matchingProjects(filters, undefined, portfolioProjects), [filters, portfolioProjects]);
+  const filteredRecentActivity = useMemo(() => recentActivity.filter((activity) => {
+    if (filters.programs !== filterDefaults.programs && activity.programme !== filters.programs) return false;
+    if (filters.components !== filterDefaults.components && activity.component !== filters.components) return false;
+    if (filters.states !== filterDefaults.states && activity.state !== filters.states) return false;
+    if (filters.contractors !== filterDefaults.contractors && activity.contractor !== filters.contractors) return false;
+    if (filters.months !== filterDefaults.months && activity.reportingMonth !== filters.months) return false;
+    return true;
+  }), [recentActivity, filters]);
   const displayedProjects = showAllProjects ? visibleProjects : visibleProjects.slice(0, 20);
   useEffect(() => setShowAllProjects(false), [filters]);
   const metrics = getKpis(visibleProjects);
@@ -565,7 +573,7 @@ export default function Index() {
                     No recent system activity yet.
                   </div>
                 ) : (
-                  recentActivity.slice(0, 4).map((activity, index) => {
+                  filteredRecentActivity.slice(0, 4).map((activity, index) => {
                     const action = activity.action.toLowerCase();
                     const verified = action.includes("verified") || action.includes("approved");
                     const pending =
@@ -614,7 +622,7 @@ export default function Index() {
                               <CloudUpload className="h-5 w-5" />
                             )}
                           </div>
-                          {index < Math.min(recentActivity.length, 4) - 1 && (
+                          {index < Math.min(filteredRecentActivity.length, 4) - 1 && (
                             <span className="absolute top-11 h-3 w-px bg-slate-200" />
                           )}
                         </div>
