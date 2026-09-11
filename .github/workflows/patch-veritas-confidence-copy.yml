@@ -9,6 +9,7 @@ on:
       - 'scripts/patch-openrouter-resilience.mjs'
       - 'scripts/patch-veritas-request-response.mjs'
       - 'scripts/patch-veritas-no-invented-thresholds.mjs'
+      - 'scripts/patch-veritas-evidence-claims.mjs'
 
 permissions:
   contents: write
@@ -37,6 +38,9 @@ jobs:
       - name: Apply numeric policy guardrails
         run: node scripts/patch-veritas-no-invented-thresholds.mjs
 
+      - name: Apply evidence and causality guardrails
+        run: node scripts/patch-veritas-evidence-claims.mjs
+
       - name: Validate worker and client syntax
         run: |
           node --check worker/index.js
@@ -50,7 +54,7 @@ jobs:
           if git diff --cached --quiet; then
             echo 'No runtime changes to commit'
           else
-            git commit -m 'Harden Veritas recommendations against invented thresholds'
+            git commit -m 'Harden Veritas evidence-backed recommendations'
             git push origin main
           fi
 
