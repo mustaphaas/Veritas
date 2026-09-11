@@ -3,7 +3,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import { defaultFieldOfficers, FIELD_OFFICERS_STORAGE_KEY, type FieldOfficerAccount } from "./inspection-workflow";
 import { readConsultants } from "./consultants";
 import { getOfficerConsultant } from "./consultant-tenancy";
-import { appendAuditEvent, readReaStaff } from "./rea-admin";
+import { readReaStaff } from "./rea-admin";
 import { authenticateFieldApi } from "./field-api";
 
 export type DemoRole = "rea" | "field" | "consultant";
@@ -104,10 +104,9 @@ export function AuthProvider({children}:{children:ReactNode}){
   const account=authenticateDemoAccount(email,password);if(!account)return null;
   let cloud;try{cloud=await authenticateFieldApi(email,password)}catch{return null}
   const expected={rea:"rea_admin",field:"field_officer",consultant:"consultant_admin"}[account.role];if(cloud.user.role!==expected)return null;
-  if(account.role==="rea")appendAuditEvent({actor:account.name,action:"Signed in",category:"Authentication",target:"REA Dashboard",details:`Successful login for ${account.email}`,severity:"Success"});
   const{password:_password,...baseSession}=account;const nextSession={...baseSession,apiToken:cloud.token,apiExpiresAt:cloud.expiresAt};setSession(nextSession);window.sessionStorage.setItem(SESSION_KEY,JSON.stringify(nextSession));window.dispatchEvent(new Event("veritas-cloud-session"));return nextSession;
  };
- const logout=()=>{if(session?.role==="rea")appendAuditEvent({actor:session.name,action:"Signed out",category:"Authentication",target:"REA Dashboard",details:"User ended dashboard session",severity:"Info"});if(session?.apiToken)void fetch("/api/field/auth/logout",{method:"POST",headers:{Authorization:`Bearer ${session.apiToken}`}}).catch(()=>undefined);setSession(null);window.sessionStorage.removeItem(SESSION_KEY);};
+ const logout=()=>{if(session?.apiToken)void fetch("/api/field/auth/logout",{method:"POST",headers:{Authorization:`Bearer ${session.apiToken}`}}).catch(()=>undefined);setSession(null);window.sessionStorage.removeItem(SESSION_KEY);};
  return <AuthContext.Provider value={{session,login,logout}}>{children}</AuthContext.Provider>
 }
 export function useAuth(){const c=useContext(AuthContext);if(!c)throw new Error("useAuth must be used inside AuthProvider");return c;}

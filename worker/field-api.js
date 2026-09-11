@@ -228,6 +228,7 @@ export async function handleFieldApi(request, env) {
   if (!user) return response({ error: "Authentication required." }, 401);
   if (path === "/api/field/auth/logout" && request.method === "POST") {
     const bearer = request.headers.get("Authorization").replace(/^Bearer\s+/i, "");
+    await audit(env, request, user, null, "logout", {});
     await env.DB.prepare("DELETE FROM sessions WHERE token_hash=?").bind(await digest(bearer)).run();
     return response({ ok: true });
   }

@@ -20,3 +20,12 @@ test("REA Audit Trail keeps its existing search, category filter and CSV export 
   assert.match(auditUiSource, /const exportCsv=/);
   assert.match(auditUiSource, /Export audit log/);
 });
+
+const fieldApiSource = fs.readFileSync(new URL("../worker/field-api.js", import.meta.url), "utf8");
+const authSource = fs.readFileSync(new URL("../client/lib/auth.tsx", import.meta.url), "utf8");
+
+test("authentication audit events are authoritative in D1 without browser duplicates", () => {
+  assert.match(fieldApiSource, /audit\(env,\s*request,\s*user,\s*null,\s*"login"/);
+  assert.match(fieldApiSource, /audit\(env,\s*request,\s*user,\s*null,\s*"logout"/);
+  assert.doesNotMatch(authSource, /appendAuditEvent/);
+});
