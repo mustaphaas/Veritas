@@ -508,10 +508,12 @@ async function callGeminiWithFallback(env, requestBody, { timeoutMs = 20000 } = 
         message: lastMessage,
         build: BUILD_ID,
       }));
-      if (response.status !== 429 && response.status !== 404) {
+      if (response.status !== 429 && response.status !== 404 && response.status !== 503) {
         return { ok: false, model, status: response.status, message: lastMessage };
       }
-      // 429/404: fall through and try the next model in the list.
+      // 429 (quota), 404 (model unavailable to this key), or 503 (upstream
+      // overloaded, usually transient) - all worth trying the next model
+      // in the list rather than failing the whole request outright.
     } catch (error) {
       lastStatus = 0;
       lastMessage = error instanceof Error ? error.message : "Network or timeout error";
