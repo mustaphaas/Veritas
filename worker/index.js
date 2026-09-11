@@ -1,7 +1,7 @@
 import { handleFieldApi } from "./field-api.js";
 import { analyticsCatalog, analyticsAnswerPrompt, executeAnalyticsPlan, parsePlannerJson, plannerPrompt, validateAnalyticsPlan } from "./analytics.js";
 
-const BUILD_ID = "veritas-2026-09-11-openrouter-model-fallbacks-r1";
+const BUILD_ID = "veritas-2026-09-11-openrouter-gemini38-r2";
 const encoder = new TextEncoder();
 
 const json = (body, status = 200) =>
@@ -312,7 +312,7 @@ async function analyticsPlannerResponse(question, env) {
         },
         body: JSON.stringify({
           model: env.OPENROUTER_MODEL || "google/gemini-3.8-flash",
-          models: ["google/gemini-3.6-flash", "anthropic/claude-sonnet-4.6"],
+          models: ["google/gemini-3.7-flash", "google/gemini-3.6-flash", "openrouter/free"],
           messages: [{ role: "user", content: prompt }],
           max_tokens: 700,
           temperature: 0,
@@ -332,7 +332,7 @@ async function analyticsPlannerResponse(question, env) {
 
   if (env.GEMINI_API_KEY) {
     try {
-      const model = env.GEMINI_MODEL || "gemini-3.6-flash";
+      const model = env.GEMINI_MODEL || "gemini-3.8-flash";
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
         {
@@ -340,7 +340,7 @@ async function analyticsPlannerResponse(question, env) {
           headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
           body: JSON.stringify({
             contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: { maxOutputTokens: 700, temperature: 0 },
+            generationConfig: { maxOutputTokens: 700 },
           }),
           signal: AbortSignal.timeout(12000),
         },
@@ -408,7 +408,7 @@ async function veritasResponse(request, env) {
   let upstream;
   let payload = {};
   let provider = "gemini";
-  let model = env.GEMINI_MODEL || "gemini-3.6-flash";
+  let model = env.GEMINI_MODEL || "gemini-3.8-flash";
   let answer = "";
 
   if (env.OPENROUTER_API_KEY) {
@@ -425,7 +425,7 @@ async function veritasResponse(request, env) {
         },
         body: JSON.stringify({
           model,
-          models: ["google/gemini-3.6-flash", "anthropic/claude-sonnet-4.6"],
+          models: ["google/gemini-3.7-flash", "google/gemini-3.6-flash", "openrouter/free"],
           messages: [{ role: "user", content: prompt }],
           max_tokens: 3000,
           temperature: 0.3,
@@ -456,7 +456,7 @@ async function veritasResponse(request, env) {
 
   if (!answer && env.GEMINI_API_KEY) {
     provider = "gemini";
-    model = env.GEMINI_MODEL || "gemini-3.6-flash";
+    model = env.GEMINI_MODEL || "gemini-3.8-flash";
     try {
       upstream = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
@@ -465,7 +465,7 @@ async function veritasResponse(request, env) {
           headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
           body: JSON.stringify({
             contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: { maxOutputTokens: 3000, temperature: 0.45 },
+            generationConfig: { maxOutputTokens: 3000 },
           }),
           signal: AbortSignal.timeout(30000),
         },
