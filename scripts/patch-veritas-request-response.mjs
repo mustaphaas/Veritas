@@ -3,7 +3,7 @@ import fs from 'node:fs';
 const workerPath = 'worker/index.js';
 let s = fs.readFileSync(workerPath, 'utf8');
 
-s = s.replace(/const BUILD_ID = "[^"]+";/, 'const BUILD_ID = "veritas-2026-09-11-compact-reasoning-r3";');
+s = s.replace(/const BUILD_ID = "[^"]+";/, 'const BUILD_ID = "veritas-2026-09-11-ai-diagnostics-r1";');
 
 const oldCompactSignature = 'function compactContext(databaseContext = {}) {';
 const newCompactSignature = 'function compactContext(databaseContext = {}, question = "") {';
@@ -76,13 +76,15 @@ if (extractStart >= 0 && extractEnd >= 0) {
     '  if (Array.isArray(content)) {',
     '    const text = content.map((part) => {',
     '      if (typeof part === "string") return part.trim();',
+    '      const type = String(part?.type || "").toLowerCase();',
+    '      if (type.includes("reason") || type.includes("thought")) return "";',
+    '      if (part?.thought === true) return "";',
     '      if (typeof part?.text === "string") return part.text.trim();',
     '      if (typeof part?.content === "string") return part.content.trim();',
     '      return "";',
     '    }).filter(Boolean).join("\\n\\n").trim();',
     '    if (text) return text;',
     '  }',
-    '  if (typeof message?.reasoning === "string" && message.reasoning.trim()) return message.reasoning.trim();',
     '  return "";',
     '}'
   ].join('\n');
@@ -91,17 +93,113 @@ if (extractStart >= 0 && extractEnd >= 0) {
   throw new Error('extractOpenRouterText block not found');
 }
 
-const simpleExtract = 'if (upstream.ok) answer = extractOpenRouterText(payload);';
-if (s.includes(simpleExtract)) {
-  s = s.replace(simpleExtract, [
-    'if (upstream.ok) {',
-    '      answer = extractOpenRouterText(payload);',
-    '      if (!answer) {',
-    '        console.error(JSON.stringify({ event: "veritas_openrouter_empty_answer", status: upstream.status, finishReason: payload?.choices?.[0]?.finish_reason || null, returnedModel: payload?.model || null, build: BUILD_ID }));',
+if (!s.includes('function isGeneralCapabilityQuestion(question)')) {
+  const anchor = 'function responseTokenBudget(question) {';
+  const idx = s.indexOf(anchor);
+  if (idx < 0) throw new Error('response token budget anchor not found');
+  const helper = [
+    'function isGeneralCapabilityQuestion(question) {',
+    '  return /^(?:what can you do|what do you do|how can you help|help me|capabilities|your capabilities|what are your capabilities)[?.! ]*$/i.test(String(question || "").trim());',
+    '}',
+    '',
+  ].join('\n');
+  s = s.slice(0, idx) + helper + s.slice(idx);
+}
+
+const liveContextBlock = [
+  '  } else {',
+  '    databaseContext = await liveDatabaseContext(env);',
+  '    const exactCrossTabAnswer = typeof exactComponentStateProgrammeAnswer === "function" ? exactComponentStateProgrammeAnswer(question, databaseContext) : "";',
+  '    if (exactCrossTabAnswer) {',
+  '      return json({ answer: exactCrossTabAnswer, sources: [], mode: "veritas-live-d1-exact", build: BUILD_ID });',
+  '    }',
+  '    prompt = buildInput(body.messages, databaseContext);',
+  '  }'
+].join('\n');
+
+if (s.includes(liveContextBlock)) {
+  const replacement = [
+    '  } else {',
+    '    if (isGeneralCapabilityQuestion(question)) {',
+    '      databaseContext = {',
+    '        generatedAt: new Date().toISOString(),',
+    '        source: "General Veritas capability request",',
+    '        dataScope: "No live D1 query required for this general AI capability question.",',
+    '      };',
+    '    } else {',
+    '      try {',
+    '        databaseContext = await liveDatabaseContext(env);',
+    '      } catch (error) {',
+    '        console.error(JSON.stringify({',
+    '          event: "veritas_d1_context_failure",',
+    '          message: error instanceof Error ? error.message : "Unknown error",',
+    '          build: BUILD_ID,',
+    '        }));',
+    '        return json({',
+    '          error: "Veritas could not load the current production data required for this request.",',
+    '          code: "VERITAS_D1_CONTEXT_UNAVAILABLE",',
+    '          build: BUILD_ID,',
+    '        }, 503);',
     '      }',
-    '    }'
+    '    }',
+    '    const exactCrossTabAnswer = typeof exactComponentStateProgrammeAnswer === "function" ? exactComponentStateProgrammeAnswer(question, databaseContext) : "";',
+    '    if (exactCrossTabAnswer) {',
+    '      return json({ answer: exactCrossTabAnswer, sources: [], mode: "veritas-live-d1-exact", build: BUILD_ID });',
+    '    }',
+    '    prompt = buildInput(body.messages, databaseContext);',
+    '  }'
+  ].join('\n');
+  s = s.replace(liveContextBlock, replacement);
+} else if (!s.includes('VERITAS_D1_CONTEXT_UNAVAILABLE')) {
+  throw new Error('live D1 context block not found');
+}
+
+const geminiSuccess = '      if (upstream.ok) answer = extractVeritasFinal(extractGeminiText(payload));';
+if (s.includes(geminiSuccess)) {
+  s = s.replace(geminiSuccess, [
+    '      if (upstream.ok) {',
+    '        answer = extractVeritasFinal(extractGeminiText(payload));',
+    '        if (!answer) {',
+    '          console.error(JSON.stringify({',
+    '            event: "veritas_direct_gemini_empty_answer",',
+    '            status: upstream.status,',
+    '            finishReason: payload?.candidates?.[0]?.finishReason || null,',
+    '            blockReason: payload?.promptFeedback?.blockReason || null,',
+    '            model,',
+    '            build: BUILD_ID,',
+    '          }));',
+    '        }',
+    '      } else {',
+    '        console.error(JSON.stringify({',
+    '          event: "veritas_direct_gemini_http_failure",',
+    '          status: upstream.status,',
+    '          model,',
+    '          upstreamMessage: String(payload?.error?.message || payload?.error || ""),',
+    '          build: BUILD_ID,',
+    '        }));',
+    '      }'
   ].join('\n'));
 }
+
+const allFailedReturn = '    return json({ error: publicVeritasError(upstream?.status || 503), build: BUILD_ID }, upstream?.status === 429 ? 429 : 503);';
+if (s.includes(allFailedReturn)) {
+  s = s.replace(allFailedReturn, [
+    '    return json({',
+    '      error: publicVeritasError(upstream?.status || 503),',
+    '      code: "VERITAS_AI_PROVIDERS_FAILED",',
+    '      attemptedProviders: {',
+    '        openrouter: Boolean(env.OPENROUTER_API_KEY),',
+    '        gemini: Boolean(env.GEMINI_API_KEY),',
+    '      },',
+    '      build: BUILD_ID,',
+    '    }, upstream?.status === 429 ? 429 : 503);'
+  ].join('\n'));
+}
+
+if (!s.includes('veritas_direct_gemini_http_failure')) throw new Error('Gemini HTTP diagnostics missing');
+if (!s.includes('VERITAS_D1_CONTEXT_UNAVAILABLE')) throw new Error('D1 diagnostics missing');
+if (!s.includes('VERITAS_AI_PROVIDERS_FAILED')) throw new Error('provider failure diagnostic code missing');
+if (!s.includes('isGeneralCapabilityQuestion(question)')) throw new Error('general capability routing missing');
 
 fs.writeFileSync(workerPath, s);
 
@@ -111,4 +209,4 @@ c = c.replace(/,\n\s*databaseContext,\n\s*\}\),/, '\n        }),');
 c = c.replace('.slice(-10)', '.slice(-6)');
 fs.writeFileSync(clientPath, c);
 
-console.log('Optimized Veritas request construction and response handling');
+console.log('Optimized Veritas request construction and added D1/provider diagnostics');
