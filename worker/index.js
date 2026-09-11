@@ -457,6 +457,9 @@ function publicReaKnowledgePrompt(question) {
   ].join("\n");
 }
 
+function isGeneralCapabilityQuestion(question) {
+  return /^(?:what can you do|what do you do|how can you help|help me|capabilities|your capabilities|what are your capabilities)[?.! ]*$/i.test(String(question || "").trim());
+}
 function responseTokenBudget(question) {
   if (isReportRequest(question)) return 4500;
   return isManagementAnalysisQuestion(question) ? 2500 : 1600;
@@ -593,7 +596,28 @@ async function veritasResponse(request, env) {
     // but pass the result through the reasoning layer for a concise management response.
     prompt = analyticsAnswerPrompt(question, analyticsResult);
   } else {
-    databaseContext = await liveDatabaseContext(env);
+    if (isGeneralCapabilityQuestion(question)) {
+      databaseContext = {
+        generatedAt: new Date().toISOString(),
+        source: "General Veritas capability request",
+        dataScope: "No live D1 query required for this general AI capability question.",
+      };
+    } else {
+      try {
+        databaseContext = await liveDatabaseContext(env);
+      } catch (error) {
+        console.error(JSON.stringify({
+          event: "veritas_d1_context_failure",
+          message: error instanceof Error ? error.message : "Unknown error",
+          build: BUILD_ID,
+        }));
+        return json({
+          error: "Veritas could not load the current production data required for this request.",
+          code: "VERITAS_D1_CONTEXT_UNAVAILABLE",
+          build: BUILD_ID,
+        }, 503);
+      }
+    }
     const exactCrossTabAnswer = typeof exactComponentStateProgrammeAnswer === "function" ? exactComponentStateProgrammeAnswer(question, databaseContext) : "";
     if (exactCrossTabAnswer) {
       return json({ answer: exactCrossTabAnswer, sources: [], mode: "veritas-live-d1-exact", build: BUILD_ID });
@@ -672,7 +696,27 @@ async function veritasResponse(request, env) {
         },
       );
       payload = await upstream.json().catch(() => ({}));
-      if (upstream.ok) answer = extractVeritasFinal(extractGeminiText(payload));
+      if (upstream.ok) {
+        answer = extractVeritasFinal(extractGeminiText(payload));
+        if (!answer) {
+          console.error(JSON.stringify({
+            event: "veritas_direct_gemini_empty_answer",
+            status: upstream.status,
+            finishReason: payload?.candidates?.[0]?.finishReason || null,
+            blockReason: payload?.promptFeedback?.blockReason || null,
+            model,
+            build: BUILD_ID,
+          }));
+        }
+      } else {
+        console.error(JSON.stringify({
+          event: "veritas_direct_gemini_http_failure",
+          status: upstream.status,
+          model,
+          upstreamMessage: String(payload?.error?.message || payload?.error || ""),
+          build: BUILD_ID,
+        }));
+      }
     } catch (error) {
       console.error(JSON.stringify({
         event: "veritas_direct_gemini_timeout_or_network_error",
@@ -695,7 +739,15 @@ async function veritasResponse(request, env) {
       upstreamMessage: String(payload?.error?.message || payload?.error || ""),
       build: BUILD_ID,
     }));
-    return json({ error: publicVeritasError(upstream?.status || 503), build: BUILD_ID }, upstream?.status === 429 ? 429 : 503);
+    return json({
+      error: publicVeritasError(upstream?.status || 503),
+      code: "VERITAS_AI_PROVIDERS_FAILED",
+      attemptedProviders: {
+        openrouter: Boolean(env.OPENROUTER_API_KEY),
+        gemini: Boolean(env.GEMINI_API_KEY),
+      },
+      build: BUILD_ID,
+    }, upstream?.status === 429 ? 429 : 503);
   }
   if (!answer) {
     console.error(JSON.stringify({ event: "veritas_empty_provider_response", provider: "gemini", model, build: BUILD_ID }));
