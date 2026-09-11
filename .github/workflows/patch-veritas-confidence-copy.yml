@@ -11,6 +11,7 @@ on:
       - 'scripts/patch-veritas-no-invented-thresholds.mjs'
       - 'scripts/patch-veritas-evidence-claims.mjs'
       - 'scripts/patch-veritas-management-analytics.mjs'
+      - 'scripts/patch-veritas-response-quality.mjs'
 
 permissions:
   contents: write
@@ -45,6 +46,9 @@ jobs:
       - name: Apply management analytics routing
         run: node scripts/patch-veritas-management-analytics.mjs
 
+      - name: Apply shared response quality rules
+        run: node scripts/patch-veritas-response-quality.mjs
+
       - name: Validate worker and client syntax
         run: |
           node --check worker/index.js
@@ -58,7 +62,7 @@ jobs:
           if git diff --cached --quiet; then
             echo 'No runtime changes to commit'
           else
-            git commit -m 'Add reasoned management analytics responses'
+            git commit -m 'Improve Veritas management response quality'
             git push origin main
           fi
 
