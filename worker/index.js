@@ -1,7 +1,7 @@
 import { handleFieldApi } from "./field-api.js";
 import { analyticsCatalog, analyticsAnswerPrompt, executeAnalyticsPlan, parsePlannerJson, plannerPrompt, validateAnalyticsPlan } from "./analytics.js";
 
-const BUILD_ID = "veritas-2026-09-11-direct-safe-analytics-r1";
+const BUILD_ID = "veritas-2026-09-11-openrouter-model-fallbacks-r1";
 const encoder = new TextEncoder();
 
 const json = (body, status = 200) =>
@@ -312,10 +312,11 @@ async function analyticsPlannerResponse(question, env) {
         },
         body: JSON.stringify({
           model: env.OPENROUTER_MODEL || "google/gemini-3.8-flash",
+          models: ["google/gemini-3.6-flash", "anthropic/claude-sonnet-4.6"],
           messages: [{ role: "user", content: prompt }],
           max_tokens: 700,
           temperature: 0,
-          provider: { allow_fallbacks: true, sort: "throughput" },
+          provider: { allow_fallbacks: true, sort: "throughput", data_collection: "deny" },
         }),
         signal: AbortSignal.timeout(12000),
       });
@@ -424,10 +425,11 @@ async function veritasResponse(request, env) {
         },
         body: JSON.stringify({
           model,
+          models: ["google/gemini-3.6-flash", "anthropic/claude-sonnet-4.6"],
           messages: [{ role: "user", content: prompt }],
           max_tokens: 3000,
           temperature: 0.3,
-          provider: { allow_fallbacks: true, sort: "throughput" },
+          provider: { allow_fallbacks: true, sort: "throughput", data_collection: "deny" },
         }),
         signal: AbortSignal.timeout(25000),
       });
