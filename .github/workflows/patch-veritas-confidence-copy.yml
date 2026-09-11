@@ -16,6 +16,7 @@ on:
       - 'scripts/patch-veritas-dynamic-token-budget.mjs'
       - 'scripts/patch-veritas-hide-model-reasoning.mjs'
       - 'scripts/patch-veritas-final-answer-contract.mjs'
+      - 'scripts/patch-veritas-report-mode.mjs'
 
 permissions:
   contents: write
@@ -65,6 +66,9 @@ jobs:
       - name: Enforce final-answer response contract
         run: node scripts/patch-veritas-final-answer-contract.mjs
 
+      - name: Apply report generation mode
+        run: node scripts/patch-veritas-report-mode.mjs
+
       - name: Validate worker and client syntax
         run: |
           node --check worker/index.js
@@ -78,7 +82,7 @@ jobs:
           if git diff --cached --quiet; then
             echo 'No runtime changes to commit'
           else
-            git commit -m 'Enforce final-only Veritas AI responses'
+            git commit -m 'Add Veritas management report mode'
             git push origin main
           fi
 
