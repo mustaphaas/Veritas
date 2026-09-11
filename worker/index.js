@@ -1,7 +1,7 @@
 import { handleFieldApi } from "./field-api.js";
 import { analyticsCatalog, analyticsAnswerPrompt, executeAnalyticsPlan, parsePlannerJson, plannerPrompt, validateAnalyticsPlan } from "./analytics.js";
 
-const BUILD_ID = "veritas-2026-09-11-final-answer-contract-r2";
+const BUILD_ID = "veritas-2026-09-11-report-mode-r1";
 const encoder = new TextEncoder();
 
 const json = (body, status = 200) =>
@@ -215,6 +215,7 @@ async function liveDatabaseContext(env) {
     componentPerformance: aggregateBy(projects, "component", (label, group) => projectSummary(label, group, "component")),
     componentStateProgramme,
     statePerformance: aggregateBy(projects, "state", (label, group) => projectSummary(label, group, "state")),
+    lgaPerformance: aggregateBy(projects, "lga", (label, group) => projectSummary(label, group, "lga")),
     contractorPerformance: aggregateBy(projects, "contractor", (label, group) => projectSummary(label, group, "contractor")),
     consultantPerformance: aggregateBy(projects, "consultantFirm", (label, group) => projectSummary(label, group, "consultantFirm")),
     consultants: (consultantResult.results || []).map((row) => ({
@@ -316,6 +317,20 @@ RESPONSE QUALITY STANDARD:
 - If a question spans multiple subject areas and the available evidence fully supports only one of them, state what is confirmed and what requires a separate review rather than pretending the answer is comprehensive.
 - A short bottom line may be used when it adds a clear management takeaway; do not repeat the opening conclusion.
 
+REPORT GENERATION STANDARD:
+- When the user asks to generate, prepare, create, produce, compile or write a report, switch from normal chat style to a complete formal REA management report.
+- Use only the CURRENT VERITAS CONTEXT as factual evidence for internal figures. Never invent a project count, verification figure, contractor result, consultant status, state result, LGA result, assignment status, date, target, deadline or cause.
+- State the reporting scope or period at the top. If no explicit period is supplied, say that the report reflects the current live Veritas production snapshot and do not invent a month or reporting period.
+- Use this default structure unless the user asks for another format: Report Title; Reporting Scope; Executive Summary; Portfolio Overview; Performance Analysis; Verification & QA; Geographic Performance; Programme Performance; Consultant/Contractor Observations when supported; Key Risks & Exceptions; Confirmed Facts; Interpretation; Data Gaps; Management Actions; Conclusion.
+- For State/LGA performance reports, prioritise statePerformance and lgaPerformance. Compare project volume, installed capacity, households reached, verified projects, pending projects and descriptive verification shares where the source values support calculation. Do not infer actual electrification need from Veritas portfolio size alone.
+- For programme reports, prioritise programmePerformance. For contractor reports, prioritise contractorPerformance. For consultant reports, distinguish consultantPerformance project aggregates from consultant status records and do not treat an allocation bucket as a consultant unless explicitly identified as one.
+- For verification reports, use portfolio verification totals, assignmentStatusCounts and supported programme/state/LGA/contractor/consultant breakdowns. Do not claim a bottleneck, delay, capacity shortage or weak management unless the evidence establishes it.
+- Put the most decision-relevant findings in the Executive Summary. Do not dump every row. Rank material issues only when the evidence supports a meaningful comparison.
+- Separate confirmed facts from interpretation. A current status difference can justify management attention without proving the reason for the difference.
+- Management Actions must be evidence-led checks or decisions that logically follow from confirmed findings. Never invent a numeric target, deadline, SLA, staffing requirement or budget.
+- Data Gaps should identify only information genuinely missing for the requested conclusion; do not use boilerplate caveats.
+- Write in formal, concise REA language suitable for a Director or Managing Director. The report should be detailed enough to stand alone and later be rendered into the approved REA PDF template.
+
 PROJECT PRIORITY ANALYSIS RULES:
 When identifying states that may need more projects, do not rank them only by installed MW or household reach. Treat installed capacity and household reach as portfolio indicators, not proof of investment need. Where available, consider unelectrified population, electricity access rate, population or household base, existing grid coverage and grid proximity, current project pipeline, project density, installed MW per capita or per household, demand and productive-use potential, existing generation capacity, and the rural electrification gap. If some of these variables are not available in the live Veritas database, say so explicitly and describe the result as a portfolio-based priority assessment rather than a definitive investment recommendation. Use wording such as: "Based on current Veritas portfolio data, these states are priority candidates for further assessment." Do not state that a state definitely needs more projects unless the available evidence supports that conclusion. Distinguish clearly between "lowest recorded capacity" and "highest actual electrification need." Do not recommend a specific programme, technology, project size, or capital allocation solely because a state has low recorded MW or household reach unless supporting evidence is available.
 
@@ -344,8 +359,9 @@ function extractVeritasFinal(text) {
   const endToken = "</VERITAS_FINAL>";
   const start = value.lastIndexOf(startToken);
   const end = value.indexOf(endToken, start >= 0 ? start + startToken.length : 0);
-  if (start >= 0 && end > start) {
-    return value.slice(start + startToken.length, end).trim();
+  if (start >= 0) {
+    if (end > start) return value.slice(start + startToken.length, end).trim();
+    return value.slice(start + startToken.length).trim();
   }
   const leakPattern = /^(the user wants|the user is asking|i need to|first,? i need|let me (?:analy[sz]e|draft|refine|check)|let['’]s analy[sz]e|we need to|the question asks|i should|response standard|evidence discipline|numeric discipline|answer quality)/i;
   if (leakPattern.test(value)) return "";
@@ -401,7 +417,12 @@ function isManagementAnalysisQuestion(question) {
   return /\b(analy[sz]e|analysis|management|risk|pressure|issue|implication|recommend|action|attention|why|what does|interpret|priority|prioritise|prioritize|concern|bottleneck|trend|performance|review next)\b/i.test(String(question || ""));
 }
 
+function isReportRequest(question) {
+  return /\b(generate|create|prepare|produce|write|draft|compile|build)\b[\s\S]{0,80}\b(report|brief|briefing|management report|monthly report|performance report|verification report)\b|\b(report|brief|briefing)\b[\s\S]{0,80}\b(generate|create|prepare|produce|write|draft|compile|build)\b/i.test(String(question || ""));
+}
+
 function responseTokenBudget(question) {
+  if (isReportRequest(question)) return 4500;
   return isManagementAnalysisQuestion(question) ? 2500 : 1600;
 }
 
@@ -487,7 +508,7 @@ async function veritasResponse(request, env) {
   }
 
   let analyticsResult = null;
-  if (isLikelyAnalyticsQuestion(question)) {
+  if (isLikelyAnalyticsQuestion(question) && !isReportRequest(question)) {
     const plannerText = await analyticsPlannerResponse(question, env);
     const rawPlan = parsePlannerJson(plannerText);
     const plan = validateAnalyticsPlan(rawPlan);
