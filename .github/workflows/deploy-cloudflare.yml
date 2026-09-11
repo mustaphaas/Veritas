@@ -29,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Apply official REA public knowledge and team snapshot
+        run: node scripts/patch-veritas-public-rea-knowledge.mjs
+
       - name: Build client
         run: npm run build:client
 
