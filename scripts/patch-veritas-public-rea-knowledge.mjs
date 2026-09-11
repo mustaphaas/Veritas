@@ -3,7 +3,7 @@ import fs from 'node:fs';
 const workerPath = 'worker/index.js';
 let s = fs.readFileSync(workerPath, 'utf8');
 
-s = s.replace(/const BUILD_ID = "[^"]+";/, 'const BUILD_ID = "veritas-2026-09-11-public-rea-team-r3";');
+s = s.replace(/const BUILD_ID = "[^"]+";/, 'const BUILD_ID = "veritas-2026-09-11-public-rea-team-r4";');
 
 const teamSnapshot = [
   'REA TEAM AUTHORITATIVE SNAPSHOT - OFFICIAL REA SOURCE:',
@@ -30,7 +30,7 @@ if (!s.includes('function isPublicReaQuestion(question)')) {
     '',
     'function isPublicReaQuestion(question) {',
     '  const q = String(question || "").trim();',
-    '  return /\\b(?:who is|who\\'s|current|name of|what is|tell me about|when was|where is|leadership|management|managing director|md\\/?ceo|ceo|chairman|minister|programmes?|programs?|policy|policies|mandate|history|announcement|news|official)\\b/i.test(q) && /\\b(?:rea|rural electrification agency|managing director|md\\/?ceo)\\b/i.test(q);',
+    '  return /\\b(?:who is|who.?s|current|name of|what is|tell me about|when was|where is|leadership|management|managing director|md\\/?ceo|ceo|chairman|minister|programmes?|programs?|policy|policies|mandate|history|announcement|news|official)\\b/i.test(q) && /\\b(?:rea|rural electrification agency|managing director|md\\/?ceo)\\b/i.test(q);',
     '}',
     '',
     'function deterministicReaTeamAnswer(question) {',
