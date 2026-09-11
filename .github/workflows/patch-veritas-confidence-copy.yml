@@ -12,6 +12,7 @@ on:
       - 'scripts/patch-veritas-evidence-claims.mjs'
       - 'scripts/patch-veritas-management-analytics.mjs'
       - 'scripts/patch-veritas-response-quality.mjs'
+      - 'scripts/patch-veritas-professional-opening.mjs'
 
 permissions:
   contents: write
@@ -49,6 +50,9 @@ jobs:
       - name: Apply shared response quality rules
         run: node scripts/patch-veritas-response-quality.mjs
 
+      - name: Apply professional opening style
+        run: node scripts/patch-veritas-professional-opening.mjs
+
       - name: Validate worker and client syntax
         run: |
           node --check worker/index.js
@@ -62,7 +66,7 @@ jobs:
           if git diff --cached --quiet; then
             echo 'No runtime changes to commit'
           else
-            git commit -m 'Improve Veritas management response quality'
+            git commit -m 'Make Veritas openings professional and confident'
             git push origin main
           fi
 
