@@ -371,9 +371,8 @@ export default function VeritasAssistant() {
         body: JSON.stringify({
           messages: next
             .filter((message) => message.id !== "welcome")
-            .slice(-10)
-            .map(({ role, content }) => ({ role, content })),
-          databaseContext,
+            .slice(-6)
+            .map(({ role, content }) => ({ role, content }))
         }),
       });
 

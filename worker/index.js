@@ -1,7 +1,7 @@
 import { handleFieldApi } from "./field-api.js";
 import { analyticsCatalog, analyticsAnswerPrompt, executeAnalyticsPlan, parsePlannerJson, plannerPrompt, validateAnalyticsPlan } from "./analytics.js";
 
-const BUILD_ID = "veritas-2026-09-11-openrouter-gemini38-r2";
+const BUILD_ID = "veritas-2026-09-11-management-analytics-r1";
 const encoder = new TextEncoder();
 
 const json = (body, status = 200) =>
@@ -86,13 +86,45 @@ function compactConversation(messages = []) {
     .join("\n\n");
 }
 
-function compactContext(databaseContext = {}) {
+function compactContext(databaseContext = {}, question = "") {
   const context = { ...databaseContext };
-  const projects = Array.isArray(context.projects) ? context.projects : [];
-  if (projects.length > 120) {
-    context.projects = projects.slice(0, 120);
-    context.projectRecordNote = `Project-level context contains the first 120 of ${projects.length} live database records. Portfolio and aggregate summaries cover the full dataset.`;
+  const q = String(question || "").toLowerCase();
+
+  const needsProjects = /\b(project name|which projects?|list projects?|project id|community|lga|specific project)\b/i.test(q);
+  const needsAssignments = /\b(assignments?|field officers?|officer|submitted reports?|re-?inspection|due date)\b/i.test(q);
+  const needsConsultants = /\b(consultants?|consultant firm|consultant admin)\b/i.test(q);
+
+  if (Array.isArray(context.projects)) {
+    if (needsProjects) {
+      const total = context.projects.length;
+      context.projects = context.projects.slice(0, 40);
+      if (total > context.projects.length) context.projectRecordNote = "Showing 40 of " + total + " project records; portfolio aggregates remain complete.";
+    } else {
+      delete context.projects;
+    }
   }
+
+  if (Array.isArray(context.assignments)) {
+    if (needsAssignments) {
+      const total = context.assignments.length;
+      context.assignments = context.assignments.slice(0, 40);
+      if (total > context.assignments.length) context.assignmentRecordNote = "Showing 40 of " + total + " assignment records; status aggregates remain complete.";
+    } else {
+      delete context.assignments;
+    }
+  }
+
+  if (!needsConsultants) delete context.consultants;
+  delete context.componentStateProgramme;
+
+  if (context.users && !/\b(users?|field officers?|consultant admins?|rea admins?)\b/i.test(q)) {
+    context.users = {
+      fieldOfficerCount: Array.isArray(context.users.fieldOfficers) ? context.users.fieldOfficers.length : 0,
+      consultantAdminCount: Array.isArray(context.users.consultantAdmins) ? context.users.consultantAdmins.length : 0,
+      reaAdminCount: Array.isArray(context.users.reaAdmins) ? context.users.reaAdmins.length : 0,
+    };
+  }
+
   return context;
 }
 
@@ -234,7 +266,7 @@ async function liveDatabaseContext(env) {
 function buildInput(messages, databaseContext) {
   const conversation = compactConversation(messages);
   const question = latestQuestion(messages);
-  const context = JSON.stringify(compactContext(databaseContext || {}));
+  const context = JSON.stringify(compactContext(databaseContext || {}, question));
 
   return `You are Veritas, the AI assistant inside the Rural Electrification Agency monitoring application.
 
@@ -245,6 +277,24 @@ The CURRENT VERITAS CONTEXT below is generated directly from the live Cloudflare
 For general questions that do not require private Veritas data, answer from your general knowledge. Never expose passwords, password hashes, salts, session tokens, personal phone numbers, email addresses, signatures, device IDs, or precise private evidence coordinates.
 
 The workflow is authoritative: Field Officer submits -> Consultant Admin approves or requests re-inspection -> REA approves and verifies or rejects for re-inspection. A report is final only when its assignment status is Verified.
+
+EVIDENCE AND CAUSALITY RULES:
+- Separate confirmed facts from interpretation. A database status, count, date, or missing record does not by itself prove the cause of that condition.
+- Never convert correlation, concentration, missing data, a status snapshot, or timing proximity into a causal or operational certainty unless the live Veritas data or an authoritative REA workflow rule explicitly supports it.
+- Do not state that a workflow is blocked, frozen, impossible to progress, delayed, inflated, unsupported, without oversight, without capacity, or dependent on a single entity unless the evidence explicitly establishes that claim.
+- Do not assume that a named bucket such as "REA Unallocated" is a consultant, contractor, or responsible delivery entity unless the data model explicitly identifies it that way. Treat it as an allocation/status category if that is all the context establishes.
+- Do not assume that a pending consultant activation means a region lacks active oversight, or that reassignment is feasible, unless current assignments, coverage and authority data prove it.
+- Do not assume that zero visible evidence records means evidence does not exist elsewhere or that submission is impossible. Say that no evidence records are visible in the available Veritas dataset and recommend checking field activity, evidence capture, sync or recording status as appropriate.
+- When the evidence supports concern but not causation, use disciplined wording such as "may indicate", "creates a management risk", "warrants review", or "the available data does not establish the cause".
+- Recommendations must follow from confirmed findings and should avoid asserting authority, feasibility, resource availability or mandatory workflow conditions that are not explicitly present in the context.
+
+NUMERIC POLICY AND RECOMMENDATION RULES:
+- Never invent a target, threshold, deadline, SLA, cutoff, quota, percentage, time window, minimum evidence count, workload share, or escalation interval.
+- A numeric management target may be stated only when that exact target is present in the authoritative Veritas context, explicitly supplied by the user, or identified as an established REA rule in the available source material.
+- Do not turn an observed database value into a recommended threshold. For example, do not recommend "raise verification above 75%", "reduce unallocated projects below 40%", "escalate within 48 hours", or any similar number unless that number is explicitly supported.
+- You may calculate and report descriptive values from authoritative data, including counts, totals, percentages, rates, differences and rankings, but clearly treat them as current observations rather than policy targets.
+- When a management threshold would be useful but none is supplied, say "set a management-approved target", "prioritise approaching due dates", or recommend that management define the threshold; do not choose the number yourself.
+- Recommendations must be traceable to confirmed findings. Do not claim an operational constraint, blocked workflow, required evidence minimum, resource availability, consultant capacity, or reassignment feasibility unless the context supports it.
 
 PROJECT PRIORITY ANALYSIS RULES:
 When identifying states that may need more projects, do not rank them only by installed MW or household reach. Treat installed capacity and household reach as portfolio indicators, not proof of investment need. Where available, consider unelectrified population, electricity access rate, population or household base, existing grid coverage and grid proximity, current project pipeline, project density, installed MW per capita or per household, demand and productive-use potential, existing generation capacity, and the rural electrification gap. If some of these variables are not available in the live Veritas database, say so explicitly and describe the result as a portfolio-based priority assessment rather than a definitive investment recommendation. Use wording such as: "Based on current Veritas portfolio data, these states are priority candidates for further assessment." Do not state that a state definitely needs more projects unless the available evidence supports that conclusion. Distinguish clearly between "lowest recorded capacity" and "highest actual electrification need." Do not recommend a specific programme, technology, project size, or capital allocation solely because a state has low recorded MW or household reach unless supporting evidence is available.
@@ -281,20 +331,28 @@ function extractGeminiText(payload) {
 }
 
 function extractOpenRouterText(payload) {
-  const content = payload?.choices?.[0]?.message?.content;
-  if (typeof content === "string") return content.trim();
+  const message = payload?.choices?.[0]?.message;
+  const content = message?.content;
+  if (typeof content === "string" && content.trim()) return content.trim();
   if (Array.isArray(content)) {
-    return content
-      .map((part) => (typeof part?.text === "string" ? part.text.trim() : ""))
-      .filter(Boolean)
-      .join("\n\n")
-      .trim();
+    const text = content.map((part) => {
+      if (typeof part === "string") return part.trim();
+      if (typeof part?.text === "string") return part.text.trim();
+      if (typeof part?.content === "string") return part.content.trim();
+      return "";
+    }).filter(Boolean).join("\n\n").trim();
+    if (text) return text;
   }
+  if (typeof message?.reasoning === "string" && message.reasoning.trim()) return message.reasoning.trim();
   return "";
 }
 
 function isLikelyAnalyticsQuestion(question) {
   return /\b(how many|count|total|break\s*down|breakdown|compare|rank|highest|lowest|average|sum|by state|by programme|by program|by component|by contractor|by consultant|by officer|verified|pending|verification|capacity|households?|assignments?|projects?)\b/i.test(String(question || ""));
+}
+
+function isManagementAnalysisQuestion(question) {
+  return /\b(analy[sz]e|analysis|management|risk|pressure|issue|implication|recommend|action|attention|why|what does|interpret|priority|prioritise|prioritize|concern|bottleneck|trend|performance|review next)\b/i.test(String(question || ""));
 }
 
 async function analyticsPlannerResponse(question, env) {
@@ -394,9 +452,13 @@ async function veritasResponse(request, env) {
 
   let databaseContext = null;
   let prompt;
-  if (analyticsResult) {
+  if (analyticsResult && !isManagementAnalysisQuestion(question)) {
     const exactAnswer = deterministicAnalyticsAnswer(analyticsResult);
     return json({ answer: exactAnswer, sources: [], mode: "veritas-safe-analytics", build: BUILD_ID });
+  } else if (analyticsResult) {
+    // Management/interpretive questions still use exact D1 analytics as the evidence base,
+    // but pass the result through the reasoning layer for a concise management response.
+    prompt = analyticsAnswerPrompt(question, analyticsResult);
   } else {
     databaseContext = await liveDatabaseContext(env);
     const exactCrossTabAnswer = typeof exactComponentStateProgrammeAnswer === "function" ? exactComponentStateProgrammeAnswer(question, databaseContext) : "";
@@ -427,14 +489,19 @@ async function veritasResponse(request, env) {
           model,
           models: ["google/gemini-3.7-flash", "google/gemini-3.6-flash", "openrouter/free"],
           messages: [{ role: "user", content: prompt }],
-          max_tokens: 3000,
+          max_tokens: 1600,
           temperature: 0.3,
           provider: { allow_fallbacks: true, sort: "throughput", data_collection: "deny" },
         }),
         signal: AbortSignal.timeout(25000),
       });
       payload = await upstream.json().catch(() => ({}));
-      if (upstream.ok) answer = extractOpenRouterText(payload);
+      if (upstream.ok) {
+      answer = extractOpenRouterText(payload);
+      if (!answer) {
+        console.error(JSON.stringify({ event: "veritas_openrouter_empty_answer", status: upstream.status, finishReason: payload?.choices?.[0]?.finish_reason || null, returnedModel: payload?.model || null, build: BUILD_ID }));
+      }
+    }
     } catch (error) {
       console.error(JSON.stringify({
         event: "veritas_openrouter_timeout_or_network_error",
@@ -465,7 +532,7 @@ async function veritasResponse(request, env) {
           headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
           body: JSON.stringify({
             contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: { maxOutputTokens: 3000 },
+            generationConfig: { maxOutputTokens: 1600 },
           }),
           signal: AbortSignal.timeout(30000),
         },
