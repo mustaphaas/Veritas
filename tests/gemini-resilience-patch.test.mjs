@@ -6,16 +6,18 @@ const patch = fs.readFileSync('scripts/patch-veritas-gemini-resilience.mjs', 'ut
 
 test('Gemini resilience patch retries empty HTTP 200 completions', () => {
   assert.match(patch, /veritas_gemini_model_empty_completion/);
+  assert.match(patch, /visibleText/);
   assert.match(patch, /continue;/);
 });
 
-test('Gemini resilience patch preserves visible text parts with thought signatures', () => {
-  assert.match(patch, /thoughtSignature/);
-  assert.doesNotMatch(patch, /if \(part\?\.thoughtSignature\) continue/);
+test('Gemini resilience patch removes the worker rule that drops thought-signature text', () => {
+  assert.match(patch, /s = s\.replace\('      if \(part\?\.thoughtSignature\) continue;/);
+  assert.match(patch, /Gemini text parser still drops thoughtSignature text parts/);
 });
 
 test('Gemini resilience patch configures built-in model fallbacks and low thinking', () => {
+  assert.match(patch, /builtInFallbacks/);
   assert.match(patch, /gemini-3\.8-flash/);
   assert.match(patch, /gemini-3\.7-flash/);
-  assert.match(patch, /thinkingLevel: \\"low\\"/);
+  assert.match(patch, /thinkingConfig: \{ thinkingLevel: "low" \}/);
 });
