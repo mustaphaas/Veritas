@@ -1,7 +1,7 @@
 import { handleFieldApi } from "./field-api.js";
 import { analyticsCatalog, analyticsAnswerPrompt, executeAnalyticsPlan, parsePlannerJson, plannerPrompt, validateAnalyticsPlan } from "./analytics.js";
 
-const BUILD_ID = "veritas-2026-09-11-public-rea-team-r4";
+const BUILD_ID = "veritas-2026-09-11-debug-provider-status-r5";
 const encoder = new TextEncoder();
 
 const json = (body, status = 200) =>
@@ -669,6 +669,7 @@ async function veritasResponse(request, env) {
   }
   let upstream;
   let payload = {};
+  let openrouterMessage = "";
   let provider = "gemini";
   let model = env.GEMINI_MODEL || "gemini-3.8-flash";
   let answer = "";
@@ -700,13 +701,17 @@ async function veritasResponse(request, env) {
       if (upstream.ok) {
       answer = extractVeritasFinal(extractOpenRouterText(payload));
       if (!answer) {
+        openrouterMessage = "Upstream returned 200 but no usable text (empty/blocked completion).";
         console.error(JSON.stringify({ event: "veritas_openrouter_empty_answer", status: upstream.status, finishReason: payload?.choices?.[0]?.finish_reason || null, returnedModel: payload?.model || null, build: BUILD_ID }));
       }
+    } else {
+      openrouterMessage = String(payload?.error?.message || payload?.error || `HTTP ${upstream.status}`);
     }
     } catch (error) {
+      openrouterMessage = error instanceof Error ? error.message : "Network or timeout error";
       console.error(JSON.stringify({
         event: "veritas_openrouter_timeout_or_network_error",
-        message: error instanceof Error ? error.message : "Unknown error",
+        message: openrouterMessage,
         build: BUILD_ID,
       }));
     }
@@ -716,13 +721,14 @@ async function veritasResponse(request, env) {
         event: "veritas_openrouter_fallback",
         status: upstream?.status || 0,
         model,
-        upstreamMessage: String(payload?.error?.message || payload?.error || ""),
+        upstreamMessage: openrouterMessage,
         build: BUILD_ID,
       }));
     }
   }
 
   let geminiStatus = 0;
+  let geminiMessage = "";
   if (!answer && env.GEMINI_API_KEY) {
     provider = "gemini";
     const result = await callGeminiWithFallback(env, {
@@ -731,9 +737,11 @@ async function veritasResponse(request, env) {
     }, { timeoutMs: 30000 });
     model = result.model;
     geminiStatus = result.ok ? 200 : result.status;
+    geminiMessage = result.ok ? "" : result.message;
     if (result.ok) {
       answer = extractVeritasFinal(extractGeminiText(result.payload));
       if (!answer) {
+        geminiMessage = "Upstream returned 200 but no usable text (empty/blocked completion).";
         console.error(JSON.stringify({
           event: "veritas_direct_gemini_empty_answer",
           finishReason: result.payload?.candidates?.[0]?.finishReason || null,
@@ -765,6 +773,10 @@ async function veritasResponse(request, env) {
       attemptedProviders: {
         openrouter: Boolean(env.OPENROUTER_API_KEY),
         gemini: Boolean(env.GEMINI_API_KEY),
+      },
+      debug: {
+        openrouter: env.OPENROUTER_API_KEY ? { status: upstream?.status || 0, message: openrouterMessage } : null,
+        gemini: env.GEMINI_API_KEY ? { status: geminiStatus, message: geminiMessage, model } : null,
       },
       build: BUILD_ID,
     }, failureStatus === 429 ? 429 : 503);
