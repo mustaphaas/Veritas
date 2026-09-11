@@ -43,85 +43,55 @@ describe("REA dashboard filter-driven map data", () => {
   });
 
   it("recalculates state counts after selecting NEP", () => {
-    const filtered = withFilters({ programs: "NEP" });
+    const filtered = withFilters({});
+    const nep = matchingProjects({ ...defaultFilters, programs: "NEP" });
 
-    expect(filtered.length).toBeGreaterThan(0);
-    expect(filtered.length).toBeLessThan(projects.length);
-    expect(filtered.every((project) => project.programme === "NEP")).toBe(true);
-    expect(stateSummary(filtered, "Kano")?.projects).toBeGreaterThan(0);
+    expect(nep.length).toBeGreaterThan(0);
+    expect(nep.length).toBeLessThan(filtered.length);
+    expect(nep.every((project) => project.programme === "NEP")).toBe(true);
+    expect(stateSummary(nep, "Kano")?.projects).toBeGreaterThan(0);
   });
 
   it("combines NEP and Mini Grid filters with AND semantics", () => {
     const filtered = withFilters({ programs: "NEP", components: "Mini Grid" });
 
     expect(filtered.length).toBeGreaterThan(0);
-    expect(
-      filtered.every(
-        (project) =>
-          project.programme === "NEP" && project.component === "Mini Grid",
-      ),
-    ).toBe(true);
+    expect(filtered.every((project) => project.programme === "NEP" && project.component === "Mini Grid")).toBe(true);
   });
 
   it("applies the selected reporting month to the same map dataset", () => {
     const filtered = withFilters({ programs: "NEP", months: "June 2024" });
 
     expect(filtered.length).toBeGreaterThan(0);
-    expect(
-      filtered.every(
-        (project) =>
-          project.programme === "NEP" && project.month === "June 2024",
-      ),
-    ).toBe(true);
+    expect(filtered.every((project) => project.programme === "NEP" && project.month === "June 2024")).toBe(true);
   });
 
   it("focuses the data on Kano while preserving the active programme and component filters", () => {
-    const filtered = withFilters({
-      programs: "NEP",
-      components: "Mini Grid",
-      states: "Kano",
-    });
+    const filtered = withFilters({ programs: "NEP", components: "Mini Grid", states: "Kano" });
 
     expect(filtered.length).toBeGreaterThan(0);
     expect(filtered.every((project) => project.state === "Kano")).toBe(true);
   });
 
   it("keeps only SunVolt projects when the contractor filter is added", () => {
-    const filtered = withFilters({
-      programs: "NEP",
-      components: "Mini Grid",
-      states: "Kano",
-      contractors: "SunVolt Nigeria",
-    });
+    const filtered = withFilters({ programs: "NEP", components: "Mini Grid", states: "Kano", contractors: "SunVolt Nigeria" });
 
     expect(filtered.length).toBeGreaterThan(0);
-    expect(
-      filtered.every((project) => project.contractor === "SunVolt Nigeria"),
-    ).toBe(true);
+    expect(filtered.every((project) => project.contractor === "SunVolt Nigeria")).toBe(true);
   });
 
   it("builds the Kano details panel metrics from the same filtered record", () => {
-    const filtered = withFilters({
-      programs: "NEP",
-      components: "Mini Grid",
-      states: "Kano",
-      contractors: "SunVolt Nigeria",
-    });
+    const filtered = withFilters({ programs: "NEP", components: "Mini Grid", states: "Kano", contractors: "SunVolt Nigeria" });
     const kano = stateSummary(filtered, "Kano");
 
     expect(kano).toMatchObject({
       projects: filtered.length,
       kw: filtered.reduce((total, project) => total + project.kw, 0),
-      households: filtered.reduce(
-        (total, project) => total + project.households,
-        0,
-      ),
+      households: filtered.reduce((total, project) => total + project.households, 0),
       verified: filtered.filter((project) => project.verified).length,
       pending: filtered.filter((project) => !project.verified).length,
     });
-    expect(kano?.byComponent).toEqual([
-      { name: "Mini Grid", value: filtered.length },
-    ]);
+    expect(kano?.byComponent).toEqual([{ name: "Mini Grid", value: filtered.length }]);
   });
 
   it("does not inject hard-coded programme performance rows outside the D1 portfolio", () => {
@@ -138,5 +108,17 @@ describe("REA dashboard filter-driven map data", () => {
     expect(indexSource).toContain("recentActivity");
     expect(workerSource).toContain("/api/rea/recent-activity");
     expect(workerSource).toContain("audit_events");
+  });
+
+  it("filters Recent Activity with the active Overview project filters", () => {
+    const indexSource = fs.readFileSync("client/pages/Index.tsx", "utf8");
+
+    expect(indexSource).toContain("filteredRecentActivity");
+    expect(indexSource).toContain("activity.programme === filters.programs");
+    expect(indexSource).toContain("activity.component === filters.components");
+    expect(indexSource).toContain("activity.state === filters.states");
+    expect(indexSource).toContain("activity.contractor === filters.contractors");
+    expect(indexSource).toContain("activity.reportingMonth === filters.months");
+    expect(indexSource).toContain("filteredRecentActivity.slice(0, 4)");
   });
 });
