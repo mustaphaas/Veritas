@@ -1,7 +1,7 @@
 import { handleFieldApi } from "./field-api.js";
 import { analyticsCatalog, analyticsAnswerPrompt, executeAnalyticsPlan, parsePlannerJson, plannerPrompt, validateAnalyticsPlan } from "./analytics.js";
 
-const BUILD_ID = "veritas-2026-09-11-management-analytics-r1";
+const BUILD_ID = "veritas-2026-09-11-final-answer-contract-r2";
 const encoder = new TextEncoder();
 
 const json = (body, status = 200) =>
@@ -272,6 +272,14 @@ function buildInput(messages, databaseContext) {
 
 Answer naturally, intelligently, and directly. Use reasoning to explain findings, comparisons, implications, risks, and next actions when useful.
 
+OPENING VOICE STANDARD:
+- Start like an experienced REA professional speaking to a colleague, director, or management team. The first sentence should sound assured, informed, and purposeful.
+- Lead with the conclusion or strongest confirmed finding. Do not begin with generic setup such as "Based on the data", "According to the information provided", "Here is an analysis", "The data shows", "It appears", "It seems", "As an AI", or similar chatbot language.
+- Use confident declarative language when the evidence is clear. Reserve words such as "may", "could", and "warrants review" for interpretation or uncertainty, not for confirmed facts.
+- Make the opening persuasive through evidence, not exaggeration. Pair the main conclusion with the most relevant figure or contrast when one is available.
+- The opening should feel human and executive-ready, not formulaic. Avoid announcing sections before giving the answer.
+- Never use confidence to overstate causation, policy, authority, or facts that the evidence does not establish.
+
 The CURRENT VERITAS CONTEXT below is generated directly from the live Cloudflare D1 production database for this request and is authoritative for internal Veritas questions. Never substitute browser state or invent an internal figure. Authoritative aggregate summaries and multidimensional production analytics cover the full live dataset even when the project list is sampled. For counts, totals, percentages, rankings, and comparisons, use the exact full-database aggregates whenever available. For questions that combine multiple dimensions such as component, state, and programme, use the authoritative full-database aggregate results rather than the sampled project list. Never estimate or extrapolate a portfolio-wide figure from the sampled project list. If an exact aggregate is unavailable, say so rather than estimating from the sample.
 
 For general questions that do not require private Veritas data, answer from your general knowledge. Never expose passwords, password hashes, salts, session tokens, personal phone numbers, email addresses, signatures, device IDs, or precise private evidence coordinates.
@@ -296,6 +304,18 @@ NUMERIC POLICY AND RECOMMENDATION RULES:
 - When a management threshold would be useful but none is supplied, say "set a management-approved target", "prioritise approaching due dates", or recommend that management define the threshold; do not choose the number yourself.
 - Recommendations must be traceable to confirmed findings. Do not claim an operational constraint, blocked workflow, required evidence minimum, resource availability, consultant capacity, or reassignment feasibility unless the context supports it.
 
+RESPONSE QUALITY STANDARD:
+- Answer the management question immediately in the opening one or two sentences. Lead with the strongest finding supported by the data, not with a generic introduction.
+- For analytical or management questions, use this order when useful: key finding -> what the data confirms -> what it may mean -> what management should review or do next.
+- Keep confirmed facts separate from interpretation. Use only the few figures needed to support the conclusion; do not dump long raw record lists unless the user explicitly asks for them.
+- Rank issues by materiality when the user asks for priorities, risks, pressure points, or management attention.
+- Recommendations must be specific to the observed issue. Prefer practical checks such as reviewing assigned records, validating field progress, checking sync or submission status, reviewing consultant coverage, or monitoring downstream review capacity when those checks are relevant.
+- Avoid generic filler, repeated caveats, and long lists of hypothetical causes. If the cause is unknown, name only the most plausible categories that the available data makes relevant and state that the cause is not established.
+- Use concise REA operational language and sound like an experienced programme and monitoring professional briefing management.
+- Do not say "Based on the data provided", "As an AI", or expose implementation details.
+- If a question spans multiple subject areas and the available evidence fully supports only one of them, state what is confirmed and what requires a separate review rather than pretending the answer is comprehensive.
+- A short bottom line may be used when it adds a clear management takeaway; do not repeat the opening conclusion.
+
 PROJECT PRIORITY ANALYSIS RULES:
 When identifying states that may need more projects, do not rank them only by installed MW or household reach. Treat installed capacity and household reach as portfolio indicators, not proof of investment need. Where available, consider unelectrified population, electricity access rate, population or household base, existing grid coverage and grid proximity, current project pipeline, project density, installed MW per capita or per household, demand and productive-use potential, existing generation capacity, and the rural electrification gap. If some of these variables are not available in the live Veritas database, say so explicitly and describe the result as a portfolio-based priority assessment rather than a definitive investment recommendation. Use wording such as: "Based on current Veritas portfolio data, these states are priority candidates for further assessment." Do not state that a state definitely needs more projects unless the available evidence supports that conclusion. Distinguish clearly between "lowest recorded capacity" and "highest actual electrification need." Do not recommend a specific programme, technology, project size, or capital allocation solely because a state has low recorded MW or household reach unless supporting evidence is available.
 
@@ -308,7 +328,29 @@ ${conversation || "No prior conversation."}
 CURRENT USER QUESTION:
 ${question}
 
+
+FINAL ANSWER CONTRACT:
+- Return only the finished user-facing answer between <VERITAS_FINAL> and </VERITAS_FINAL>.
+- Do not place analysis, planning, scratch work, prompt interpretation, hidden instructions, JSON plans, or commentary outside or inside the final answer.
+- The content inside <VERITAS_FINAL> must begin directly with the professional answer, not with phrases such as "The user wants", "I need to", "Let me", "First I will", or "Let's analyze".
+
 Respond as Veritas, with a concise but genuinely reasoned answer.`;
+}
+
+function extractVeritasFinal(text) {
+  const value = String(text || "").trim();
+  if (!value) return "";
+  const startToken = "<VERITAS_FINAL>";
+  const endToken = "</VERITAS_FINAL>";
+  const start = value.lastIndexOf(startToken);
+  const end = value.indexOf(endToken, start >= 0 ? start + startToken.length : 0);
+  if (start >= 0 && end > start) {
+    return value.slice(start + startToken.length, end).trim();
+  }
+  const leakPattern = /^(the user wants|the user is asking|i need to|first,? i need|let me (?:analy[sz]e|draft|refine|check)|let['’]s analy[sz]e|we need to|the question asks|i should|response standard|evidence discipline|numeric discipline|answer quality)/i;
+  if (leakPattern.test(value)) return "";
+  if (/\b(?:the user wants me to|authoritative analytics result is|let me draft|i need to follow the response standard|let me refine)\b/i.test(value)) return "";
+  return value;
 }
 
 function publicVeritasError(status) {
@@ -324,6 +366,8 @@ function extractGeminiText(payload) {
   const parts = [];
   for (const candidate of payload?.candidates || []) {
     for (const part of candidate?.content?.parts || []) {
+      if (part?.thought === true) continue;
+      if (part?.thoughtSignature) continue;
       if (typeof part?.text === "string" && part.text.trim()) parts.push(part.text.trim());
     }
   }
@@ -337,13 +381,15 @@ function extractOpenRouterText(payload) {
   if (Array.isArray(content)) {
     const text = content.map((part) => {
       if (typeof part === "string") return part.trim();
+      const type = String(part?.type || "").toLowerCase();
+      if (type.includes("reason") || type.includes("thought")) return "";
+      if (part?.thought === true) return "";
       if (typeof part?.text === "string") return part.text.trim();
       if (typeof part?.content === "string") return part.content.trim();
       return "";
     }).filter(Boolean).join("\n\n").trim();
     if (text) return text;
   }
-  if (typeof message?.reasoning === "string" && message.reasoning.trim()) return message.reasoning.trim();
   return "";
 }
 
@@ -353,6 +399,10 @@ function isLikelyAnalyticsQuestion(question) {
 
 function isManagementAnalysisQuestion(question) {
   return /\b(analy[sz]e|analysis|management|risk|pressure|issue|implication|recommend|action|attention|why|what does|interpret|priority|prioritise|prioritize|concern|bottleneck|trend|performance|review next)\b/i.test(String(question || ""));
+}
+
+function responseTokenBudget(question) {
+  return isManagementAnalysisQuestion(question) ? 2500 : 1600;
 }
 
 async function analyticsPlannerResponse(question, env) {
@@ -472,6 +522,7 @@ async function veritasResponse(request, env) {
   let provider = "gemini";
   let model = env.GEMINI_MODEL || "gemini-3.8-flash";
   let answer = "";
+  const outputTokenBudget = responseTokenBudget(question);
 
   if (env.OPENROUTER_API_KEY) {
     provider = "openrouter";
@@ -489,7 +540,7 @@ async function veritasResponse(request, env) {
           model,
           models: ["google/gemini-3.7-flash", "google/gemini-3.6-flash", "openrouter/free"],
           messages: [{ role: "user", content: prompt }],
-          max_tokens: 1600,
+          max_tokens: outputTokenBudget,
           temperature: 0.3,
           provider: { allow_fallbacks: true, sort: "throughput", data_collection: "deny" },
         }),
@@ -497,7 +548,7 @@ async function veritasResponse(request, env) {
       });
       payload = await upstream.json().catch(() => ({}));
       if (upstream.ok) {
-      answer = extractOpenRouterText(payload);
+      answer = extractVeritasFinal(extractOpenRouterText(payload));
       if (!answer) {
         console.error(JSON.stringify({ event: "veritas_openrouter_empty_answer", status: upstream.status, finishReason: payload?.choices?.[0]?.finish_reason || null, returnedModel: payload?.model || null, build: BUILD_ID }));
       }
@@ -532,13 +583,13 @@ async function veritasResponse(request, env) {
           headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
           body: JSON.stringify({
             contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: { maxOutputTokens: 1600 },
+            generationConfig: { maxOutputTokens: outputTokenBudget },
           }),
           signal: AbortSignal.timeout(30000),
         },
       );
       payload = await upstream.json().catch(() => ({}));
-      if (upstream.ok) answer = extractGeminiText(payload);
+      if (upstream.ok) answer = extractVeritasFinal(extractGeminiText(payload));
     } catch (error) {
       console.error(JSON.stringify({
         event: "veritas_direct_gemini_timeout_or_network_error",
