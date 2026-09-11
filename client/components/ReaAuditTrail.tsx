@@ -3,26 +3,34 @@ import {
   Activity, AlertTriangle, BadgeCheck, CalendarClock, Download,
   ScrollText, Search, ShieldAlert, UserRound,
 } from "lucide-react";
-import { readAuditEvents, readReaStaff, type AuditEvent } from "../lib/rea-admin";
+import type { AuditEvent } from "../lib/rea-admin";
+import { fetchReaAuditTrail, type ReaDatabaseAuditEvent } from "../lib/rea-audit-trail";
+import { useAuth } from "../lib/auth";
 
 const systemEmail = "system@veritas.rea.gov.ng";
 
 export default function ReaAuditTrail(){
-  const [events,setEvents]=useState<AuditEvent[]>(readAuditEvents);
+  const {session}=useAuth();
+  const [events,setEvents]=useState<ReaDatabaseAuditEvent[]>([]);
+  const [loadError,setLoadError]=useState("");
   const [query,setQuery]=useState("");
   const [category,setCategory]=useState("All activity");
 
   useEffect(()=>{
-    const refresh=()=>setEvents(readAuditEvents());
-    window.addEventListener("veritas-audit-updated",refresh);
-    return()=>window.removeEventListener("veritas-audit-updated",refresh);
-  },[]);
+    if(!session?.apiToken){setEvents([]);setLoadError("Database session is unavailable.");return;}
+    let cancelled=false;
+    setLoadError("");
+    fetchReaAuditTrail(session.apiToken)
+      .then(next=>{if(!cancelled)setEvents(next);})
+      .catch(error=>{if(!cancelled){setEvents([]);setLoadError(error instanceof Error?error.message:"Unable to load audit trail.");}});
+    return()=>{cancelled=true;};
+  },[session?.apiToken]);
 
-  const staffByName=useMemo(()=>new Map(readReaStaff().map(staff=>[staff.name.toLowerCase(),staff])),[events]);
-  const rows=useMemo(()=>events.map(event=>{
-    const staff=staffByName.get(event.actor.toLowerCase());
-    return {...event,staffName:staff?.name||event.actor||"System process",email:staff?.email||systemEmail};
-  }),[events,staffByName]);
+  const rows=useMemo(()=>events.map(event=>({
+    ...event,
+    staffName:event.actor||"System process",
+    email:event.email||systemEmail,
+  })),[events]);
   const visible=useMemo(()=>rows.filter(event=>
     `${event.staffName} ${event.email} ${event.action} ${event.target} ${event.details}`.toLowerCase().includes(query.toLowerCase())&&
     (category==="All activity"||event.category===category)
@@ -70,6 +78,7 @@ export default function ReaAuditTrail(){
         <div className="relative flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Search staff name, email address or action" className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-xs outline-none focus:border-[#08733f]"/></div>
         <select value={category} onChange={event=>setCategory(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600"><option>All activity</option>{["Authentication","User Management","Access Control","Claims","Verification","System"].map(value=><option key={value}>{value}</option>)}</select>
       </div>
+      {loadError&&<div className="border-b border-red-100 bg-red-50 px-4 py-3 text-xs font-semibold text-red-700">{loadError}</div>}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1040px] table-fixed text-left">
           <colgroup><col className="w-[14%]"/><col className="w-[17%]"/><col className="w-[20%]"/><col className="w-[25%]"/><col className="w-[13%]"/><col className="w-[11%]"/></colgroup>

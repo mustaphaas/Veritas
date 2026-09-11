@@ -151,6 +151,101 @@ async function reaRecentActivityResponse(request, env) {
   });
 }
 
+
+function auditPresentation(action, details, projectName) {
+  const normalized = String(action || "").toLowerCase();
+  let category = "System";
+  let severity = "Info";
+
+  if (/login|logout|sign.?in|sign.?out|auth/.test(normalized)) category = "Authentication";
+  else if (/user|account|officer|consultant|suspend|reactivat|invite/.test(normalized)) category = "User Management";
+  else if (/permission|access|role/.test(normalized)) category = "Access Control";
+  else if (/claim|disbursement/.test(normalized)) category = "Claims";
+  else if (/verify|verified|verification|approve|approved|reject|rejected|return|inspection|submit|submitted|reinspection/.test(normalized)) category = "Verification";
+
+  if (/reject|rejected|fail|failed|error|block|blocked/.test(normalized)) severity = "Critical";
+  else if (/return|returned|suspend|warning|reinspection/.test(normalized)) severity = "Warning";
+  else if (/approve|approved|verify|verified|submit|submitted|create|created|assign|assigned|upload|uploaded|sync|login|sign.?in/.test(normalized)) severity = "Success";
+
+  const target =
+    projectName ||
+    details?.projectName ||
+    details?.target ||
+    details?.claimId ||
+    details?.userName ||
+    details?.email ||
+    "Veritas";
+
+  const description =
+    details?.message ||
+    details?.details ||
+    details?.reason ||
+    details?.note ||
+    Object.entries(details || {})
+      .filter(([key]) => !["projectName", "target"].includes(key))
+      .map(([key, value]) => `${key}: ${typeof value === "object" ? JSON.stringify(value) : value}`)
+      .join(" · ");
+
+  return { category, severity, target, description };
+}
+
+async function reaAuditTrailResponse(request, env) {
+  const user = await authenticatedDatabaseUser(request, env);
+  if (!user) return json({ error: "Authentication required." }, 401);
+  if (user.role !== "rea_admin") return json({ error: "REA access required." }, 403);
+
+  const result = await env.DB.prepare(`
+    SELECT
+      ae.id,
+      ae.assignment_id AS assignmentId,
+      ae.actor_id AS actorId,
+      ae.action,
+      ae.details_json AS detailsJson,
+      ae.ip_address AS ipAddress,
+      ae.created_at AS createdAt,
+      u.name AS actorName,
+      u.email AS actorEmail,
+      u.role AS actorRole,
+      p.id AS projectId,
+      p.name AS projectName
+    FROM audit_events ae
+    LEFT JOIN users u ON u.id = ae.actor_id
+    LEFT JOIN assignments a ON a.id = ae.assignment_id
+    LEFT JOIN projects p ON p.id = a.project_id
+    ORDER BY ae.created_at DESC
+    LIMIT 500
+  `).all();
+
+  return json({
+    events: (result.results || []).map((row) => {
+      let details = {};
+      try {
+        details = JSON.parse(row.detailsJson || "{}");
+      } catch {}
+
+      const presentation = auditPresentation(row.action, details, row.projectName);
+
+      return {
+        id: row.id,
+        timestamp: row.createdAt,
+        actor: row.actorName || row.actorId || "System process",
+        actorId: row.actorId || "",
+        actorRole: row.actorRole || "",
+        email: row.actorEmail || "system@veritas.rea.gov.ng",
+        assignmentId: row.assignmentId || null,
+        projectId: row.projectId || null,
+        ipAddress: row.ipAddress || null,
+        action: row.action,
+        category: presentation.category,
+        target: presentation.target,
+        details: presentation.description,
+        severity: presentation.severity,
+      };
+    }),
+    serverTime: new Date().toISOString(),
+  });
+}
+
 function latestQuestion(messages = []) {
   return [...messages]
     .reverse()
@@ -1029,6 +1124,22 @@ export default {
           build: BUILD_ID,
         }));
         return json({ error: "Unable to load recent activity." }, 503);
+      }
+    }
+
+    if (url.pathname === "/api/rea/audit-trail") {
+      if (request.method !== "GET") {
+        return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
+      }
+      try {
+        return await reaAuditTrailResponse(request, env);
+      } catch (error) {
+        console.error(JSON.stringify({
+          event: "rea_audit_trail_failure",
+          message: error instanceof Error ? error.message : "Unknown error",
+          build: BUILD_ID,
+        }));
+        return json({ error: "Unable to load audit trail." }, 503);
       }
     }
 
