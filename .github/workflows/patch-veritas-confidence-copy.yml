@@ -14,6 +14,7 @@ on:
       - 'scripts/patch-veritas-response-quality.mjs'
       - 'scripts/patch-veritas-professional-opening.mjs'
       - 'scripts/patch-veritas-dynamic-token-budget.mjs'
+      - 'scripts/patch-veritas-hide-model-reasoning.mjs'
 
 permissions:
   contents: write
@@ -57,6 +58,9 @@ jobs:
       - name: Apply dynamic response token budget
         run: node scripts/patch-veritas-dynamic-token-budget.mjs
 
+      - name: Suppress model reasoning from user responses
+        run: node scripts/patch-veritas-hide-model-reasoning.mjs
+
       - name: Validate worker and client syntax
         run: |
           node --check worker/index.js
@@ -70,7 +74,7 @@ jobs:
           if git diff --cached --quiet; then
             echo 'No runtime changes to commit'
           else
-            git commit -m 'Use dynamic Veritas response token budgets'
+            git commit -m 'Prevent Veritas from exposing model reasoning'
             git push origin main
           fi
 
