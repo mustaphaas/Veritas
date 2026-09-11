@@ -21,7 +21,9 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { projects, type Project } from "../lib/dashboard-data";
+import type { Project } from "../lib/dashboard-data";
+import { useAuth } from "../lib/auth";
+import { fetchReaMapProjects, resolveProjectCoordinate, type ReaMapProjectRecord } from "../lib/rea-project-map-data";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -291,7 +293,7 @@ function mapStatus(project: Project, seed: number): MapStatus {
   if (project.status === "Submitted") return "Under Inspection";
   return "Pending Verification";
 }
-function enrichProjects(lgaFeatures: GeoFeature[]): MapProject[] {
+function enrichProjects(lgaFeatures: GeoFeature[], projects: Project[]): MapProject[] {
   const byState = new Map<string, GeoFeature[]>();
   lgaFeatures.forEach((feature) => {
     const state = stateName(feature);
@@ -303,8 +305,9 @@ function enrichProjects(lgaFeatures: GeoFeature[]): MapProject[] {
   return projects.map((project, index) => {
     const seed = hashText(`${project.state}-${project.name}-${index}`);
     const available = byState.get(project.state) ?? [];
-    const lgaFeature = available.length ? available[seed % available.length] : undefined;
-    const lga = lgaFeature ? lgaName(lgaFeature) : `${project.state} LGA`;
+    const storedLga = (project as Project & { lga?: string }).lga;
+    const lgaFeature = storedLga ? available.find((feature) => lgaName(feature) === storedLga) : undefined;
+    const lga = storedLga || (lgaFeature ? lgaName(lgaFeature) : `${project.state} LGA`);
     const monthDate = new Date(project.month);
     const start = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1 + (seed % 20));
     const completion = new Date(start);
@@ -313,13 +316,13 @@ function enrichProjects(lgaFeatures: GeoFeature[]): MapProject[] {
     const progress = status === "Verified" ? 100 : status === "Planned" ? 10 + (seed % 10) : 35 + (seed % 61);
     return {
       ...project,
-      id: `REA-${project.programme}-${project.state.slice(0, 3).toUpperCase()}-${String(index + 1).padStart(4, "0")}`,
+      id: (project as Project & { id?: string }).id || `REA-${project.programme}-${project.state.slice(0, 3).toUpperCase()}-${String(index + 1).padStart(4, "0")}`,
       lga,
-      community: `${lga.replace(/[^a-zA-Z ]/g, "").split(" ")[0] || project.state} Community ${(seed % 4) + 1}`,
+      community: (project as Project & { community?: string }).community || `${lga.replace(/[^a-zA-Z ]/g, "").split(" ")[0] || project.state} Community ${(seed % 4) + 1}`,
       projectType: project.component,
       mapStatus: status,
       phase: ["Planning", "Construction", "Commissioning", "Operations"][(seed >>> 3) % 4],
-      consultant: consultants[(seed >>> 5) % consultants.length],
+      consultant: (project as Project & { consultant?: string }).consultant || consultants[(seed >>> 5) % consultants.length],
       inspectionStatus:
         status === "Verified"
           ? "Verified"
@@ -455,6 +458,9 @@ function StatusBreakdownBar({ breakdown, total }: { breakdown: Partial<Record<Ma
 }
 
 function ProjectMap({ onClose, onOpenSection }: { onClose: () => void; onOpenSection: (section: string) => void }) {
+  const { session } = useAuth();
+  const [portfolioProjects, setPortfolioProjects] = useState<Project[]>([]);
+  const [projectLoadError, setProjectLoadError] = useState(false);
   const [stateFeatures, setStateFeatures] = useState<GeoFeature[]>([]);
   const [lgaFeatures, setLgaFeatures] = useState<GeoFeature[]>([]);
   const [lgaLoadError, setLgaLoadError] = useState(false);
@@ -480,6 +486,36 @@ function ProjectMap({ onClose, onOpenSection }: { onClose: () => void; onOpenSec
   });
 
   useEffect(() => {
+    if (!session?.apiToken) return;
+    fetchReaMapProjects(session.apiToken)
+      .then((records) => {
+        setPortfolioProjects(records.map((record: ReaMapProjectRecord) => ({
+          name: record.name,
+          state: record.state,
+          programme: record.programme,
+          component: record.component,
+          contractor: record.contractor,
+          month: record.reportingMonth || record.updatedAt || new Date().toISOString(),
+          status: record.status,
+          tone: record.verified ? "green" : "amber",
+          kw: Number(record.installedCapacityKw || 0),
+          households: Number(record.households || 0),
+          verified: Boolean(record.verified),
+          x: 0,
+          y: 0,
+          latitude: record.latitude ?? undefined,
+          longitude: record.longitude ?? undefined,
+          id: record.id,
+          lga: record.lga,
+          community: record.community,
+          consultant: record.consultantFirm,
+        }) as Project));
+        setProjectLoadError(false);
+      })
+      .catch(() => { setPortfolioProjects([]); setProjectLoadError(true); });
+  }, [session?.apiToken]);
+
+  useEffect(() => {
     fetch("/nigeria-adm1.geojson")
       .then((r) => r.json())
       .then((data: { features: GeoFeature[] }) => setStateFeatures(data.features ?? []))
@@ -496,7 +532,7 @@ function ProjectMap({ onClose, onOpenSection }: { onClose: () => void; onOpenSec
       .catch(() => setLgaLoadError(true));
   }, []);
 
-  const mappedProjects = useMemo(() => enrichProjects(lgaFeatures), [lgaFeatures]);
+  const mappedProjects = useMemo(() => enrichProjects(lgaFeatures, portfolioProjects), [lgaFeatures, portfolioProjects]);
   const filteredProjects = useMemo(() => {
     const from = filters.from ? Date.parse(filters.from) : Number.NEGATIVE_INFINITY;
     const to = filters.to ? Date.parse(filters.to) : Number.POSITIVE_INFINITY;
@@ -580,39 +616,35 @@ function ProjectMap({ onClose, onOpenSection }: { onClose: () => void; onOpenSec
   const verifiedCount = filteredProjects.filter((p) => p.mapStatus === "Verified").length;
   const atRiskCount = filteredProjects.filter((p) => p.mapStatus === "At Risk").length;
   const activeCount = filteredProjects.filter((p) => p.mapStatus === "Active").length;
+  const missingGpsCount = filteredProjects.filter((p) => !resolveProjectCoordinate(p)).length;
 
-  // National-level scatter: one point per project, placed inside its state's footprint.
+  // Project pins use the exact coordinates stored in D1. No synthetic fallback is allowed.
   const nationalPoints = useMemo(() => {
     const map = new Map<string, Point>();
     filteredProjects.forEach((project) => {
-      const feature = stateFeatureByName.get(project.state);
-      if (!feature) return;
-      map.set(project.id, jitterWithin(feature, hashText(project.id), stateProjector, 0.58));
+      const coordinate = resolveProjectCoordinate(project);
+      if (coordinate) map.set(project.id, stateProjector(coordinate));
     });
     return map;
-  }, [filteredProjects, stateFeatureByName, stateProjector]);
+  }, [filteredProjects, stateProjector]);
 
-  // State-overview scatter: one point per project, placed inside its LGA's footprint.
   const overviewPoints = useMemo(() => {
     const map = new Map<string, Point>();
     stateProjects.forEach((project) => {
-      const feature = lgaFeatureByName.get(project.lga);
-      if (!feature) return;
-      map.set(project.id, jitterWithin(feature, hashText(project.id), lgaProjector, 0.62));
+      const coordinate = resolveProjectCoordinate(project);
+      if (coordinate) map.set(project.id, lgaProjector(coordinate));
     });
     return map;
-  }, [stateProjects, lgaFeatureByName, lgaProjector]);
+  }, [stateProjects, lgaProjector]);
 
-  // LGA-detail pins: fuller spread once we're looking at a single LGA.
   const pinPositions = useMemo(() => {
-    if (!selectedLgaFeature) return new Map<string, Point>();
     const positions = new Map<string, Point>();
-    lgaProjects.forEach((project, index) => {
-      const seed = hashText(project.id);
-      positions.set(project.id, jitterWithin(selectedLgaFeature, seed, lgaProjector, 0.74, (index % 3) * 3.2));
+    lgaProjects.forEach((project) => {
+      const coordinate = resolveProjectCoordinate(project);
+      if (coordinate) positions.set(project.id, lgaProjector(coordinate));
     });
     return positions;
-  }, [lgaProjector, lgaProjects, selectedLgaFeature]);
+  }, [lgaProjector, lgaProjects]);
 
   const updateFilter = (key: keyof FilterState, value: string) => {
     setFilters((current) => {
@@ -730,6 +762,13 @@ function ProjectMap({ onClose, onOpenSection }: { onClose: () => void; onOpenSec
       }`}
     >
       <style>{MAP_STYLES}</style>
+      {(projectLoadError || missingGpsCount > 0) && (
+        <div className="absolute right-4 top-3 z-40 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-semibold text-amber-800 shadow-sm">
+          {projectLoadError
+            ? "Unable to load live D1 project locations."
+            : String(missingGpsCount) + " project" + (missingGpsCount === 1 ? "" : "s") + " missing valid GPS coordinates; no pin has been fabricated."}
+        </div>
+      )}
 
       <aside
         className={`relative hidden shrink-0 flex-col border-r border-slate-200 bg-white transition-[width] duration-300 ease-in-out xl:flex ${
