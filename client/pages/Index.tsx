@@ -56,6 +56,7 @@ import {
   type StateSummary,
 } from "../lib/dashboard-data";
 import { useAuth } from "../lib/auth";
+import { fetchReaMapProjects, reaRecordToDashboardProject } from "../lib/rea-project-map-data";
 import ReaAnalyticsDashboard from "../components/ReaAnalyticsDashboard";
 import ReaUserManagement from "../components/ReaUserManagement";
 import ReaAuditTrail from "../components/ReaAuditTrail";
@@ -313,6 +314,17 @@ export default function Index() {
     if (resolvedActiveNav && resolvedActiveNav !== activeNav) setActiveNav(resolvedActiveNav);
   }, [activeNav, resolvedActiveNav]);
   const [showAllProjects, setShowAllProjects] = useState(false);
+  const [portfolioProjects, setPortfolioProjects] = useState<Project[]>([]);
+  const [portfolioLoadError, setPortfolioLoadError] = useState("");
+  useEffect(() => {
+    if (!session?.apiToken) return;
+    let cancelled = false;
+    setPortfolioLoadError("");
+    fetchReaMapProjects(session.apiToken)
+      .then((records) => { if (!cancelled) setPortfolioProjects(records.map(reaRecordToDashboardProject)); })
+      .catch(() => { if (!cancelled) { setPortfolioProjects([]); setPortfolioLoadError("Unable to load the live D1 portfolio."); } });
+    return () => { cancelled = true; };
+  }, [session?.apiToken]);
   const [boundaries, setBoundaries] = useState<BoundaryFeature[]>([]);
   useEffect(() => {
     fetch("/nigeria-adm1.geojson").then((response) => response.json()).then((data: { features: BoundaryFeature[] }) => setBoundaries(data.features));
@@ -323,7 +335,7 @@ export default function Index() {
   const [mapFocus, setMapFocus] = useState<MapPoint>({ x: 325, y: 150 });
   const [mapTooltip, setMapTooltip] = useState<{ state: string; x: number; y: number } | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const visibleProjects = useMemo(() => matchingProjects(filters), [filters]);
+  const visibleProjects = useMemo(() => matchingProjects(filters, undefined, portfolioProjects), [filters, portfolioProjects]);
   const displayedProjects = showAllProjects ? visibleProjects : visibleProjects.slice(0, 20);
   useEffect(() => setShowAllProjects(false), [filters]);
   const metrics = getKpis(visibleProjects);
@@ -400,7 +412,7 @@ export default function Index() {
   const updateFilterWithDependencies = (key: FilterKey, value: string) => {
     const next = { ...filters, [key]: value };
     (Object.keys(filterDefaults) as FilterKey[]).forEach((filterKey) => {
-      if (filterKey !== key && !getFilterOptions(next, filterKey).includes(next[filterKey])) next[filterKey] = filterDefaults[filterKey];
+      if (filterKey !== key && !getFilterOptions(next, filterKey, portfolioProjects).includes(next[filterKey])) next[filterKey] = filterDefaults[filterKey];
     });
     setFilters(next);
   };
@@ -428,7 +440,7 @@ export default function Index() {
               <p className="mt-2 text-xs text-slate-500">Your account is active, but an REA Administrator has not assigned any dashboard modules.</p>
             </section>
           ) : resolvedActiveNav === "Analytics" ? (
-            <TabErrorBoundary key="Analytics" tab="Analytics"><ReaAnalyticsDashboard projects={projects} /></TabErrorBoundary>
+            <TabErrorBoundary key="Analytics" tab="Analytics"><ReaAnalyticsDashboard projects={portfolioProjects} /></TabErrorBoundary>
           ) : resolvedActiveNav === "Users" ? (
             <TabErrorBoundary key="Users" tab="Users"><ReaUserManagement /></TabErrorBoundary>
           ) : resolvedActiveNav === "Audit Trail" ? (
@@ -440,10 +452,11 @@ export default function Index() {
           ) : resolvedActiveNav === "Verification" ? (
             <ReaVerificationManagement />
           ) : resolvedActiveNav === "Reports" ? (
-            <TabErrorBoundary key="Reports" tab="Reports"><ReaReportsManagement projects={projects} /></TabErrorBoundary>
+            <TabErrorBoundary key="Reports" tab="Reports"><ReaReportsManagement projects={portfolioProjects} /></TabErrorBoundary>
           ) : (
             <>
-          <section className="rounded-b-xl border border-t-0 border-[#d6e9da] bg-[#f7fcf8] p-4"><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 xl:items-end">{(Object.keys(filterDefaults) as FilterKey[]).map((key) => <div key={key} className="min-w-0"><FilterSelect label={filterLabels[key]} value={filters[key]} options={getFilterOptions(filters, key)} onChange={(value) => updateFilterWithDependencies(key, value)} /></div>)}<div><button onClick={() => { setFilters(defaultFilters); setSelectedState("Kano"); resetMapView(); }} className="flex h-10 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-[#76bd91] bg-white px-4 text-xs font-bold text-[#08733f] transition-all hover:border-[#08733f] hover:bg-[#edf9f0]"><LocateFixed className="h-4 w-4" /> Reset filters</button></div></div></section>
+          {portfolioLoadError && <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-semibold text-amber-800">{portfolioLoadError}</div>}
+          <section className="rounded-b-xl border border-t-0 border-[#d6e9da] bg-[#f7fcf8] p-4"><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 xl:items-end">{(Object.keys(filterDefaults) as FilterKey[]).map((key) => <div key={key} className="min-w-0"><FilterSelect label={filterLabels[key]} value={filters[key]} options={getFilterOptions(filters, key, portfolioProjects)} onChange={(value) => updateFilterWithDependencies(key, value)} /></div>)}<div><button onClick={() => { setFilters(defaultFilters); setSelectedState("Kano"); resetMapView(); }} className="flex h-10 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-[#76bd91] bg-white px-4 text-xs font-bold text-[#08733f] transition-all hover:border-[#08733f] hover:bg-[#edf9f0]"><LocateFixed className="h-4 w-4" /> Reset filters</button></div></div></section>
           <section className="mt-3 flex gap-3 overflow-x-auto pb-1">{metrics.map(({ label, value, detail, icon: Icon, action }) => { const palette = label === "Installed Capacity" ? { card: "border-emerald-200 bg-emerald-50", icon: "bg-emerald-700 text-white", value: "text-emerald-800", progress: "bg-emerald-700" } : label === "Projects" ? { card: "border-sky-200 bg-sky-50", icon: "bg-sky-600 text-white", value: "text-sky-800", progress: "bg-sky-600" } : label === "Households Reached" ? { card: "border-violet-200 bg-violet-50", icon: "bg-violet-600 text-white", value: "text-violet-800", progress: "bg-violet-600" } : label === "Verification Rate" ? { card: "border-cyan-200 bg-cyan-50", icon: "bg-cyan-700 text-white", value: "text-cyan-800", progress: "bg-cyan-700" } : { card: "border-orange-200 bg-orange-50", icon: "bg-orange-600 text-white", value: "text-orange-800", progress: "bg-orange-600" }; const cardClassName = `min-h-[108px] min-w-[210px] flex-1 rounded-xl border p-3.5 text-left shadow-sm ${palette.card}`; const cardContent = <div className="flex h-full items-start gap-3"><div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-sm ${palette.icon}`}><Icon className="h-5 w-5" /></div><div className="min-w-0 flex-1"><p className="text-xs font-bold text-slate-700">{label}</p><p className={`mt-1.5 text-[22px] font-bold leading-none tracking-tight ${palette.value}`}>{value}</p><p className="mt-2 text-[10px] leading-4 text-slate-600">{detail}</p>{label === "Verification Rate" && <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/80"><div className={`h-full rounded-full ${palette.progress}`} style={{ width: value }} /></div>}</div></div>; return action ? <button key={label} type="button" onClick={() => setActiveNav(action)} className={cardClassName} aria-label={`${label}: ${value}. Open verification queue`}>{cardContent}</button> : <article key={label} className={cardClassName}>{cardContent}</article>; })}</section>
           <div className="mt-4 grid items-start gap-4">
             <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
