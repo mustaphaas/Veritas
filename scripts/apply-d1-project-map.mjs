@@ -187,7 +187,9 @@ import { fetchReaMapProjects, resolveProjectCoordinate, type ReaMapProjectRecord
 `      <style>{MAP_STYLES}</style>
       {(projectLoadError || missingGpsCount > 0) && (
         <div className="absolute right-4 top-3 z-40 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-semibold text-amber-800 shadow-sm">
-          {projectLoadError ? "Unable to load live D1 project locations." : `${"${missingGpsCount}"} project${"${missingGpsCount === 1 ? \"\" : \"s\"}"} missing valid GPS coordinates; no pin has been fabricated.`}
+          {projectLoadError
+            ? "Unable to load live D1 project locations."
+            : String(missingGpsCount) + " project" + (missingGpsCount === 1 ? "" : "s") + " missing valid GPS coordinates; no pin has been fabricated."}
         </div>
       )}`
 ]]);
