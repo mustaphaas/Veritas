@@ -196,7 +196,9 @@ if (s.includes(allFailedReturn)) {
   ].join('\n'));
 }
 
-if (!s.includes('veritas_direct_gemini_http_failure')) throw new Error('Gemini HTTP diagnostics missing');
+const hasLegacyGeminiDiagnostics = s.includes('veritas_direct_gemini_http_failure');
+const hasFallbackGeminiDiagnostics = s.includes('callGeminiWithFallback') && s.includes('veritas_gemini_model_failure');
+if (!hasLegacyGeminiDiagnostics && !hasFallbackGeminiDiagnostics) throw new Error('Gemini diagnostics missing');
 if (!s.includes('VERITAS_D1_CONTEXT_UNAVAILABLE')) throw new Error('D1 diagnostics missing');
 if (!s.includes('VERITAS_AI_PROVIDERS_FAILED')) throw new Error('provider failure diagnostic code missing');
 if (!s.includes('isGeneralCapabilityQuestion(question)')) throw new Error('general capability routing missing');
