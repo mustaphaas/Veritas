@@ -15,6 +15,7 @@ on:
       - 'scripts/patch-veritas-professional-opening.mjs'
       - 'scripts/patch-veritas-dynamic-token-budget.mjs'
       - 'scripts/patch-veritas-hide-model-reasoning.mjs'
+      - 'scripts/patch-veritas-final-answer-contract.mjs'
 
 permissions:
   contents: write
@@ -61,6 +62,9 @@ jobs:
       - name: Suppress model reasoning from user responses
         run: node scripts/patch-veritas-hide-model-reasoning.mjs
 
+      - name: Enforce final-answer response contract
+        run: node scripts/patch-veritas-final-answer-contract.mjs
+
       - name: Validate worker and client syntax
         run: |
           node --check worker/index.js
@@ -74,7 +78,7 @@ jobs:
           if git diff --cached --quiet; then
             echo 'No runtime changes to commit'
           else
-            git commit -m 'Prevent Veritas from exposing model reasoning'
+            git commit -m 'Enforce final-only Veritas AI responses'
             git push origin main
           fi
 
