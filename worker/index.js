@@ -1,7 +1,7 @@
 import { handleFieldApi } from "./field-api.js";
 import { analyticsCatalog, analyticsAnswerPrompt, executeAnalyticsPlan, parsePlannerJson, plannerPrompt, validateAnalyticsPlan } from "./analytics.js";
 
-const BUILD_ID = "veritas-2026-09-11-debug-provider-status-r5";
+const BUILD_ID = "veritas-2026-09-11-public-rea-team-r4";
 const encoder = new TextEncoder();
 
 const json = (body, status = 200) =>
@@ -387,7 +387,6 @@ function extractGeminiText(payload) {
   for (const candidate of payload?.candidates || []) {
     for (const part of candidate?.content?.parts || []) {
       if (part?.thought === true) continue;
-      if (part?.thoughtSignature) continue;
       if (typeof part?.text === "string" && part.text.trim()) parts.push(part.text.trim());
     }
   }
@@ -467,11 +466,12 @@ function responseTokenBudget(question) {
 
 function geminiModelsToTry(env) {
   const primary = env.GEMINI_MODEL || "gemini-3.8-flash";
-  const fallbacks = String(env.GEMINI_MODEL_FALLBACKS || "")
+  const configuredFallbacks = String(env.GEMINI_MODEL_FALLBACKS || "")
     .split(",")
     .map((m) => m.trim())
-    .filter((m) => m && m !== primary);
-  return [primary, ...fallbacks];
+    .filter(Boolean);
+  const builtInFallbacks = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash"];
+  return [...new Set([primary, ...configuredFallbacks, ...builtInFallbacks])];
 }
 
 // Calls Gemini's generateContent, rotating through GEMINI_MODEL and
@@ -483,6 +483,8 @@ async function callGeminiWithFallback(env, requestBody, { timeoutMs = 20000 } = 
   const models = geminiModelsToTry(env);
   let lastStatus = 0;
   let lastMessage = "Veritas AI service is currently unavailable.";
+  let lastFinishReason = null;
+  let lastBlockReason = null;
 
   for (const model of models) {
     try {
@@ -497,7 +499,23 @@ async function callGeminiWithFallback(env, requestBody, { timeoutMs = 20000 } = 
       );
       const payload = await response.json().catch(() => ({}));
       if (response.ok) {
-        return { ok: true, model, payload };
+        const visibleText = extractGeminiText(payload);
+        if (visibleText) return { ok: true, model, payload };
+        lastStatus = 200;
+        lastFinishReason = payload?.candidates?.[0]?.finishReason || null;
+        lastBlockReason = payload?.promptFeedback?.blockReason || null;
+        lastMessage = "Gemini returned HTTP 200 without visible answer text.";
+        console.error(JSON.stringify({
+          event: "veritas_gemini_model_empty_completion",
+          model,
+          status: 200,
+          finishReason: lastFinishReason,
+          blockReason: lastBlockReason,
+          candidateCount: Array.isArray(payload?.candidates) ? payload.candidates.length : 0,
+          usageMetadata: payload?.usageMetadata || null,
+          build: BUILD_ID,
+        }));
+        continue;
       }
       lastStatus = response.status;
       lastMessage = String(payload?.error?.message || payload?.error || "Unknown upstream error");
@@ -526,7 +544,7 @@ async function callGeminiWithFallback(env, requestBody, { timeoutMs = 20000 } = 
     }
   }
 
-  return { ok: false, model: models[models.length - 1], status: lastStatus, message: lastMessage };
+  return { ok: false, model: models[models.length - 1], status: lastStatus, message: lastMessage, finishReason: lastFinishReason, blockReason: lastBlockReason };
 }
 
 async function publicReaKnowledgeResponse(question, env) {
@@ -674,6 +692,7 @@ async function veritasResponse(request, env) {
   let model = env.GEMINI_MODEL || "gemini-3.8-flash";
   let answer = "";
   const outputTokenBudget = responseTokenBudget(question);
+  const geminiOutputTokenBudget = isReportRequest(question) ? 8192 : outputTokenBudget;
 
   if (env.OPENROUTER_API_KEY) {
     provider = "openrouter";
@@ -733,11 +752,13 @@ async function veritasResponse(request, env) {
     provider = "gemini";
     const result = await callGeminiWithFallback(env, {
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { maxOutputTokens: outputTokenBudget },
+      generationConfig: { maxOutputTokens: geminiOutputTokenBudget, thinkingConfig: { thinkingLevel: "low" } },
     }, { timeoutMs: 30000 });
     model = result.model;
     geminiStatus = result.ok ? 200 : result.status;
     geminiMessage = result.ok ? "" : result.message;
+    const geminiFinishReason = result.finishReason || null;
+    const geminiBlockReason = result.blockReason || null;
     if (result.ok) {
       answer = extractVeritasFinal(extractGeminiText(result.payload));
       if (!answer) {
