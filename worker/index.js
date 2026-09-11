@@ -1,6 +1,7 @@
 import { handleFieldApi } from "./field-api.js";
+import { analyticsCatalog, analyticsAnswerPrompt, executeAnalyticsPlan, parsePlannerJson, plannerPrompt, validateAnalyticsPlan } from "./analytics.js";
 
-const BUILD_ID = "veritas-2026-09-11-openrouter-resilience-r1";
+const BUILD_ID = "veritas-2026-09-11-safe-dynamic-analytics-r1";
 const encoder = new TextEncoder();
 
 const json = (body, status = 200) =>
@@ -292,6 +293,75 @@ function extractOpenRouterText(payload) {
   return "";
 }
 
+function isLikelyAnalyticsQuestion(question) {
+  return /\b(how many|count|total|break\s*down|breakdown|compare|rank|highest|lowest|average|sum|by state|by programme|by program|by component|by contractor|by consultant|by officer|verified|pending|verification|capacity|households?|assignments?|projects?)\b/i.test(String(question || ""));
+}
+
+async function analyticsPlannerResponse(question, env) {
+  const prompt = plannerPrompt(question, analyticsCatalog());
+
+  if (env.OPENROUTER_API_KEY) {
+    try {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${env.OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://veritas.mustaphaaliyu236.workers.dev",
+          "X-Title": "Veritas",
+        },
+        body: JSON.stringify({
+          model: env.OPENROUTER_MODEL || "google/gemini-3.8-flash",
+          messages: [{ role: "user", content: prompt }],
+          max_tokens: 700,
+          temperature: 0,
+          provider: { allow_fallbacks: true, sort: "throughput" },
+        }),
+        signal: AbortSignal.timeout(12000),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (response.ok) {
+        const text = extractOpenRouterText(payload);
+        if (text) return text;
+      }
+    } catch (error) {
+      console.error(JSON.stringify({ event: "veritas_analytics_planner_openrouter_failure", message: error instanceof Error ? error.message : "Unknown error", build: BUILD_ID }));
+    }
+  }
+
+  if (env.GEMINI_API_KEY) {
+    try {
+      const model = env.GEMINI_MODEL || "gemini-3.6-flash";
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: { maxOutputTokens: 700, temperature: 0 },
+          }),
+          signal: AbortSignal.timeout(12000),
+        },
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (response.ok) return extractGeminiText(payload);
+    } catch (error) {
+      console.error(JSON.stringify({ event: "veritas_analytics_planner_gemini_failure", message: error instanceof Error ? error.message : "Unknown error", build: BUILD_ID }));
+    }
+  }
+
+  return "";
+}
+
+function deterministicAnalyticsAnswer(result) {
+  const rows = Array.isArray(result?.rows) ? result.rows : [];
+  if (!rows.length) return "No matching records were found in the current Veritas production database.";
+  const lines = rows.map((row) => Object.entries(row).map(([key, value]) => `${key}: ${value ?? "—"}`).join(" | "));
+  const limitNote = result.truncated ? "\n\nThe result reached the configured row limit, so it may not include every matching group." : "";
+  return `Authoritative Veritas production database result (${rows.length} row${rows.length === 1 ? "" : "s"}):\n\n${lines.join("\n")}${limitNote}`;
+}
+
 async function veritasResponse(request, env) {
   let body;
   try {
@@ -307,8 +377,32 @@ async function veritasResponse(request, env) {
     return json({ error: "Veritas AI service is currently unavailable.", build: BUILD_ID }, 503);
   }
 
-  const databaseContext = await liveDatabaseContext(env);
-  const prompt = buildInput(body.messages, databaseContext);
+  let analyticsResult = null;
+  if (isLikelyAnalyticsQuestion(question)) {
+    const plannerText = await analyticsPlannerResponse(question, env);
+    const rawPlan = parsePlannerJson(plannerText);
+    const plan = validateAnalyticsPlan(rawPlan);
+    if (plan) {
+      try {
+        analyticsResult = await executeAnalyticsPlan(env, plan);
+      } catch (error) {
+        console.error(JSON.stringify({ event: "veritas_analytics_execution_failure", message: error instanceof Error ? error.message : "Unknown error", build: BUILD_ID }));
+      }
+    }
+  }
+
+  let databaseContext = null;
+  let prompt;
+  if (analyticsResult) {
+    prompt = analyticsAnswerPrompt(question, analyticsResult);
+  } else {
+    databaseContext = await liveDatabaseContext(env);
+    const exactCrossTabAnswer = typeof exactComponentStateProgrammeAnswer === "function" ? exactComponentStateProgrammeAnswer(question, databaseContext) : "";
+    if (exactCrossTabAnswer) {
+      return json({ answer: exactCrossTabAnswer, sources: [], mode: "veritas-live-d1-exact", build: BUILD_ID });
+    }
+    prompt = buildInput(body.messages, databaseContext);
+  }
   let upstream;
   let payload = {};
   let provider = "gemini";
@@ -384,6 +478,10 @@ async function veritasResponse(request, env) {
     }
   }
 
+  if (!answer && analyticsResult) {
+    answer = deterministicAnalyticsAnswer(analyticsResult);
+  }
+
   if (!answer) {
     console.error(JSON.stringify({
       event: "veritas_all_ai_routes_failed",
@@ -400,7 +498,7 @@ async function veritasResponse(request, env) {
     return json({ error: "Veritas could not complete that response. Please try again shortly.", build: BUILD_ID }, 503);
   }
 
-  return json({ answer, sources: [], mode: "veritas-live-d1", build: BUILD_ID });
+  return json({ answer, sources: [], mode: analyticsResult ? "veritas-safe-analytics" : "veritas-live-d1", build: BUILD_ID });
 }
 
 export default {
