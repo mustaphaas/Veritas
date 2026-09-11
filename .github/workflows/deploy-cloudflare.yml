@@ -29,8 +29,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate Gemini resilience patch
+        run: |
+          node --check scripts/patch-veritas-gemini-resilience.mjs
+          node --test tests/gemini-resilience-patch.test.mjs
+
+      - name: Apply Gemini empty-response resilience
+        run: node scripts/patch-veritas-gemini-resilience.mjs
+
       - name: Apply official REA public knowledge and team snapshot
         run: node scripts/patch-veritas-public-rea-knowledge.mjs
+
+      - name: Validate worker syntax
+        run: node --check worker/index.js
 
       - name: Build client
         run: npm run build:client
