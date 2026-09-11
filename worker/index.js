@@ -1,6 +1,6 @@
 import { handleFieldApi } from "./field-api.js";
 
-const BUILD_ID = "veritas-2026-09-11-openrouter-gemini-r1";
+const BUILD_ID = "veritas-2026-09-11-openrouter-resilience-r1";
 const encoder = new TextEncoder();
 
 const json = (body, status = 200) =>
@@ -310,60 +310,91 @@ async function veritasResponse(request, env) {
   const databaseContext = await liveDatabaseContext(env);
   const prompt = buildInput(body.messages, databaseContext);
   let upstream;
-  let payload;
-  let provider;
-  let model;
+  let payload = {};
+  let provider = "gemini";
+  let model = env.GEMINI_MODEL || "gemini-3.6-flash";
+  let answer = "";
 
   if (env.OPENROUTER_API_KEY) {
     provider = "openrouter";
     model = env.OPENROUTER_MODEL || "google/gemini-3.8-flash";
-    upstream = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${env.OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://veritas.mustaphaaliyu236.workers.dev",
-        "X-Title": "Veritas",
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 3000,
-        temperature: 0.3,
-        provider: { allow_fallbacks: true, sort: "throughput" },
-      }),
-    });
-    payload = await upstream.json().catch(() => ({}));
-  } else {
-    provider = "gemini";
-    model = env.GEMINI_MODEL || "gemini-3.6-flash";
-    upstream = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-      {
+    try {
+      upstream = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
+        headers: {
+          "Authorization": `Bearer ${env.OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://veritas.mustaphaaliyu236.workers.dev",
+          "X-Title": "Veritas",
+        },
         body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 3000, temperature: 0.45 },
+          model,
+          messages: [{ role: "user", content: prompt }],
+          max_tokens: 3000,
+          temperature: 0.3,
+          provider: { allow_fallbacks: true, sort: "throughput" },
         }),
-      },
-    );
-    payload = await upstream.json().catch(() => ({}));
+        signal: AbortSignal.timeout(25000),
+      });
+      payload = await upstream.json().catch(() => ({}));
+      if (upstream.ok) answer = extractOpenRouterText(payload);
+    } catch (error) {
+      console.error(JSON.stringify({
+        event: "veritas_openrouter_timeout_or_network_error",
+        message: error instanceof Error ? error.message : "Unknown error",
+        build: BUILD_ID,
+      }));
+    }
+
+    if (!upstream?.ok || !answer) {
+      console.error(JSON.stringify({
+        event: "veritas_openrouter_fallback",
+        status: upstream?.status || 0,
+        model,
+        upstreamMessage: String(payload?.error?.message || payload?.error || ""),
+        build: BUILD_ID,
+      }));
+    }
   }
 
-  if (!upstream.ok) {
+  if (!answer && env.GEMINI_API_KEY) {
+    provider = "gemini";
+    model = env.GEMINI_MODEL || "gemini-3.6-flash";
+    try {
+      upstream = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: { maxOutputTokens: 3000, temperature: 0.45 },
+          }),
+          signal: AbortSignal.timeout(30000),
+        },
+      );
+      payload = await upstream.json().catch(() => ({}));
+      if (upstream.ok) answer = extractGeminiText(payload);
+    } catch (error) {
+      console.error(JSON.stringify({
+        event: "veritas_direct_gemini_timeout_or_network_error",
+        message: error instanceof Error ? error.message : "Unknown error",
+        build: BUILD_ID,
+      }));
+    }
+  }
+
+  if (!answer) {
     console.error(JSON.stringify({
-      event: "veritas_provider_error",
+      event: "veritas_all_ai_routes_failed",
       provider,
-      status: upstream.status,
+      status: upstream?.status || 0,
       model,
       upstreamMessage: String(payload?.error?.message || payload?.error || ""),
       build: BUILD_ID,
     }));
-    return json({ error: publicVeritasError(upstream.status), build: BUILD_ID }, upstream.status === 429 ? 429 : 503);
+    return json({ error: publicVeritasError(upstream?.status || 503), build: BUILD_ID }, upstream?.status === 429 ? 429 : 503);
   }
-
-  const answer = provider === "openrouter" ? extractOpenRouterText(payload) : extractGeminiText(payload);
   if (!answer) {
     console.error(JSON.stringify({ event: "veritas_empty_provider_response", provider: "gemini", model, build: BUILD_ID }));
     return json({ error: "Veritas could not complete that response. Please try again shortly.", build: BUILD_ID }, 503);

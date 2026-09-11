@@ -365,6 +365,7 @@ export default function VeritasAssistant() {
     try {
       const response = await fetch("/api/veritas", {
         method: "POST",
+        signal: AbortSignal.timeout(60000),
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
         body: JSON.stringify({
