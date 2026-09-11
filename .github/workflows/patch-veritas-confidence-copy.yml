@@ -1,4 +1,4 @@
-name: Hide Veritas Internal Analytics Names
+name: Return Veritas Analytics Directly
 
 on:
   push:
@@ -19,43 +19,36 @@ jobs:
         with:
           ref: main
 
-      - name: Remove internal implementation names from user-facing prompts
+      - name: Make exact analytics independent of AI availability
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p = Path('worker/index.js')
           s = p.read_text()
           s = s.replace(
-            'Aggregate portfolio/state/programme/component/contractor/consultant summaries and componentStateProgramme cross-tabs cover the full live dataset even when the project list is sampled.',
-            'Authoritative aggregate summaries and multidimensional production analytics cover the full live dataset even when the project list is sampled.'
+            'const BUILD_ID = "veritas-2026-09-11-safe-dynamic-analytics-r1";',
+            'const BUILD_ID = "veritas-2026-09-11-direct-safe-analytics-r1";'
           )
-          s = s.replace(
-            'For questions that combine component with state and/or programme, use componentStateProgramme rather than the sampled project list.',
-            'For questions that combine multiple dimensions such as component, state, and programme, use the authoritative full-database aggregate results rather than the sampled project list.'
-          )
-          s = s.replace(
-            'Source: live Veritas D1 componentStateProgramme aggregate. No sampled project list was used.',
-            'Source: live Veritas production database. No sampled project list was used.'
-          )
-          s = s.replace(
-            'based on the authoritative `componentStateProgramme` aggregates in the live Veritas database',
-            'based on authoritative live Veritas production data'
-          )
+          old = '''  if (analyticsResult) {\n    prompt = analyticsAnswerPrompt(question, analyticsResult);\n  } else {'''
+          new = '''  if (analyticsResult) {\n    const exactAnswer = deterministicAnalyticsAnswer(analyticsResult);\n    return json({ answer: exactAnswer, sources: [], mode: "veritas-safe-analytics", build: BUILD_ID });\n  } else {'''
+          if old not in s:
+              raise SystemExit('analytics result block not found')
+          s = s.replace(old, new, 1)
           p.write_text(s)
           PY
 
       - name: Validate worker
         run: node --check worker/index.js
 
-      - name: Commit wording cleanup
+      - name: Commit direct analytics response
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add worker/index.js
           if git diff --cached --quiet; then
-            echo 'No wording changes to commit'
+            echo 'No worker changes to commit'
           else
-            git commit -m 'Hide internal analytics names from Veritas responses'
+            git commit -m 'Return exact D1 analytics without AI dependency'
             git push origin main
           fi
 
