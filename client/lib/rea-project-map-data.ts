@@ -1,3 +1,5 @@
+import type { Project } from "./dashboard-data";
+
 export type ReaMapProjectRecord = {
   id: string;
   name: string;
@@ -27,6 +29,26 @@ export function resolveProjectCoordinate(project: Pick<ReaMapProjectRecord, "lat
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
   if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
   return [longitude, latitude];
+}
+
+export function reaRecordToDashboardProject(record: ReaMapProjectRecord): Project {
+  const coordinate = resolveProjectCoordinate(record);
+  return {
+    name: record.name,
+    state: record.state,
+    programme: record.programme,
+    component: record.component,
+    contractor: record.contractor,
+    month: record.reportingMonth || record.updatedAt,
+    status: record.status,
+    tone: record.verified === true || Number(record.verified) === 1 ? "green" : "amber",
+    kw: Number(record.installedCapacityKw || 0),
+    households: Number(record.households || 0),
+    verified: record.verified === true || Number(record.verified) === 1,
+    x: 0,
+    y: 0,
+    ...(coordinate ? { longitude: coordinate[0], latitude: coordinate[1] } : {}),
+  };
 }
 
 export async function fetchReaMapProjects(apiToken: string): Promise<ReaMapProjectRecord[]> {

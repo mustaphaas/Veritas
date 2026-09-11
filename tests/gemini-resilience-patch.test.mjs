@@ -32,3 +32,8 @@ test('Gemini empty completion diagnostics preserve finish and block reasons', ()
   assert.match(patch, /lastFinishReason/);
   assert.match(patch, /lastBlockReason/);
 });
+
+test('Gemini deploy patch guards diagnostic declarations when reapplied', () => {
+  assert.match(patch, /if \(!s\.includes\('let lastFinishReason = null;'\)\)/);
+  assert.match(patch, /checked-in worker can already contain this patch/);
+});

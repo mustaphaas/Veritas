@@ -56,7 +56,11 @@ if (s.includes(okBlock)) {
   ].join('\n');
   s = s.replace(okBlock, resilientOkBlock);
 } else if (alreadyResilient) {
-  s = s.replace('  let lastMessage = "Veritas AI service is currently unavailable.";\n', '  let lastMessage = "Veritas AI service is currently unavailable.";\n  let lastFinishReason = null;\n  let lastBlockReason = null;\n');
+  // The checked-in worker can already contain this patch. Never redeclare
+  // diagnostic state when CI reapplies the patch before deployment.
+  if (!s.includes('let lastFinishReason = null;')) {
+    s = s.replace('  let lastMessage = "Veritas AI service is currently unavailable.";\n', '  let lastMessage = "Veritas AI service is currently unavailable.";\n  let lastFinishReason = null;\n  let lastBlockReason = null;\n');
+  }
   s = s.replace('        const finishReason = payload?.candidates?.[0]?.finishReason || null;\n        const blockReason = payload?.promptFeedback?.blockReason || null;\n', '        lastFinishReason = payload?.candidates?.[0]?.finishReason || null;\n        lastBlockReason = payload?.promptFeedback?.blockReason || null;\n');
   s = s.replace('          finishReason,\n          blockReason,\n', '          finishReason: lastFinishReason,\n          blockReason: lastBlockReason,\n          usageMetadata: payload?.usageMetadata || null,\n');
 } else {
