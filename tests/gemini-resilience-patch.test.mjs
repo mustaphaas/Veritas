@@ -21,3 +21,14 @@ test('Gemini resilience patch configures built-in model fallbacks and low thinki
   assert.match(patch, /gemini-3\.7-flash/);
   assert.match(patch, /thinkingConfig: \{ thinkingLevel: "low" \}/);
 });
+
+test('Gemini report generation gets a separate high output budget', () => {
+  assert.match(patch, /geminiOutputTokenBudget/);
+  assert.match(patch, /8192/);
+  assert.match(patch, /maxOutputTokens: geminiOutputTokenBudget/);
+});
+
+test('Gemini empty completion diagnostics preserve finish and block reasons', () => {
+  assert.match(patch, /lastFinishReason/);
+  assert.match(patch, /lastBlockReason/);
+});
