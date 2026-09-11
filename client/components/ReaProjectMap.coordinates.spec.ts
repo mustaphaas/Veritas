@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveProjectCoordinate } from "./ReaProjectMap";
+import { resolveProjectCoordinate } from "../lib/rea-project-map-data";
 
 describe("REA Project Map coordinates", () => {
   it("uses the project's stored D1 latitude and longitude", () => {
