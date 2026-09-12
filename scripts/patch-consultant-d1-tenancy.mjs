@@ -302,7 +302,7 @@ fs.writeFileSync(authPath, auth);
 // ---------------------------------------------------------------------------
 const dashboardPath = "client/pages/ConsultantAdminDashboard.tsx";
 let dashboard = fs.readFileSync(dashboardPath, "utf8");
-dashboard = dashboard.replace('  RotateCcw,\n  ShieldCheck,', '  RotateCcw,\n  ShieldCheck,\n  Trash2,');
+if (!dashboard.includes('  Trash2,')) dashboard = dashboard.replace('  RotateCcw,\n  ShieldCheck,', '  RotateCcw,\n  ShieldCheck,\n  Trash2,');
 if (!dashboard.includes('deleteFieldOfficerApi')) {
   dashboard = replaceOnce(dashboard, 'import { useConsultantPortfolio } from "../lib/use-consultant-portfolio";', 'import { useConsultantPortfolio } from "../lib/use-consultant-portfolio";\nimport { deleteFieldOfficerApi, updateFieldOfficerStatusApi } from "../lib/field-api";', "consultant officer lifecycle import");
 }
