@@ -330,7 +330,7 @@ function AssignmentList({ mode, onOpen }: { mode: "assignments" | "inspections" 
           { label: "Re-inspection", value: base.filter((item) => item.status === "Re-inspection").length, icon: "refresh-outline" as const, tone: "amber" as const },
         ];
   return (
-    <FlatList data={base} keyExtractor={(item) => item.id} contentContainerStyle={styles.scrollContent} ListHeaderComponent={<><View style={styles.heroCopy}><Text style={styles.pageTitle}>{title}</Text><Text style={styles.pageSubtitle}>{subtitle}</Text></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.summaryStrip}>{summaries.map((item) => <SummaryCard key={item.label} {...item} />)}</ScrollView><Text style={styles.listLabel}>{mode === "drafts" ? "Autosaved forms" : mode === "assignments" ? "Assignment list" : "Inspection history"}</Text></>} renderItem={({ item }) => <AssignmentCard item={item} onOpen={onOpen} />} ListEmptyComponent={<EmptyState icon={mode === "drafts" ? "document-text-outline" : "checkmark-done-outline"} title={mode === "drafts" ? "No drafts" : "Nothing here"} text={mode === "drafts" ? "A form appears here automatically after you start filling it." : "No records are available in this section."} />} />
+    <FlatList data={base} keyExtractor={(item) => item.id} contentContainerStyle={[styles.scrollContent, styles.listContent]} ListHeaderComponent={<><View style={styles.heroCopy}><Text style={styles.pageTitle}>{title}</Text><Text style={styles.pageSubtitle}>{subtitle}</Text></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.summaryStrip}>{summaries.map((item) => <SummaryCard key={item.label} {...item} />)}</ScrollView><Text style={styles.listLabel}>{mode === "drafts" ? "Autosaved forms" : mode === "assignments" ? "Assignment list" : "Inspection history"}</Text></>} renderItem={({ item }) => <AssignmentCard item={item} onOpen={onOpen} />} ListEmptyComponent={<EmptyState icon={mode === "drafts" ? "document-text-outline" : "checkmark-done-outline"} title={mode === "drafts" ? "No drafts" : "Nothing here"} text={mode === "drafts" ? "A form appears here automatically after you start filling it." : "No records are available in this section."} />} />
   );
 }
 
@@ -342,7 +342,42 @@ function SyncScreen() {
   const completed = assignments.filter((item) => item.syncStatus === "synced");
   const [busy, setBusy] = useState(false);
   const sync = async () => { setBusy(true); await syncNow(); setBusy(false); };
-  return <ScrollView contentContainerStyle={styles.scrollContent}><View style={styles.heroCopy}><Text style={styles.pageTitle}>Sync</Text><Text style={styles.pageSubtitle}>Uploads continue safely when an internet connection is available.</Text></View><View style={styles.syncSummary}><MetricMini label="Uploading" value={uploading.length || (busy ? 1 : 0)} icon="cloud-upload-outline" color={colors.blue} /><MetricMini label="Waiting" value={waiting.length} icon="time-outline" color={colors.amber} /><MetricMini label="Completed" value={completed.length} icon="checkmark-circle-outline" color={colors.primary} /></View><Pressable disabled={!isOnline || !pending.length || busy} onPress={() => void sync()} style={[styles.primaryButton, (!isOnline || !pending.length || busy) && styles.disabled]}>{busy ? <ActivityIndicator color={colors.white} /> : <><Ionicons name="sync" size={18} color={colors.white} /><Text style={styles.primaryButtonText}>{isOnline ? "Synchronize now" : "Waiting for internet"}</Text></>}</Pressable><Text style={styles.listLabel}>Waiting to upload</Text><View style={styles.queueCard}>{pending.length ? pending.map((item, index) => <View key={item.id} style={styles.queueRow}><View style={styles.queueIndex}><Text style={styles.queueIndexText}>{index + 1}</Text></View><View style={styles.queueInfo}><Text style={styles.queueTitle}>{item.projectName}</Text><Text style={styles.queueMeta}>{item.id} · {item.report?.evidence.length ?? 0} evidence files</Text></View><Text style={styles.queueState}>{item.syncStatus}</Text></View>) : <EmptyState icon="checkmark-done-circle-outline" title="Everything is synchronized" text="There are no inspection packages waiting to upload." />}</View><Text style={styles.securityNote}>GPS coordinates, timestamps, evidence and signatories stay attached to every inspection package.</Text></ScrollView>;
+  return (
+    <ScrollView contentContainerStyle={[styles.scrollContent, styles.listContent]} showsVerticalScrollIndicator={false}>
+      <View style={styles.heroCopy}><Text style={styles.pageTitle}>Sync</Text><Text style={styles.pageSubtitle}>Uploads continue safely when an internet connection is available.</Text></View>
+      <View style={styles.syncBanner}>
+        <View style={styles.syncBannerIcon}><Ionicons name="cloud-upload-outline" size={21} color={colors.blue} /></View>
+        <View style={styles.assignmentMain}>
+          <Text style={styles.syncBannerTitle}>{pending.length ? "Ready to sync" : "All synced"}</Text>
+          <Text style={styles.syncBannerText}>{pending.length ? `${pending.length} item${pending.length === 1 ? "" : "s"} ready to upload` : "Nothing waiting to upload"}</Text>
+        </View>
+        <Pressable disabled={!isOnline || !pending.length || busy} onPress={() => void sync()} style={[styles.syncNowButton, (!isOnline || !pending.length || busy) && styles.disabled]}>
+          {busy ? <ActivityIndicator color={colors.white} /> : <Text style={styles.syncNowButtonText}>{isOnline ? "Sync Now" : "Offline"}</Text>}
+        </Pressable>
+      </View>
+      <View style={styles.syncSummary}><MetricMini label="Uploading" value={uploading.length || (busy ? 1 : 0)} icon="cloud-upload-outline" color={colors.blue} /><MetricMini label="Waiting" value={waiting.length} icon="time-outline" color={colors.amber} /><MetricMini label="Completed" value={completed.length} icon="checkmark-circle-outline" color={colors.primary} /></View>
+      <Text style={styles.listLabel}>Waiting to upload</Text>
+      {pending.length ? pending.map((item) => <SyncQueueCard key={item.id} item={item} />) : <View style={styles.listPanel}><EmptyState icon="checkmark-done-circle-outline" title="Everything is synchronized" text="There are no inspection packages waiting to upload." /></View>}
+      <Text style={styles.securityNote}>GPS coordinates, timestamps, evidence and signatories stay attached to every inspection package.</Text>
+    </ScrollView>
+  );
+}
+
+function SyncQueueCard({ item }: { item: Assignment }) {
+  const evidenceCount = item.report?.evidence.length ?? 0;
+  const tone = item.syncStatus === "uploading" ? colors.blue : item.syncStatus === "failed" ? colors.red : colors.amber;
+  const pale = item.syncStatus === "uploading" ? colors.bluePale : item.syncStatus === "failed" ? colors.redPale : colors.amberPale;
+  const label = item.syncStatus === "uploading" ? "Uploading…" : item.syncStatus === "failed" ? "Failed" : "Waiting…";
+  return (
+    <View style={styles.queueItemCard}>
+      <View style={styles.projectIcon}><Ionicons name="grid-outline" size={18} color={colors.primary} /></View>
+      <View style={styles.assignmentMain}>
+        <Text style={styles.assignmentName} numberOfLines={1}>{item.projectName}</Text>
+        <Text style={styles.assignmentId}>{item.id} · {evidenceCount} evidence file{evidenceCount === 1 ? "" : "s"}</Text>
+      </View>
+      <View style={[styles.syncStatusPill, { backgroundColor: pale }]}><Text style={[styles.syncStatusText, { color: tone }]}>{label}</Text></View>
+    </View>
+  );
 }
 
 function InspectionModal({ assignment, onClose }: { assignment: Assignment | null; onClose: () => void }) {
@@ -526,6 +561,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   page: { flex: 1 },
   scrollContent: { padding: 18, paddingBottom: 28, gap: 14 },
+  listContent: { gap: 9 },
   header: { height: 70, backgroundColor: "rgba(255,255,255,0.94)", borderBottomWidth: 1, borderBottomColor: "rgba(223,233,226,0.75)", paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   headerBrand: { flexDirection: "row", alignItems: "center", gap: 10 },
   headerLogo: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.white },
@@ -578,15 +614,15 @@ const styles = StyleSheet.create({
   outlineButton: { minHeight: 46, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1, borderColor: "#B9D7C4", flexDirection: "row", gap: 6, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.82)" },
   outlineButtonText: { color: colors.primary, fontSize: 12, fontWeight: "800" },
   disabled: { opacity: 0.45 },
-  assignmentCard: { backgroundColor: "rgba(255,255,255,0.94)", borderWidth: 1, borderColor: "rgba(223,233,226,0.9)", borderRadius: 18, padding: 14, gap: 10, marginBottom: 2 },
-  assignmentCardCompact: { borderRadius: 15, paddingVertical: 10, paddingHorizontal: 11, shadowColor: "#214C38", shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 1 },
+  assignmentCard: { backgroundColor: "rgba(255,255,255,0.94)", borderWidth: 1, borderColor: "rgba(223,233,226,0.9)", borderRadius: 16, padding: 12, gap: 8, marginBottom: 2 },
+  assignmentCardCompact: { borderRadius: 14, paddingVertical: 9, paddingHorizontal: 10, shadowColor: "#214C38", shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 1 },
   assignmentTop: { flexDirection: "row", alignItems: "center", gap: 9 },
-  projectIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: colors.paleStrong, alignItems: "center", justifyContent: "center" },
+  projectIcon: { width: 34, height: 34, borderRadius: 11, backgroundColor: colors.paleStrong, alignItems: "center", justifyContent: "center" },
   assignmentMain: { flex: 1 },
   assignmentName: { color: colors.deep, fontSize: 13, lineHeight: 17, fontWeight: "800" },
   assignmentId: { color: colors.muted, fontSize: 9, marginTop: 3 },
   assignmentLocation: { color: colors.muted, fontSize: 11, flex: 1 },
-  assignmentFooter: { borderTopWidth: 1, borderColor: "#edf1ee", paddingTop: 9, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  assignmentFooter: { borderTopWidth: 1, borderColor: "#edf1ee", paddingTop: 7, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   dueText: { color: colors.muted, fontSize: 10, fontWeight: "600" },
   openLink: { flexDirection: "row", alignItems: "center", gap: 2 },
   openLinkText: { color: colors.primary, fontSize: 11, fontWeight: "800" },
@@ -612,17 +648,18 @@ const styles = StyleSheet.create({
   summaryValue: { color: colors.deep, fontSize: 23, fontWeight: "800", marginTop: 8 },
   summaryLabel: { color: colors.muted, fontSize: 9, fontWeight: "700", marginTop: 2 },
   syncSummary: { flexDirection: "row", gap: 8 },
+  syncBanner: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: colors.bluePale, borderRadius: 18, padding: 14 },
+  syncBannerIcon: { width: 42, height: 42, borderRadius: 21, backgroundColor: "rgba(255,255,255,0.72)", alignItems: "center", justifyContent: "center" },
+  syncBannerTitle: { color: colors.deep, fontSize: 13, fontWeight: "800" },
+  syncBannerText: { color: colors.muted, fontSize: 10, marginTop: 2 },
+  syncNowButton: { backgroundColor: colors.primary, paddingHorizontal: 14, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  syncNowButtonText: { color: colors.white, fontSize: 11, fontWeight: "800" },
+  queueItemCard: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "rgba(255,255,255,0.94)", borderRadius: 14, padding: 11, borderWidth: 1, borderColor: "rgba(223,233,226,0.9)", shadowColor: "#214C38", shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 1 },
+  syncStatusPill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
+  syncStatusText: { fontSize: 9, fontWeight: "800" },
   metricMini: { flex: 1, alignItems: "center", backgroundColor: "rgba(255,255,255,0.94)", borderRadius: 20, paddingVertical: 15 },
   metricMiniValue: { color: colors.deep, fontSize: 20, fontWeight: "800", marginTop: 4 },
   metricMiniLabel: { color: colors.muted, fontSize: 9, fontWeight: "700", marginTop: 2 },
-  queueCard: { backgroundColor: colors.white, borderRadius: 13, borderWidth: 1, borderColor: colors.border, overflow: "hidden" },
-  queueRow: { flexDirection: "row", alignItems: "center", gap: 10, padding: 13, borderBottomWidth: 1, borderBottomColor: "#edf1ee" },
-  queueIndex: { width: 26, height: 26, borderRadius: 13, backgroundColor: colors.amberPale, alignItems: "center", justifyContent: "center" },
-  queueIndexText: { color: colors.amber, fontSize: 10, fontWeight: "800" },
-  queueInfo: { flex: 1 },
-  queueTitle: { color: colors.deep, fontSize: 11, fontWeight: "800" },
-  queueMeta: { color: colors.muted, fontSize: 8, marginTop: 3 },
-  queueState: { color: colors.amber, fontSize: 9, fontWeight: "800", textTransform: "capitalize" },
   securityNote: { backgroundColor: colors.pale, borderRadius: 9, padding: 12, color: colors.muted, fontSize: 9, lineHeight: 15 },
   modalHeader: { height: 64, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: "row", alignItems: "center", gap: 9, backgroundColor: colors.white },
   iconButton: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: colors.pale },
