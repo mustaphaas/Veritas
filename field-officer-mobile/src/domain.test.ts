@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
 import { assignmentValues, assignmentsForSection, displayStatus, distanceMetres, formatCurrentLocation, formSections, isFormComplete, isReportLocked, isWithinProjectGeofence } from "./domain.ts";
 import { demoAssignments } from "./demoData.ts";
+import { greetingBannerSpec } from "./greetingBanner.ts";
 
 describe("field officer mobile domain", () => {
   it("shows each field inspection workflow status clearly", () => {
@@ -87,5 +89,18 @@ describe("field officer mobile domain", () => {
   it("falls back from an unknown area to the state, then unavailable", () => {
     assert.equal(formatCurrentLocation({ region: "Kaduna" }), "Kaduna");
     assert.equal(formatCurrentLocation({}), "Location unavailable");
+  });
+
+  it("keeps the reference greeting banner compact and complete", () => {
+    assert.ok(greetingBannerSpec.height <= 100);
+    assert.equal(greetingBannerSpec.slogan, "Clean Energy.\nA Brighter Nigeria.");
+    assert.equal(greetingBannerSpec.weather, "28°C  ·  Good conditions");
+    assert.equal(greetingBannerSpec.usesReferenceArtwork, true);
+  });
+
+  it("does not embed login credentials in the application screen", () => {
+    const appSource = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+    assert.doesNotMatch(appSource, /const \[password, setPassword\] = useState\("[^\"]+"\)/);
+    assert.doesNotMatch(appSource, /demoHint/);
   });
 });

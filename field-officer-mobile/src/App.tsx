@@ -28,6 +28,7 @@ import { assignmentValues, assignmentsForSection, displayStatus, formatCurrentLo
 import { colors } from "./theme";
 import { deviceName, StoreProvider, useStore } from "./store";
 import { deviceAudit, networkAudit, sha256File, timezone } from "./audit";
+import { greetingBannerSpec } from "./greetingBanner";
 import type { Assignment, DisplayStatus, FormField } from "./types";
 
 type Tab = "Overview" | "Assignments" | "Inspections" | "Drafts" | "Sync";
@@ -40,6 +41,7 @@ const tabs: { label: Tab; icon: keyof typeof Ionicons.glyphMap; color: string; p
   { label: "Sync", icon: "cloud-upload-outline", color: colors.cyan, pale: colors.cyanPale },
 ];
 const reaLogo = require("../assets/rea-logo.png");
+const greetingBannerArtwork = require("../assets/greeting-banner-reference.jpg");
 
 async function persistEvidence(uri: string, type: "photo" | "video") {
   if (!FileSystem.documentDirectory) return uri;
@@ -65,8 +67,8 @@ function AppRoot() {
 
 function LoginScreen() {
   const { login } = useStore();
-  const [identifier, setIdentifier] = useState("08093822087");
-  const [password, setPassword] = useState("siddiqa12");
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -98,7 +100,6 @@ function LoginScreen() {
           <Pressable onPress={() => void submit()} disabled={busy} style={styles.primaryButton}>
             {busy ? <ActivityIndicator color={colors.white} /> : <><Ionicons name="log-in-outline" size={18} color={colors.white} /><Text style={styles.primaryButtonText}>Sign in securely</Text></>}
           </Pressable>
-          <Text style={styles.demoHint}>Mustapha: 08093822087 · siddiqa12{"\n"}Amina: field.officer@demo.ng · Field2024!</Text>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -291,26 +292,27 @@ function Overview({ onOpen, onNavigate }: { onOpen: (item: Assignment) => void; 
   return (
     <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
       <View style={styles.greetingBanner}>
-        <View style={styles.greetingGlow} />
-        <View style={styles.greetingTopRow}>
-          <View style={styles.sunBadge}><Ionicons name="sunny" size={24} color="#F6B817" /></View>
-          <View style={styles.greetingIdentity}>
-            <Text style={styles.greeting} numberOfLines={1}>Good day, {officerName.split(" ")[0]}.</Text>
-            <Text style={styles.greetingFirm} numberOfLines={1}>{consultantFirm}</Text>
-          </View>
-          <View style={styles.energyMessage}>
-            <Text style={styles.energyMessageText}>Clean Energy.</Text>
-            <Text style={styles.energyMessageText}>A Brighter Nigeria.</Text>
-          </View>
+        <View style={styles.greetingArtwork} accessibilityLabel={greetingBannerSpec.slogan}>
+          <Image source={greetingBannerArtwork} style={styles.greetingArtworkImage} resizeMode="stretch" />
         </View>
-        <View style={styles.greetingMetaRow}>
-          <View style={styles.greetingLocation}>
-            <Ionicons name="location" size={15} color={colors.primary} />
-            <Text style={styles.greetingLocationText} numberOfLines={1}>{locationLabel}</Text>
+        <View style={styles.greetingLeftTint} />
+        <View style={styles.greetingContent}>
+          <View style={styles.greetingTopRow}>
+            <View style={styles.sunBadge}><Ionicons name="sunny" size={23} color="#F6B817" /></View>
+            <View style={styles.greetingIdentity}>
+              <Text style={styles.greeting} numberOfLines={1}>Good day, {officerName.split(" ")[0]}.</Text>
+              <Text style={styles.greetingFirm} numberOfLines={1}>{consultantFirm}</Text>
+            </View>
           </View>
-          <View style={styles.greetingDivider} />
-          <Ionicons name="sunny-outline" size={15} color="#EFAF12" />
-          <Text style={styles.fieldReadyText}>Field ready</Text>
+          <View style={styles.greetingMetaRow}>
+            <View style={styles.greetingLocation}>
+              <Ionicons name="location" size={15} color={colors.primary} />
+              <Text style={styles.greetingLocationText} numberOfLines={1}>{locationLabel}</Text>
+            </View>
+            <View style={styles.greetingDivider} />
+            <Ionicons name="sunny" size={14} color="#EFAF12" />
+            <Text style={styles.greetingWeatherText} numberOfLines={1}>{greetingBannerSpec.weather}</Text>
+          </View>
         </View>
       </View>
       <View style={styles.metricsGrid}>
@@ -624,20 +626,21 @@ const styles = StyleSheet.create({
   offlineDot: { backgroundColor: colors.amber },
   onlineText: { color: colors.primary, fontSize: 8, fontWeight: "900", letterSpacing: 1.4 },
   heroCopy: { marginTop: 14, marginBottom: 6 },
-  greetingBanner: { minHeight: 108, marginTop: 8, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 13, backgroundColor: "#E8F6EC", borderWidth: 1, borderColor: "#D8EDDF", overflow: "hidden", justifyContent: "space-between" },
-  greetingGlow: { position: "absolute", width: 150, height: 150, borderRadius: 75, right: -34, bottom: -84, backgroundColor: "rgba(79, 174, 111, 0.12)" },
-  greetingTopRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  sunBadge: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.72)", borderWidth: 1, borderColor: "rgba(255,255,255,0.9)" },
+  greetingBanner: { height: greetingBannerSpec.height, marginTop: 8, borderRadius: 17, backgroundColor: "#EAF8EF", borderWidth: 1, borderColor: "#D8EDDF", overflow: "hidden" },
+  greetingArtwork: { ...StyleSheet.absoluteFillObject, overflow: "hidden" },
+  greetingArtworkImage: { position: "absolute", right: 0, top: 0, width: 438, height: greetingBannerSpec.height },
+  greetingLeftTint: { position: "absolute", left: 0, top: 0, bottom: 0, width: "62%", backgroundColor: "#EAF8EF" },
+  greetingContent: { width: "72%", height: "100%", paddingHorizontal: 12, paddingVertical: 10, justifyContent: "space-between" },
+  greetingTopRow: { flexDirection: "row", alignItems: "center", gap: 9 },
+  sunBadge: { width: 37, height: 37, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.78)", borderWidth: 1, borderColor: "rgba(255,255,255,0.96)" },
   greetingIdentity: { flex: 1, minWidth: 0 },
-  greeting: { fontSize: 20, lineHeight: 24, color: colors.deep, fontWeight: "800", letterSpacing: -0.5 },
-  greetingFirm: { color: colors.deep, fontSize: 10.5, lineHeight: 15, fontWeight: "700", marginTop: 1 },
-  energyMessage: { width: 83, alignSelf: "flex-start", paddingTop: 2 },
-  energyMessageText: { color: colors.deep, fontSize: 8.5, lineHeight: 12, fontWeight: "800" },
-  greetingMetaRow: { minHeight: 23, marginLeft: 50, flexDirection: "row", alignItems: "center", gap: 6 },
+  greeting: { fontSize: 17, lineHeight: 20, color: colors.deep, fontWeight: "800", letterSpacing: -0.4 },
+  greetingFirm: { color: colors.deep, fontSize: 9.5, lineHeight: 13, fontWeight: "700", marginTop: 1 },
+  greetingMetaRow: { height: 20, marginLeft: 43, flexDirection: "row", alignItems: "center", gap: 4 },
   greetingLocation: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 4 },
-  greetingLocationText: { flex: 1, color: colors.deep, fontSize: 9.5, fontWeight: "700" },
+  greetingLocationText: { flex: 1, color: colors.deep, fontSize: 8.5, fontWeight: "700" },
   greetingDivider: { width: 1, height: 14, backgroundColor: "rgba(18,60,43,0.18)", marginHorizontal: 2 },
-  fieldReadyText: { color: colors.deep, fontSize: 9, fontWeight: "700" },
+  greetingWeatherText: { color: colors.deep, fontSize: 7.5, fontWeight: "700" },
   pageTitle: { fontSize: 28, lineHeight: 34, color: colors.deep, fontWeight: "800", letterSpacing: -0.7 },
   pageSubtitle: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 4 },
   metricsRow: { flexDirection: "row", gap: 9 },
@@ -796,7 +799,6 @@ const styles = StyleSheet.create({
   loginTitle: { color: colors.deep, fontSize: 19, fontWeight: "800" },
   loginSubtitle: { color: colors.muted, fontSize: 11, lineHeight: 17, marginTop: 5, marginBottom: 8 },
   errorText: { color: colors.red, fontSize: 10, fontWeight: "700", marginVertical: 8 },
-  demoHint: { color: colors.muted, textAlign: "center", fontSize: 8, marginTop: 12 },
 });
 
 export default function App() {
