@@ -105,100 +105,136 @@ function LoginScreen() {
   );
 }
 
+type Screen = "main" | "profile" | "settings" | "help";
+
 function FieldOfficerApp() {
-  const { officerName, consultantFirm, isOnline, logout } = useStore();
+  const { officerName, isOnline } = useStore();
   const [tab, setTab] = useState<Tab>("Overview");
   const [selected, setSelected] = useState<Assignment | null>(null);
-  const [showProfile, setShowProfile] = useState(false);
+  const [view, setView] = useState<Screen>("main");
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar hidden />
-      <View style={styles.header}>
-        <View style={styles.headerBrand}><Image source={reaLogo} style={styles.headerLogo} resizeMode="contain" /><View><Text style={styles.headerTitle}>Veritas</Text><Text style={styles.headerSubtitle}>REA · FIELD OFFICER</Text></View></View>
-        <View style={styles.headerActions}>
-          <View style={styles.onlinePill}><View style={[styles.onlineDot, !isOnline && styles.offlineDot]} /><Text style={[styles.onlineText, !isOnline && { color: colors.amber }]}>{isOnline ? "ONLINE" : "OFFLINE"}</Text></View>
-          <Pressable onPress={() => setShowProfile(true)} style={styles.avatar}><Text style={styles.avatarText}>{initials(officerName)}</Text></Pressable>
+      {view === "main" ? (
+        <View style={styles.header}>
+          <View style={styles.headerBrand}><Image source={reaLogo} style={styles.headerLogo} resizeMode="contain" /><View><Text style={styles.headerTitle}>Veritas</Text><Text style={styles.headerSubtitle}>REA · FIELD OFFICER</Text></View></View>
+          <View style={styles.headerActions}>
+            <View style={styles.onlinePill}><View style={[styles.onlineDot, !isOnline && styles.offlineDot]} /><Text style={[styles.onlineText, !isOnline && { color: colors.amber }]}>{isOnline ? "ONLINE" : "OFFLINE"}</Text></View>
+            <Pressable onPress={() => setView("profile")} style={styles.avatar}><Text style={styles.avatarText}>{initials(officerName)}</Text></Pressable>
+          </View>
         </View>
-      </View>
+      ) : (
+        <View style={styles.backHeader}>
+          <Pressable onPress={() => setView(view === "profile" ? "main" : "profile")} style={styles.iconButton}><Ionicons name="chevron-back" size={22} color={colors.deep} /></Pressable>
+          <Text style={styles.backHeaderTitle}>{view === "profile" ? "Profile" : view === "settings" ? "Settings" : "Help & Support"}</Text>
+          <View style={styles.iconButton} />
+        </View>
+      )}
       <View style={styles.page}>
-        {tab === "Overview" && <Overview onOpen={setSelected} onNavigate={setTab} />}
-        {tab === "Assignments" && <AssignmentList mode="assignments" onOpen={setSelected} />}
-        {tab === "Inspections" && <AssignmentList mode="inspections" onOpen={setSelected} />}
-        {tab === "Drafts" && <AssignmentList mode="drafts" onOpen={setSelected} />}
-        {tab === "Sync" && <SyncScreen />}
+        {view === "main" && tab === "Overview" && <Overview onOpen={setSelected} onNavigate={setTab} />}
+        {view === "main" && tab === "Assignments" && <AssignmentList mode="assignments" onOpen={setSelected} />}
+        {view === "main" && tab === "Inspections" && <AssignmentList mode="inspections" onOpen={setSelected} />}
+        {view === "main" && tab === "Drafts" && <AssignmentList mode="drafts" onOpen={setSelected} />}
+        {view === "main" && tab === "Sync" && <SyncScreen />}
+        {view === "profile" && <ProfileScreen onOpenSettings={() => setView("settings")} onOpenHelp={() => setView("help")} />}
+        {view === "settings" && <SettingsScreen />}
+        {view === "help" && <HelpScreen />}
       </View>
       <View style={styles.tabBar}>
-        {tabs.map((item) => <AnimatedTab key={item.label} item={item} active={item.label === tab} onPress={() => setTab(item.label)} />)}
+        {tabs.map((item, index) => {
+          const isLast = index === tabs.length - 1;
+          const asProfile = isLast && view !== "main";
+          const display = asProfile ? { label: "Profile", icon: "person-outline" as const, color: colors.primary, pale: colors.paleStrong } : item;
+          const active = asProfile ? true : view === "main" && item.label === tab;
+          return <AnimatedTab key={item.label} item={display} active={active} onPress={() => { setView("main"); setTab(item.label); }} />;
+        })}
       </View>
       <InspectionModal assignment={selected} onClose={() => setSelected(null)} />
-      <Modal visible={showProfile} transparent animationType="fade" onRequestClose={() => setShowProfile(false)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setShowProfile(false)}>
-          <Pressable style={styles.profileCard} onPress={() => undefined}>
-            <View style={styles.profileAvatar}>
-              <Text style={styles.profileAvatarText}>{initials(officerName)}</Text>
-            </View>
-
-            <Text style={styles.profileName}>{officerName}</Text>
-            <Text style={styles.profileRole}>Field Officer</Text>
-            <Text style={styles.profileCompany}>{consultantFirm}</Text>
-
-            <View style={styles.profileRow}>
-              <Ionicons name="phone-portrait-outline" size={19} color={colors.primary} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.profileRowTitle}>This device</Text>
-                <Text style={styles.profileValue}>{deviceName()}</Text>
-              </View>
-              <View style={styles.profileActiveBadge}>
-                <Text style={styles.profileActiveText}>Active</Text>
-              </View>
-            </View>
-
-            <Pressable
-              style={styles.profileOption}
-              onPress={() => Alert.alert(
-                "Settings",
-                "Field data remains available offline and can be synchronized from the Sync Queue."
-              )}
-            >
-              <View style={[styles.profileOptionIcon, { backgroundColor: colors.bluePale }]}>
-                <Ionicons name="settings-outline" size={20} color={colors.blue} />
-              </View>
-              <View style={styles.profileOptionCopy}>
-                <Text style={styles.profileOptionTitle}>Settings</Text>
-                <Text style={styles.profileOptionText}>App and synchronization preferences</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.muted} />
-            </Pressable>
-
-            <Pressable
-              style={styles.profileOption}
-              onPress={() => Alert.alert(
-                "Help & Support",
-                "Contact your Consultant Administrator for assignment, inspection or synchronization support."
-              )}
-            >
-              <View style={[styles.profileOptionIcon, { backgroundColor: colors.violetPale }]}>
-                <Ionicons name="help-circle-outline" size={20} color={colors.violet} />
-              </View>
-              <View style={styles.profileOptionCopy}>
-                <Text style={styles.profileOptionTitle}>Help & Support</Text>
-                <Text style={styles.profileOptionText}>Assistance with field inspections</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.muted} />
-            </Pressable>
-
-            <Pressable onPress={() => void logout()} style={styles.logoutButton}>
-              <Ionicons name="log-out-outline" size={18} color={colors.red} />
-              <Text style={styles.logoutText}>Sign out</Text>
-            </Pressable>
-          </Pressable>
-        </Pressable>
-      </Modal>
     </SafeAreaView>
   );
 }
 
-function AnimatedTab({ item, active, onPress }: { item: (typeof tabs)[number]; active: boolean; onPress: () => void }) {
+function ProfileScreen({ onOpenSettings, onOpenHelp }: { onOpenSettings: () => void; onOpenHelp: () => void }) {
+  const { officerName, logout } = useStore();
+  const rows: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress?: () => void }[] = [
+    { icon: "person-outline", label: "Personal Information", onPress: () => Alert.alert("Personal Information", "Contact your consultant admin to update these details.") },
+    { icon: "lock-closed-outline", label: "Change Password", onPress: () => Alert.alert("Change Password", "Password changes are managed from Settings.") },
+    { icon: "options-outline", label: "App Settings", onPress: onOpenSettings },
+    { icon: "map-outline", label: "Offline Maps", onPress: () => Alert.alert("Offline Maps", "Downloaded map tiles will appear here.") },
+    { icon: "help-circle-outline", label: "Help & Support", onPress: onOpenHelp },
+    { icon: "information-circle-outline", label: "About Veritas", onPress: () => Alert.alert("About Veritas", "Veritas Field Officer v1.0.0") },
+  ];
+  return (
+    <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <View style={styles.profileHero}>
+        <View style={styles.profileHeroAvatar}><Text style={styles.profileHeroAvatarText}>{initials(officerName)}</Text></View>
+        <Text style={styles.profileHeroName}>{officerName}</Text>
+        <Text style={styles.profileHeroRole}>Field Officer</Text>
+        <Text style={styles.profileHeroFirm}>Supreme Nigeria Limited</Text>
+        <View style={styles.profileStatusPill}><View style={styles.onlineDot} /><Text style={styles.onlineText}>Active</Text></View>
+      </View>
+      <View style={styles.listPanel}>
+        {rows.map((row, index) => <MenuRow key={row.label} icon={row.icon} label={row.label} onPress={row.onPress} last={index === rows.length - 1} />)}
+      </View>
+      <Pressable onPress={() => void logout()} style={styles.logoutRow}><Ionicons name="log-out-outline" size={18} color={colors.red} /><Text style={styles.logoutText}>Logout</Text></Pressable>
+    </ScrollView>
+  );
+}
+
+function SettingsScreen() {
+  const rows: { icon: keyof typeof Ionicons.glyphMap; label: string; value?: string }[] = [
+    { icon: "notifications-outline", label: "Notifications" },
+    { icon: "location-outline", label: "Location Services", value: "Enabled" },
+    { icon: "camera-outline", label: "Camera & Photos" },
+    { icon: "cloud-offline-outline", label: "Offline Mode", value: "Enabled" },
+    { icon: "stats-chart-outline", label: "Data Usage" },
+    { icon: "globe-outline", label: "Language", value: "English" },
+  ];
+  return (
+    <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <View style={styles.listPanel}>
+        {rows.map((row, index) => <MenuRow key={row.label} icon={row.icon} label={row.label} value={row.value} last={index === rows.length - 1} onPress={() => Alert.alert(row.label, "This setting is managed by your consultant admin.")} />)}
+      </View>
+    </ScrollView>
+  );
+}
+
+function HelpScreen() {
+  const rows: { icon: keyof typeof Ionicons.glyphMap; label: string; text: string }[] = [
+    { icon: "book-outline", label: "User Guide", text: "Step-by-step instructions" },
+    { icon: "play-circle-outline", label: "Video Tutorials", text: "Watch how to use the app" },
+    { icon: "help-circle-outline", label: "Frequently Asked Questions", text: "Find quick answers" },
+    { icon: "headset-outline", label: "Contact Support", text: "Get in touch with the Veritas team" },
+    { icon: "shield-outline", label: "Report an Issue", text: "Send feedback or bug report" },
+  ];
+  return (
+    <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <View style={styles.searchBar}><Ionicons name="search-outline" size={16} color={colors.slate} /><Text style={styles.searchPlaceholder}>Search help topics...</Text></View>
+      <View style={styles.listPanel}>
+        {rows.map((row, index) => (
+          <Pressable key={row.label} onPress={() => Alert.alert(row.label, "This resource is not available in the offline demo build.")} style={[styles.helpRow, index === rows.length - 1 && styles.menuRowLast]}>
+            <View style={styles.helpIcon}><Ionicons name={row.icon} size={18} color={colors.primary} /></View>
+            <View style={styles.menuInfo}><Text style={styles.menuLabel}>{row.label}</Text><Text style={styles.helpText}>{row.text}</Text></View>
+            <Ionicons name="chevron-forward" size={16} color={colors.slate} />
+          </Pressable>
+        ))}
+      </View>
+    </ScrollView>
+  );
+}
+
+function MenuRow({ icon, label, value, onPress, last = false }: { icon: keyof typeof Ionicons.glyphMap; label: string; value?: string; onPress?: () => void; last?: boolean }) {
+  return (
+    <Pressable onPress={onPress} style={[styles.menuRow, last && styles.menuRowLast]}>
+      <View style={styles.menuIcon}><Ionicons name={icon} size={18} color={colors.primary} /></View>
+      <View style={styles.menuInfo}><Text style={styles.menuLabel}>{label}</Text></View>
+      {value ? <Text style={styles.menuValue}>{value}</Text> : null}
+      <Ionicons name="chevron-forward" size={16} color={colors.slate} />
+    </Pressable>
+  );
+}
+
+function AnimatedTab({ item, active, onPress }: { item: { label: string; icon: keyof typeof Ionicons.glyphMap; color: string; pale: string }; active: boolean; onPress: () => void }) {
   const scale = useRef(new Animated.Value(1)).current;
   useEffect(() => {
     if (!active) return;
@@ -216,31 +252,57 @@ function AnimatedTab({ item, active, onPress }: { item: (typeof tabs)[number]; a
 }
 
 function Overview({ onOpen, onNavigate }: { onOpen: (item: Assignment) => void; onNavigate: (tab: Tab) => void }) {
-  const { assignments, officerName, consultantFirm } = useStore();
+  const { assignments, officerName } = useStore();
   const assigned = assignments.filter((item) => item.status === "Assigned");
   const drafts = assignments.filter((item) => item.status === "Draft");
-  const dueSoon = assignments.filter((item) => ["Assigned", "Draft"].includes(item.status) && new Date(item.dueDate).getTime() <= Date.now() + 7 * 86_400_000);
+  const dueThisWeek = assignments.filter((item) => ["Assigned", "Draft"].includes(item.status) && new Date(item.dueDate).getTime() <= Date.now() + 7 * 86_400_000);
   const toSync = assignments.filter((item) => item.syncStatus !== "synced");
-  const recentInspections = assignments
-    .filter((item) => ["Submitted", "Approved", "Verified"].includes(item.status))
+  const recent = assignmentsForSection(assignments, "inspections")
+    .slice()
+    .sort((a, b) => new Date(b.report?.updatedAt ?? b.dueDate).getTime() - new Date(a.report?.updatedAt ?? a.dueDate).getTime())
     .slice(0, 3);
   const next = drafts[0] ?? assigned[0];
   return (
     <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-      <View style={styles.heroCopy}>
-        <Text style={styles.greeting}>Good day, {officerName.split(" ")[0]}</Text>
-        <Text style={styles.consultantName}>{consultantFirm}</Text>
-        <Text style={styles.pageSubtitle}>Your field work at a glance.</Text>
+      <View style={styles.heroCopy}><Text style={styles.greeting}>Good day, {officerName.split(" ")[0]}.</Text><Text style={styles.pageSubtitle}>Here’s what’s happening across your assigned sites.</Text></View>
+      <View style={styles.metricsGrid}>
+        <Metric label="Assigned" value={assigned.length} note="Ready to start" icon="grid-outline" tone="green" onPress={() => onNavigate("Assignments")} />
+        <Metric label="Due" value={dueThisWeek.length} note="Next visit" icon="time-outline" tone="amber" onPress={() => onNavigate("Assignments")} />
+        <Metric label="Drafts" value={drafts.length} note="Not yet submitted" icon="document-text-outline" tone="blue" onPress={() => onNavigate("Drafts")} />
+        <Metric label="To Sync" value={toSync.length} note="Ready to upload" icon="cloud-upload-outline" tone="violet" onPress={() => onNavigate("Sync")} />
       </View>
-      <View style={styles.metricsRow}>
-        <Metric label="Assigned" value={assigned.length} note="Ready to start" icon="briefcase-outline" tone="green" onPress={() => onNavigate("Assignments")} />
-        <Metric label="Due Soon" value={dueSoon.length} note="Within 7 days" icon="time-outline" tone="amber" onPress={() => onNavigate("Assignments")} />
-        <Metric label="Drafts" value={drafts.length} note="Autosaved forms" icon="document-text-outline" tone="blue" onPress={() => onNavigate("Drafts")} />
-        <Metric label="To Sync" value={toSync.length} note="Waiting upload" icon="cloud-upload-outline" tone="violet" onPress={() => onNavigate("Sync")} />
+      {next ? (
+        <View style={styles.nextCard}>
+          <View style={styles.assignmentTop}>
+            <View style={styles.projectIcon}><Ionicons name="flash-outline" size={21} color={colors.primary} /></View>
+            <View style={styles.assignmentMain}><Text style={styles.eyebrow}>CURRENT ASSIGNMENT</Text><Text style={styles.cardTitle}>{next.projectName}</Text></View>
+            <StatusBadge status={displayStatus(next.status)} />
+          </View>
+          <View style={styles.metaRow}>
+            <Meta label="Programme" value={next.programme} />
+            <Meta label="Component" value={next.component} />
+            <Meta label="Site" value={`${next.community}, ${next.state}`} />
+          </View>
+          <Pressable style={styles.outlineButton} onPress={() => openMaps(next)}><Ionicons name="navigate-outline" size={17} color={colors.primary} /><Text style={styles.outlineButtonText}>Navigate to site</Text></Pressable>
+          <Pressable style={styles.primaryButton} onPress={() => onOpen(next)}><Text style={styles.primaryButtonText}>{next.status === "Draft" ? "Continue inspection" : "Start inspection"}</Text><Ionicons name="arrow-forward" size={17} color={colors.white} /></Pressable>
+        </View>
+      ) : null}
+      <View style={styles.listPanel}>
+        <View style={styles.sectionHead}><Text style={styles.sectionTitle}>Recent Inspections</Text><Pressable onPress={() => onNavigate("Inspections")} style={styles.viewAllButton}><Text style={styles.viewAll}>See all</Text><Ionicons name="arrow-forward" size={15} color={colors.primary} /></Pressable></View>
+        {recent.length ? recent.map((item) => <RecentInspectionRow key={item.id} item={item} onOpen={onOpen} />) : <EmptyState icon="checkmark-done-circle-outline" title="No inspections yet" text="Submitted inspections will appear here." />}
       </View>
-      {next ? <View style={styles.nextCard}><View style={styles.assignmentTop}><View style={styles.projectIcon}><Ionicons name="flash-outline" size={21} color={colors.primary} /></View><View style={styles.assignmentMain}><Text style={styles.eyebrow}>CURRENT ASSIGNMENT</Text><Text style={styles.cardTitle}>{next.projectName}</Text></View></View><View style={styles.locationRow}><Ionicons name="location-outline" size={17} color={colors.primary} /><Text style={styles.locationText}>{next.community}, {next.state} · {next.id}</Text></View><Pressable style={styles.outlineButton} onPress={() => openMaps(next)}><Ionicons name="navigate-outline" size={17} color={colors.primary} /><Text style={styles.outlineButtonText}>Navigate to site</Text></Pressable><Pressable style={styles.primaryButton} onPress={() => onOpen(next)}><Text style={styles.primaryButtonText}>{next.status === "Draft" ? "Continue inspection" : "Start inspection"}</Text><Ionicons name="arrow-forward" size={17} color={colors.white} /></Pressable></View> : null}
-      <View style={styles.listPanel}><View style={styles.sectionHead}><Text style={styles.sectionTitle}>Recent Inspections</Text><Pressable onPress={() => onNavigate("Inspections")} style={styles.viewAllButton}><Text style={styles.viewAll}>See all</Text><Ionicons name="arrow-forward" size={15} color={colors.primary} /></Pressable></View>{recentInspections.length ? recentInspections.map((item) => <AssignmentCard key={item.id} item={item} onOpen={onOpen} compact />) : <EmptyState icon="shield-checkmark-outline" title="No recent inspections" text="Submitted inspections will appear here." />}</View>
     </ScrollView>
+  );
+}
+
+function RecentInspectionRow({ item, onOpen }: { item: Assignment; onOpen: (item: Assignment) => void }) {
+  const at = item.report?.updatedAt ?? item.report?.submittedAt ?? item.dueDate;
+  return (
+    <Pressable onPress={() => onOpen(item)} style={styles.recentRow}>
+      <View style={styles.projectIcon}><Ionicons name="grid-outline" size={18} color={colors.primary} /></View>
+      <View style={styles.assignmentMain}><Text style={styles.recentTitle} numberOfLines={1}>{item.projectName}</Text><Text style={styles.assignmentId}>{item.component} · {item.community}, {item.state}</Text></View>
+      <View style={styles.recentEnd}><StatusBadge status={displayStatus(item.status)} /><Text style={styles.recentTime}>{timeAgo(at)}</Text></View>
+    </Pressable>
   );
 }
 
@@ -251,22 +313,24 @@ function AssignmentList({ mode, onOpen }: { mode: "assignments" | "inspections" 
   const subtitle = mode === "drafts" ? "Forms you started are autosaved here" : mode === "assignments" ? "Projects ready for field inspection" : "Submitted and reviewed field inspections";
   const summaries = mode === "assignments"
     ? [
-        { label: "Assigned", value: base.length, icon: "sunny-outline" as const, tone: "green" as const },
-        { label: "Due Soon", value: base.filter((item) => new Date(item.dueDate).getTime() <= Date.now() + 7 * 86_400_000).length, icon: "time-outline" as const, tone: "amber" as const },
+        { label: "Assigned", value: base.length, icon: "folder-open-outline" as const, tone: "green" as const },
+        { label: "Due this week", value: base.filter((item) => new Date(item.dueDate).getTime() <= Date.now() + 7 * 86_400_000).length, icon: "calendar-outline" as const, tone: "amber" as const },
+        { label: "States", value: new Set(base.map((item) => item.state)).size, icon: "map-outline" as const, tone: "blue" as const },
       ]
     : mode === "drafts"
       ? [
-          { label: "Drafts", value: base.length, icon: "document-text-outline" as const, tone: "blue" as const },
-          { label: "With Evidence", value: base.filter((item) => (item.report?.evidence.length ?? 0) > 0).length, icon: "camera-outline" as const, tone: "green" as const },
-          { label: "To Complete", value: base.length, icon: "create-outline" as const, tone: "amber" as const },
+          { label: "Autosaved", value: base.length, icon: "cloud-done-outline" as const, tone: "green" as const },
+          { label: "With evidence", value: base.filter((item) => (item.report?.evidence.length ?? 0) > 0).length, icon: "camera-outline" as const, tone: "blue" as const },
+          { label: "To complete", value: base.length, icon: "create-outline" as const, tone: "amber" as const },
         ]
       : [
           { label: "Submitted", value: base.filter((item) => item.status === "Submitted").length, icon: "paper-plane-outline" as const, tone: "blue" as const },
           { label: "Approved", value: base.filter((item) => item.status === "Approved").length, icon: "checkmark-circle-outline" as const, tone: "green" as const },
-          { label: "Verified", value: base.filter((item) => item.status === "Verified").length, icon: "shield-checkmark-outline" as const, tone: "violet" as const },
+          { label: "Verified", value: base.filter((item) => item.status === "Verified").length, icon: "shield-checkmark-outline" as const, tone: "green" as const },
+          { label: "Re-inspection", value: base.filter((item) => item.status === "Re-inspection").length, icon: "refresh-outline" as const, tone: "amber" as const },
         ];
   return (
-    <FlatList data={base} keyExtractor={(item) => item.id} contentContainerStyle={styles.scrollContent} ListHeaderComponent={<><View style={styles.heroCopy}><Text style={styles.pageTitle}>{title}</Text><Text style={styles.pageSubtitle}>{subtitle}</Text></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.summaryStrip}>{summaries.map((item) => <SummaryCard key={item.label} {...item} />)}</ScrollView><Text style={styles.listLabel}>{mode === "drafts" ? "Autosaved forms" : mode === "assignments" ? "Assignment list" : "Inspection history"}</Text></>} renderItem={({ item }) => <AssignmentCard item={item} onOpen={onOpen} />} ListEmptyComponent={<EmptyState icon={mode === "drafts" ? "document-text-outline" : "checkmark-done-outline"} title={mode === "drafts" ? "No drafts" : "Nothing here"} text={mode === "drafts" ? "A form appears here automatically after you start filling it." : "No records are available in this section."} />} />
+    <FlatList data={base} keyExtractor={(item) => item.id} contentContainerStyle={[styles.scrollContent, styles.listContent]} ListHeaderComponent={<><View style={styles.heroCopy}><Text style={styles.pageTitle}>{title}</Text><Text style={styles.pageSubtitle}>{subtitle}</Text></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.summaryStrip}>{summaries.map((item) => <SummaryCard key={item.label} {...item} />)}</ScrollView><Text style={styles.listLabel}>{mode === "drafts" ? "Autosaved forms" : mode === "assignments" ? "Assignment list" : "Inspection history"}</Text></>} renderItem={({ item }) => <AssignmentCard item={item} onOpen={onOpen} />} ListEmptyComponent={<EmptyState icon={mode === "drafts" ? "document-text-outline" : "checkmark-done-outline"} title={mode === "drafts" ? "No drafts" : "Nothing here"} text={mode === "drafts" ? "A form appears here automatically after you start filling it." : "No records are available in this section."} />} />
   );
 }
 
@@ -277,208 +341,42 @@ function SyncScreen() {
   const uploading = assignments.filter((item) => item.syncStatus === "uploading");
   const completed = assignments.filter((item) => item.syncStatus === "synced");
   const [busy, setBusy] = useState(false);
-
-  const sync = async () => {
-    setBusy(true);
-    try {
-      await syncNow();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const total = pending.length + completed.length;
-  const progress = total ? Math.round((completed.length / total) * 100) : 100;
-
+  const sync = async () => { setBusy(true); await syncNow(); setBusy(false); };
   return (
-    <ScrollView contentContainerStyle={styles.scrollContent}>
-      <View style={styles.heroCopy}>
-        <View style={styles.syncTitleRow}>
-          <View>
-            <Text style={styles.pageTitle}>Sync Queue</Text>
-            <Text style={styles.pageSubtitle}>
-              Your field inspections upload securely one at a time.
-            </Text>
-          </View>
-
-          <View style={[
-            styles.connectionBadge,
-            { backgroundColor: isOnline ? colors.paleStrong : colors.redPale }
-          ]}>
-            <View style={[
-              styles.connectionDot,
-              { backgroundColor: isOnline ? colors.primary : colors.red }
-            ]} />
-            <Text style={[
-              styles.connectionText,
-              { color: isOnline ? colors.primary : colors.red }
-            ]}>
-              {isOnline ? "Online" : "Offline"}
-            </Text>
-          </View>
+    <ScrollView contentContainerStyle={[styles.scrollContent, styles.listContent]} showsVerticalScrollIndicator={false}>
+      <View style={styles.heroCopy}><Text style={styles.pageTitle}>Sync</Text><Text style={styles.pageSubtitle}>Uploads continue safely when an internet connection is available.</Text></View>
+      <View style={styles.syncBanner}>
+        <View style={styles.syncBannerIcon}><Ionicons name="cloud-upload-outline" size={21} color={colors.blue} /></View>
+        <View style={styles.assignmentMain}>
+          <Text style={styles.syncBannerTitle}>{pending.length ? "Ready to sync" : "All synced"}</Text>
+          <Text style={styles.syncBannerText}>{pending.length ? `${pending.length} item${pending.length === 1 ? "" : "s"} ready to upload` : "Nothing waiting to upload"}</Text>
         </View>
+        <Pressable disabled={!isOnline || !pending.length || busy} onPress={() => void sync()} style={[styles.syncNowButton, (!isOnline || !pending.length || busy) && styles.disabled]}>
+          {busy ? <ActivityIndicator color={colors.white} /> : <Text style={styles.syncNowButtonText}>{isOnline ? "Sync Now" : "Offline"}</Text>}
+        </Pressable>
       </View>
-
-      <View style={styles.syncSummary}>
-        <MetricMini
-          label="Uploading"
-          value={uploading.length || (busy && pending.length ? 1 : 0)}
-          icon="cloud-upload-outline"
-          color={colors.blue}
-        />
-        <MetricMini
-          label="Waiting"
-          value={waiting.length}
-          icon="time-outline"
-          color={colors.amber}
-        />
-        <MetricMini
-          label="Completed"
-          value={completed.length}
-          icon="checkmark-circle-outline"
-          color={colors.primary}
-        />
-      </View>
-
-      <View style={styles.syncProgressCard}>
-        <View style={styles.syncProgressHeader}>
-          <View>
-            <Text style={styles.syncProgressTitle}>Synchronization progress</Text>
-            <Text style={styles.syncProgressMeta}>
-              {completed.length} completed · {pending.length} remaining
-            </Text>
-          </View>
-          <Text style={styles.syncProgressPercent}>{progress}%</Text>
-        </View>
-
-        <View style={styles.syncProgressTrack}>
-          <View
-            style={[
-              styles.syncProgressFill,
-              { width: `${progress}%` }
-            ]}
-          />
-        </View>
-      </View>
-
-      <Pressable
-        disabled={!isOnline || !pending.length || busy}
-        onPress={() => void sync()}
-        style={[
-          styles.syncButton,
-          (!isOnline || !pending.length || busy) && styles.disabled
-        ]}
-      >
-        {busy ? (
-          <>
-            <ActivityIndicator color={colors.white} />
-            <Text style={styles.primaryButtonText}>Uploading...</Text>
-          </>
-        ) : (
-          <>
-            <Ionicons
-              name={isOnline ? "cloud-upload-outline" : "cloud-offline-outline"}
-              size={20}
-              color={colors.white}
-            />
-            <Text style={styles.primaryButtonText}>
-              {!isOnline
-                ? "Waiting for internet"
-                : pending.length
-                  ? "Sync Now"
-                  : "Everything Synced"}
-            </Text>
-          </>
-        )}
-      </Pressable>
-
-      <View style={styles.queueHeadingRow}>
-        <View>
-          <Text style={styles.listLabel}>Upload Queue</Text>
-          <Text style={styles.queueSubtitle}>
-            Top inspection uploads first
-          </Text>
-        </View>
-
-        {!!pending.length && (
-          <View style={styles.queueCountBadge}>
-            <Text style={styles.queueCountText}>{pending.length}</Text>
-          </View>
-        )}
-      </View>
-
-      <View style={styles.queueCard}>
-        {pending.length ? (
-          pending.map((item, index) => {
-            const isUploading = item.syncStatus === "uploading" || (busy && index === 0);
-
-            return (
-              <View key={item.id} style={styles.queueRow}>
-                <View style={[
-                  styles.queueIndex,
-                  isUploading && { backgroundColor: colors.bluePale }
-                ]}>
-                  {isUploading ? (
-                    <ActivityIndicator size="small" color={colors.blue} />
-                  ) : (
-                    <Text style={styles.queueIndexText}>{index + 1}</Text>
-                  )}
-                </View>
-
-                <View style={styles.queueInfo}>
-                  <Text style={styles.queueTitle}>{item.projectName}</Text>
-                  <Text style={styles.queueMeta}>
-                    {item.id} · {item.report?.evidence.length ?? 0} evidence files
-                  </Text>
-                </View>
-
-                <View style={[
-                  styles.queueStatusBadge,
-                  {
-                    backgroundColor: isUploading
-                      ? colors.bluePale
-                      : item.syncStatus === "failed"
-                        ? colors.redPale
-                        : colors.amberPale
-                  }
-                ]}>
-                  <Text style={[
-                    styles.queueState,
-                    {
-                      color: isUploading
-                        ? colors.blue
-                        : item.syncStatus === "failed"
-                          ? colors.red
-                          : colors.amber
-                    }
-                  ]}>
-                    {isUploading
-                      ? "Uploading"
-                      : item.syncStatus === "failed"
-                        ? "Retry"
-                        : "Waiting"}
-                  </Text>
-                </View>
-              </View>
-            );
-          })
-        ) : (
-          <EmptyState
-            icon="checkmark-done-circle-outline"
-            title="Everything is synchronized"
-            text="There are no inspection packages waiting to upload."
-          />
-        )}
-      </View>
-
-      <View style={styles.syncSecurityCard}>
-        <Ionicons name="shield-checkmark-outline" size={20} color={colors.primary} />
-        <Text style={styles.securityNote}>
-          GPS coordinates, timestamps, evidence and signatories remain attached
-          to every inspection package.
-        </Text>
-      </View>
+      <View style={styles.syncSummary}><MetricMini label="Uploading" value={uploading.length || (busy ? 1 : 0)} icon="cloud-upload-outline" color={colors.blue} /><MetricMini label="Waiting" value={waiting.length} icon="time-outline" color={colors.amber} /><MetricMini label="Completed" value={completed.length} icon="checkmark-circle-outline" color={colors.primary} /></View>
+      <Text style={styles.listLabel}>Waiting to upload</Text>
+      {pending.length ? pending.map((item) => <SyncQueueCard key={item.id} item={item} />) : <View style={styles.listPanel}><EmptyState icon="checkmark-done-circle-outline" title="Everything is synchronized" text="There are no inspection packages waiting to upload." /></View>}
+      <Text style={styles.securityNote}>GPS coordinates, timestamps, evidence and signatories stay attached to every inspection package.</Text>
     </ScrollView>
+  );
+}
+
+function SyncQueueCard({ item }: { item: Assignment }) {
+  const evidenceCount = item.report?.evidence.length ?? 0;
+  const tone = item.syncStatus === "uploading" ? colors.blue : item.syncStatus === "failed" ? colors.red : colors.amber;
+  const pale = item.syncStatus === "uploading" ? colors.bluePale : item.syncStatus === "failed" ? colors.redPale : colors.amberPale;
+  const label = item.syncStatus === "uploading" ? "Uploading…" : item.syncStatus === "failed" ? "Failed" : "Waiting…";
+  return (
+    <View style={styles.queueItemCard}>
+      <View style={styles.projectIcon}><Ionicons name="grid-outline" size={18} color={colors.primary} /></View>
+      <View style={styles.assignmentMain}>
+        <Text style={styles.assignmentName} numberOfLines={1}>{item.projectName}</Text>
+        <Text style={styles.assignmentId}>{item.id} · {evidenceCount} evidence file{evidenceCount === 1 ? "" : "s"}</Text>
+      </View>
+      <View style={[styles.syncStatusPill, { backgroundColor: pale }]}><Text style={[styles.syncStatusText, { color: tone }]}>{label}</Text></View>
+    </View>
   );
 }
 
@@ -593,19 +491,19 @@ function FormInput({ field, value, locked, onChange }: { field: FormField; value
 
 function AssignmentCard({ item, onOpen, compact = false }: { item: Assignment; onOpen: (item: Assignment) => void; compact?: boolean }) {
   const status = displayStatus(item.status);
-  return <Pressable onPress={() => onOpen(item)} style={[styles.assignmentCard, compact && styles.assignmentCardCompact]}><View style={styles.assignmentTop}><View style={styles.projectIcon}><Ionicons name="sunny-outline" size={20} color={colors.primary} /></View><View style={styles.assignmentMain}><Text style={styles.assignmentName}>{item.projectName}</Text><Text style={styles.assignmentId}>{item.id} · {item.component}</Text></View>{compact ? <Text style={styles.dueText}>{formatDate(item.dueDate)}</Text> : <StatusBadge status={status} />}<Ionicons name="chevron-forward" size={17} color={colors.slate} /></View>{compact ? null : <><View style={styles.locationRow}><Ionicons name="location-outline" size={15} color={colors.muted} /><Text style={styles.assignmentLocation}>{item.community}, {item.lga}, {item.state}</Text></View><View style={styles.assignmentFooter}><Text style={styles.dueText}>Due {formatDate(item.dueDate)}</Text><Text style={styles.openLinkText}>{isReportLocked(item.status) ? "View report" : item.status === "Draft" ? "Continue form" : item.status === "Re-inspection" ? "Start again" : "Open"}</Text></View></>}</Pressable>;
+  return <Pressable onPress={() => onOpen(item)} style={[styles.assignmentCard, compact && styles.assignmentCardCompact]}><View style={styles.assignmentTop}><View style={styles.projectIcon}><Ionicons name="grid-outline" size={20} color={colors.primary} /></View><View style={styles.assignmentMain}><Text style={styles.assignmentName}>{item.projectName}</Text><Text style={styles.assignmentId}>{item.id} · {item.component}</Text></View>{compact ? <Text style={styles.dueText}>{formatDate(item.dueDate)}</Text> : <StatusBadge status={status} />}<Ionicons name="chevron-forward" size={17} color={colors.slate} /></View>{compact ? null : <><View style={styles.locationRow}><Ionicons name="location-outline" size={15} color={colors.muted} /><Text style={styles.assignmentLocation}>{item.community}, {item.lga}, {item.state}</Text></View><View style={styles.assignmentFooter}><Text style={styles.dueText}>Due {formatDate(item.dueDate)}</Text><Text style={styles.openLinkText}>{isReportLocked(item.status) ? "View report" : item.status === "Draft" ? "Continue form" : item.status === "Re-inspection" ? "Start again" : "Open"}</Text></View></>}</Pressable>;
 }
 
 function Metric({ label, value, note, icon, tone, onPress }: { label: string; value: number; note: string; icon: keyof typeof Ionicons.glyphMap; tone: "green" | "amber" | "blue" | "violet"; onPress: () => void }) {
   const color = tone === "amber" ? colors.amber : tone === "blue" ? colors.blue : tone === "violet" ? colors.violet : colors.primary;
   const pale = tone === "amber" ? colors.amberPale : tone === "blue" ? colors.bluePale : tone === "violet" ? colors.violetPale : colors.paleStrong;
-  return <Pressable onPress={onPress} style={[styles.metricCard, { backgroundColor: pale }]}><View style={[styles.metricIcon, { backgroundColor: "rgba(255,255,255,0.66)" }]}><Ionicons name={icon} size={20} color={color} /></View><Text style={styles.metricValue}>{String(value).padStart(2, "0")}</Text><Text style={styles.metricLabel}>{label}</Text><Text style={styles.metricNote}>{note}</Text><View style={[styles.metricLine, { backgroundColor: color }]} /></Pressable>;
+  return <Pressable onPress={onPress} style={[styles.metricCard, { backgroundColor: pale }]}><View style={[styles.metricIcon, { backgroundColor: "rgba(255,255,255,0.66)" }]}><Ionicons name={icon} size={17} color={color} /></View><Text style={styles.metricValue}>{String(value)}</Text><Text style={styles.metricLabel}>{label}</Text><Text style={styles.metricNote}>{note}</Text><View style={[styles.metricLine, { backgroundColor: color }]} /></Pressable>;
 }
 
-function SummaryCard({ label, value, icon, tone }: { label: string; value: number; icon: keyof typeof Ionicons.glyphMap; tone: "green" | "amber" | "blue" | "violet" }) {
-  const color = tone === "amber" ? colors.amber : tone === "blue" ? colors.blue : tone === "violet" ? colors.violet : colors.primary;
-  const pale = tone === "amber" ? colors.amberPale : tone === "blue" ? colors.bluePale : tone === "violet" ? colors.violetPale : colors.paleStrong;
-  return <View style={[styles.summaryCard, { backgroundColor: pale }]}><View style={[styles.summaryIcon, { backgroundColor: "rgba(255,255,255,0.72)" }]}><Ionicons name={icon} size={20} color={color} /></View><Text style={styles.summaryValue}>{String(value).padStart(2, "0")}</Text><Text style={styles.summaryLabel}>{label}</Text></View>;
+function SummaryCard({ label, value, icon, tone }: { label: string; value: number; icon: keyof typeof Ionicons.glyphMap; tone: "green" | "amber" | "blue" }) {
+  const color = tone === "amber" ? colors.amber : tone === "blue" ? colors.blue : colors.primary;
+  const pale = tone === "amber" ? colors.amberPale : tone === "blue" ? colors.bluePale : colors.paleStrong;
+  return <View style={[styles.summaryCard, { backgroundColor: pale }]}><Ionicons name={icon} size={20} color={color} /><Text style={styles.summaryValue}>{String(value)}</Text><Text style={styles.summaryLabel}>{label}</Text></View>;
 }
 
 function MetricMini({ label, value, icon, color }: { label: string; value: number; icon: keyof typeof Ionicons.glyphMap; color: string }) {
@@ -642,6 +540,18 @@ function formatDate(value: string) {
   return new Date(value).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
+function timeAgo(value: string) {
+  const diffMs = Date.now() - new Date(value).getTime();
+  const minutes = Math.round(diffMs / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return formatDate(value);
+}
+
 function initials(name: string) {
   return name.split(/\s+/).slice(0, 2).map((part) => part[0] ?? "").join("").toUpperCase();
 }
@@ -651,6 +561,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   page: { flex: 1 },
   scrollContent: { padding: 18, paddingBottom: 28, gap: 14 },
+  listContent: { gap: 9 },
   header: { height: 70, backgroundColor: "rgba(255,255,255,0.94)", borderBottomWidth: 1, borderBottomColor: "rgba(223,233,226,0.75)", paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   headerBrand: { flexDirection: "row", alignItems: "center", gap: 10 },
   headerLogo: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.white },
@@ -664,21 +575,25 @@ const styles = StyleSheet.create({
   onlineDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.primaryBright },
   offlineDot: { backgroundColor: colors.amber },
   onlineText: { color: colors.primary, fontSize: 8, fontWeight: "900", letterSpacing: 1.4 },
-  heroCopy: { marginTop: 18, marginBottom: 10 },
+  heroCopy: { marginTop: 14, marginBottom: 6 },
   greeting: { fontSize: 28, lineHeight: 34, color: colors.deep, fontWeight: "800", letterSpacing: -0.8 },
   pageTitle: { fontSize: 28, lineHeight: 34, color: colors.deep, fontWeight: "800", letterSpacing: -0.7 },
-  consultantName: { color: colors.primary, fontSize: 13, lineHeight: 19, fontWeight: "800", marginTop: 5 },
-  pageSubtitle: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 5 },
-  metricsRow: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  metricCard: { width: "48%", flexGrow: 1, minWidth: 140, height: 150, borderRadius: 24, padding: 14, alignItems: "center", justifyContent: "center", overflow: "hidden" },
-  metricIcon: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
-  metricValue: { marginTop: 8, color: colors.deep, fontSize: 23, fontWeight: "800", letterSpacing: -0.5 },
+  pageSubtitle: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 4 },
+  metricsRow: { flexDirection: "row", gap: 9 },
+  metricsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
+  metricCard: { width: "48%", height: 108, borderRadius: 18, padding: 11, alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  metricIcon: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  metricValue: { marginTop: 6, color: colors.deep, fontSize: 19, fontWeight: "800", letterSpacing: -0.4 },
   metricLabel: { color: colors.muted, fontSize: 9, fontWeight: "700", textAlign: "center" },
-  metricNote: { color: colors.muted, fontSize: 8, marginTop: 4, textAlign: "center" },
-  metricLine: { position: "absolute", left: 15, right: 15, bottom: 10, height: 3, borderRadius: 2 },
+  metricNote: { color: colors.muted, fontSize: 8, marginTop: 3, textAlign: "center" },
+  metricLine: { position: "absolute", left: 13, right: 13, bottom: 8, height: 3, borderRadius: 2 },
   nextCard: { backgroundColor: "rgba(255,255,255,0.94)", borderRadius: 24, padding: 17, gap: 12, shadowColor: "#214C38", shadowOpacity: 0.1, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 4, overflow: "hidden" },
   listPanel: { backgroundColor: "rgba(255,255,255,0.92)", borderRadius: 24, padding: 15, gap: 9, shadowColor: "#214C38", shadowOpacity: 0.06, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 2 },
   sectionHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 4 },
+  recentRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 10, borderTopWidth: 1, borderColor: "#edf1ee" },
+  recentTitle: { color: colors.deep, fontSize: 12.5, fontWeight: "700" },
+  recentEnd: { alignItems: "flex-end", gap: 4 },
+  recentTime: { color: colors.muted, fontSize: 9, fontWeight: "600" },
   eyebrow: { color: colors.primary, fontSize: 9, letterSpacing: 1.3, fontWeight: "800", marginBottom: 4 },
   cardTitle: { maxWidth: 235, fontSize: 15, lineHeight: 20, color: colors.deep, fontWeight: "800" },
   sectionTitle: { color: colors.deep, fontSize: 14, fontWeight: "800" },
@@ -699,15 +614,15 @@ const styles = StyleSheet.create({
   outlineButton: { minHeight: 46, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1, borderColor: "#B9D7C4", flexDirection: "row", gap: 6, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.82)" },
   outlineButtonText: { color: colors.primary, fontSize: 12, fontWeight: "800" },
   disabled: { opacity: 0.45 },
-  assignmentCard: { backgroundColor: "rgba(255,255,255,0.94)", borderWidth: 1, borderColor: "rgba(223,233,226,0.9)", borderRadius: 18, padding: 14, gap: 10, marginBottom: 2 },
-  assignmentCardCompact: { borderRadius: 15, paddingVertical: 10, paddingHorizontal: 11, shadowColor: "#214C38", shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 1 },
+  assignmentCard: { backgroundColor: "rgba(255,255,255,0.94)", borderWidth: 1, borderColor: "rgba(223,233,226,0.9)", borderRadius: 16, padding: 12, gap: 8, marginBottom: 2 },
+  assignmentCardCompact: { borderRadius: 14, paddingVertical: 9, paddingHorizontal: 10, shadowColor: "#214C38", shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 1 },
   assignmentTop: { flexDirection: "row", alignItems: "center", gap: 9 },
-  projectIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: colors.paleStrong, alignItems: "center", justifyContent: "center" },
+  projectIcon: { width: 34, height: 34, borderRadius: 11, backgroundColor: colors.paleStrong, alignItems: "center", justifyContent: "center" },
   assignmentMain: { flex: 1 },
   assignmentName: { color: colors.deep, fontSize: 13, lineHeight: 17, fontWeight: "800" },
   assignmentId: { color: colors.muted, fontSize: 9, marginTop: 3 },
   assignmentLocation: { color: colors.muted, fontSize: 11, flex: 1 },
-  assignmentFooter: { borderTopWidth: 1, borderColor: "#edf1ee", paddingTop: 9, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  assignmentFooter: { borderTopWidth: 1, borderColor: "#edf1ee", paddingTop: 7, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   dueText: { color: colors.muted, fontSize: 10, fontWeight: "600" },
   openLink: { flexDirection: "row", alignItems: "center", gap: 2 },
   openLinkText: { color: colors.primary, fontSize: 11, fontWeight: "800" },
@@ -728,41 +643,23 @@ const styles = StyleSheet.create({
   empty: { padding: 36, alignItems: "center", justifyContent: "center" },
   emptyTitle: { marginTop: 9, color: colors.deep, fontSize: 14, fontWeight: "800" },
   emptyText: { marginTop: 5, color: colors.muted, textAlign: "center", fontSize: 11, lineHeight: 17 },
-  summaryStrip: { gap: 12, paddingVertical: 4, paddingRight: 18 },
-  summaryCard: { width: 132, height: 136, borderRadius: 24, padding: 15, alignItems: "center", justifyContent: "center" },
-  summaryIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
-  summaryValue: { color: colors.deep, fontSize: 24, fontWeight: "800", marginTop: 8, textAlign: "center" },
-  summaryLabel: { color: colors.muted, fontSize: 10, fontWeight: "700", marginTop: 2, textAlign: "center" },
+  summaryStrip: { gap: 9, paddingVertical: 2 },
+  summaryCard: { width: 112, height: 122, borderRadius: 21, padding: 14, justifyContent: "center" },
+  summaryValue: { color: colors.deep, fontSize: 23, fontWeight: "800", marginTop: 8 },
+  summaryLabel: { color: colors.muted, fontSize: 9, fontWeight: "700", marginTop: 2 },
   syncSummary: { flexDirection: "row", gap: 8 },
+  syncBanner: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: colors.bluePale, borderRadius: 18, padding: 14 },
+  syncBannerIcon: { width: 42, height: 42, borderRadius: 21, backgroundColor: "rgba(255,255,255,0.72)", alignItems: "center", justifyContent: "center" },
+  syncBannerTitle: { color: colors.deep, fontSize: 13, fontWeight: "800" },
+  syncBannerText: { color: colors.muted, fontSize: 10, marginTop: 2 },
+  syncNowButton: { backgroundColor: colors.primary, paddingHorizontal: 14, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  syncNowButtonText: { color: colors.white, fontSize: 11, fontWeight: "800" },
+  queueItemCard: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "rgba(255,255,255,0.94)", borderRadius: 14, padding: 11, borderWidth: 1, borderColor: "rgba(223,233,226,0.9)", shadowColor: "#214C38", shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 1 },
+  syncStatusPill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
+  syncStatusText: { fontSize: 9, fontWeight: "800" },
   metricMini: { flex: 1, alignItems: "center", backgroundColor: "rgba(255,255,255,0.94)", borderRadius: 20, paddingVertical: 15 },
   metricMiniValue: { color: colors.deep, fontSize: 20, fontWeight: "800", marginTop: 4 },
   metricMiniLabel: { color: colors.muted, fontSize: 9, fontWeight: "700", marginTop: 2 },
-  syncTitleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 12 },
-  connectionBadge: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 999 },
-  connectionDot: { width: 7, height: 7, borderRadius: 4 },
-  connectionText: { fontSize: 10, fontWeight: "800" },
-  syncProgressCard: { backgroundColor: "rgba(255,255,255,0.94)", borderWidth: 1, borderColor: colors.border, borderRadius: 24, padding: 18, marginTop: 14, shadowColor: "#102A22", shadowOpacity: 0.06, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 2 },
-  syncProgressHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
-  syncProgressTitle: { color: colors.deep, fontSize: 14, fontWeight: "800" },
-  syncProgressMeta: { color: colors.muted, fontSize: 10, marginTop: 4 },
-  syncProgressPercent: { color: colors.primary, fontSize: 20, fontWeight: "900" },
-  syncProgressTrack: { height: 8, borderRadius: 999, backgroundColor: colors.paleStrong, overflow: "hidden" },
-  syncProgressFill: { height: 8, borderRadius: 999, backgroundColor: colors.primary },
-  syncButton: { minHeight: 56, borderRadius: 20, backgroundColor: colors.primary, marginTop: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, shadowColor: "#008A55", shadowOpacity: 0.2, shadowRadius: 14, shadowOffset: { width: 0, height: 7 }, elevation: 3 },
-  queueHeadingRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: 24, marginBottom: 10 },
-  queueSubtitle: { color: colors.muted, fontSize: 10, marginTop: 3 },
-  queueCountBadge: { minWidth: 28, height: 28, paddingHorizontal: 8, borderRadius: 14, backgroundColor: colors.violetPale, alignItems: "center", justifyContent: "center" },
-  queueCountText: { color: colors.violet, fontSize: 11, fontWeight: "900" },
-  queueStatusBadge: { paddingHorizontal: 9, paddingVertical: 6, borderRadius: 999 },
-  syncSecurityCard: { flexDirection: "row", alignItems: "flex-start", gap: 10, backgroundColor: colors.pale, borderRadius: 18, padding: 14, marginTop: 14 },
-  queueCard: { backgroundColor: colors.white, borderRadius: 13, borderWidth: 1, borderColor: colors.border, overflow: "hidden" },
-  queueRow: { flexDirection: "row", alignItems: "center", gap: 10, padding: 13, borderBottomWidth: 1, borderBottomColor: "#edf1ee" },
-  queueIndex: { width: 26, height: 26, borderRadius: 13, backgroundColor: colors.amberPale, alignItems: "center", justifyContent: "center" },
-  queueIndexText: { color: colors.amber, fontSize: 10, fontWeight: "800" },
-  queueInfo: { flex: 1 },
-  queueTitle: { color: colors.deep, fontSize: 11, fontWeight: "800" },
-  queueMeta: { color: colors.muted, fontSize: 8, marginTop: 3 },
-  queueState: { color: colors.amber, fontSize: 9, fontWeight: "800", textTransform: "capitalize" },
   securityNote: { backgroundColor: colors.pale, borderRadius: 9, padding: 12, color: colors.muted, fontSize: 9, lineHeight: 15 },
   modalHeader: { height: 64, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: "row", alignItems: "center", gap: 9, backgroundColor: colors.white },
   iconButton: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: colors.pale },
@@ -807,24 +704,28 @@ const styles = StyleSheet.create({
   lockedText: { flex: 1, color: colors.primary, fontSize: 10, fontWeight: "700" },
   submitRow: { flexDirection: "row", gap: 9 },
   modalBackdrop: { flex: 1, backgroundColor: "rgba(10,25,17,0.42)", justifyContent: "flex-start", alignItems: "flex-end", paddingTop: 72, paddingRight: 15 },
-  profileCard: { width: "88%", maxWidth: 380, borderRadius: 28, backgroundColor: colors.white, padding: 18, alignItems: "center" },
-  profileAvatar: { width: 58, height: 58, borderRadius: 29, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
-  profileAvatarText: { color: colors.white, fontWeight: "800", fontSize: 17 },
-  profileName: { color: colors.deep, fontSize: 16, fontWeight: "800", marginTop: 10 },
-  profileRole: { color: colors.muted, fontSize: 10, marginTop: 3 },
-  profileRow: { alignSelf: "stretch", flexDirection: "row", alignItems: "center", gap: 8, marginTop: 16, paddingVertical: 11, borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#edf1ee" },
-  profileValue: { color: colors.muted, fontSize: 10, marginTop: 2 },
-  profileCompany: { color: colors.primary, fontSize: 11, fontWeight: "800", marginTop: 4 },
-  profileRowTitle: { color: colors.deep, fontSize: 12, fontWeight: "800" },
-  profileActiveBadge: { backgroundColor: colors.paleStrong, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 999 },
-  profileActiveText: { color: colors.primary, fontSize: 9, fontWeight: "900" },
-  profileOption: { alignSelf: "stretch", flexDirection: "row", alignItems: "center", gap: 10, minHeight: 64, paddingVertical: 10, borderBottomWidth: 1, borderColor: colors.border },
-  profileOptionIcon: { width: 38, height: 38, borderRadius: 13, alignItems: "center", justifyContent: "center" },
-  profileOptionCopy: { flex: 1 },
-  profileOptionTitle: { color: colors.deep, fontSize: 12, fontWeight: "800" },
-  profileOptionText: { color: colors.muted, fontSize: 9, marginTop: 3 },
-  logoutButton: { alignSelf: "stretch", height: 42, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 13, borderRadius: 8, backgroundColor: colors.redPale },
-  logoutText: { color: colors.red, fontSize: 11, fontWeight: "800" },
+  backHeader: { height: 70, backgroundColor: "rgba(255,255,255,0.94)", borderBottomWidth: 1, borderBottomColor: "rgba(223,233,226,0.75)", paddingHorizontal: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  backHeaderTitle: { color: colors.deep, fontSize: 16, fontWeight: "800" },
+  profileHero: { alignItems: "center", marginTop: 10, marginBottom: 6, gap: 3 },
+  profileHeroAvatar: { width: 84, height: 84, borderRadius: 42, backgroundColor: colors.paleStrong, alignItems: "center", justifyContent: "center", marginBottom: 8 },
+  profileHeroAvatarText: { color: colors.primary, fontWeight: "800", fontSize: 26 },
+  profileHeroName: { color: colors.deep, fontSize: 19, fontWeight: "800" },
+  profileHeroRole: { color: colors.muted, fontSize: 12, fontWeight: "600" },
+  profileHeroFirm: { color: colors.muted, fontSize: 12 },
+  profileStatusPill: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 8 },
+  menuRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: "#edf1ee" },
+  menuRowLast: { borderBottomWidth: 0 },
+  menuIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.paleStrong, alignItems: "center", justifyContent: "center" },
+  menuInfo: { flex: 1 },
+  menuLabel: { color: colors.deep, fontSize: 13, fontWeight: "700" },
+  menuValue: { color: colors.muted, fontSize: 11, fontWeight: "600" },
+  searchBar: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "rgba(255,255,255,0.92)", borderRadius: 14, paddingHorizontal: 14, height: 44, borderWidth: 1, borderColor: colors.border },
+  searchPlaceholder: { color: colors.slate, fontSize: 12 },
+  helpRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: "#edf1ee" },
+  helpIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.paleStrong, alignItems: "center", justifyContent: "center" },
+  helpText: { color: colors.muted, fontSize: 10, marginTop: 2 },
+  logoutRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, height: 46, borderRadius: 14, backgroundColor: colors.redPale, marginTop: 4 },
+  logoutText: { color: colors.red, fontSize: 13, fontWeight: "800" },
   loginSafe: { flex: 1, backgroundColor: colors.pale },
   loginWrap: { flex: 1, paddingHorizontal: 22, justifyContent: "center", alignItems: "center" },
   brandMark: { width: 92, height: 92, borderRadius: 46, backgroundColor: colors.white },
