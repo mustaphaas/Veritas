@@ -1,58 +1,76 @@
-import { useMemo, useState } from "react";
-import { BadgeCheck, Check, KeyRound, LockKeyhole, Plus, Search, ShieldCheck, UserCheck, UserRoundCog, UserRoundX, UserX, X } from "lucide-react";
-import { appendAuditEvent, readReaStaff, reaAccessModules, type ReaStaffAccount, type ReaStaffRole, writeReaStaff } from "../lib/rea-admin";
+import { useEffect, useMemo, useState } from "react";
+import { BadgeCheck, Search, ShieldCheck, UserRoundCog, UserRoundX } from "lucide-react";
+import { fetchReaPortalUsers } from "../lib/field-api";
 
-const roles: ReaStaffRole[] = ["REA Administrator", "Programme Manager", "Verification Officer", "Claims Officer", "Analyst", "Viewer"];
-const emptyForm = { name: "", email: "", phone: "", department: "", role: "Viewer" as ReaStaffRole, password: "", access: ["Overview"] as string[] };
+type PortalUser = {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  role: string;
+  classification: "REA Staff" | "Consultant Admin" | "Field Officer" | "Other";
+  consultantFirm?: string;
+  status: "Active" | "Suspended";
+  createdAt?: string;
+};
+
+function roleLabel(role: string) {
+  if (role === "rea_admin") return "REA Administrator";
+  if (role === "consultant_admin") return "Consultant Admin";
+  if (role === "field_officer") return "Field Officer";
+  if (role.startsWith("rea_")) return role.slice(4).split("_").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
+  return role.split("_").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
+}
 
 export default function ReaUserManagement() {
-  const [users, setUsers] = useState<ReaStaffAccount[]>(readReaStaff);
+  const [users, setUsers] = useState<PortalUser[]>([]);
   const [query, setQuery] = useState("");
-  const [roleFilter, setRoleFilter] = useState("All roles");
-  const [showAdd, setShowAdd] = useState(false);
-  const [editing, setEditing] = useState<ReaStaffAccount | null>(null);
-  const [form, setForm] = useState(emptyForm);
+  const [classificationFilter, setClassificationFilter] = useState("All users");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const save = (next: ReaStaffAccount[], action?: string, target?: string, details?: string) => {
-    setUsers(next); writeReaStaff(next);
-    if (action) appendAuditEvent({ actor: "REA Administrator", action, category: "User Management", target: target || "Staff account", details: details || action, severity: action.includes("Suspended") ? "Warning" : "Success" });
-  };
-  const visible = useMemo(() => users.filter(u => `${u.name} ${u.email} ${u.department}`.toLowerCase().includes(query.toLowerCase()) && (roleFilter === "All roles" || u.role === roleFilter)), [users, query, roleFilter]);
-  const active = users.filter(u => u.status === "Active").length, suspended = users.filter(u => u.status === "Suspended").length;
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    fetchReaPortalUsers()
+      .then((payload) => {
+        if (!active) return;
+        setUsers(Array.isArray(payload.users) ? payload.users : []);
+        setError("");
+      })
+      .catch((reason) => {
+        if (!active) return;
+        setUsers([]);
+        setError(reason instanceof Error ? reason.message : "Unable to load portal users from the database.");
+      })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
 
-  const openAdd = () => { setForm(emptyForm); setShowAdd(true); };
-  const createUser = () => {
-    if (!form.name.trim() || !form.email.trim() || !form.password.trim()) return;
-    const account: ReaStaffAccount = { id: `rea-${Date.now()}`, ...form, email: form.email.trim().toLowerCase(), status: "Active", createdAt: new Date().toISOString(), lastLogin: "Never" };
-    save([account, ...users], "Created staff account", account.name, `${account.role} account created with ${account.access.length} module permissions`);
-    setShowAdd(false); setForm(emptyForm);
-  };
-  const toggleStatus = (u: ReaStaffAccount) => {
-    const status = u.status === "Suspended" ? "Active" : "Suspended";
-    save(users.map(x => x.id === u.id ? { ...x, status } : x), status === "Suspended" ? "Suspended staff account" : "Reactivated staff account", u.name, `${u.email} changed to ${status}`);
-  };
-  const saveAccess = () => {
-    if (!editing) return;
-    save(users.map(x => x.id === editing.id ? editing : x), "Updated access control", editing.name, `${editing.role}; access: ${editing.access.join(", ")}`);
-    setEditing(null);
-  };
-  const resetPassword = (u: ReaStaffAccount) => {
-    const password = "REA-Reset-2026!";
-    save(users.map(x => x.id === u.id ? { ...x, password } : x), "Reset login password", u.name, "Temporary password issued by administrator");
-    window.alert(`Temporary password for ${u.name}: ${password}`);
-  };
+  const visible = useMemo(() => users.filter((user) => {
+    const matchesQuery = `${user.name} ${user.email} ${user.role} ${user.classification} ${user.consultantFirm || ""}`.toLowerCase().includes(query.toLowerCase());
+    return matchesQuery && (classificationFilter === "All users" || user.classification === classificationFilter);
+  }), [users, query, classificationFilter]);
+
+  const activeAccounts = users.filter((user) => user.status === "Active").length;
+  const reaStaff = users.filter((user) => user.classification === "REA Staff").length;
+  const suspended = users.filter((user) => user.status === "Suspended").length;
 
   return <div className="space-y-4 pb-8 pt-4">
-    <section className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:flex-row lg:items-center lg:justify-between"><div><div className="flex items-center gap-2"><UserRoundCog className="h-5 w-5 text-[#08733f]"/><h2 className="text-xl font-bold text-[#173b2a]">Staff & Access Management</h2></div><p className="mt-1 text-xs text-slate-500">Manage REA login accounts, roles, permissions and account status.</p></div><button onClick={openAdd} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#08733f] px-4 text-xs font-bold text-white shadow-sm transition hover:bg-[#066233]"><Plus className="h-4 w-4"/>Add REA Staff</button></section>
-    <section className="grid gap-3 sm:grid-cols-3"><Stat icon={BadgeCheck} label="Active accounts" value={active} tone="emerald"/><Stat icon={ShieldCheck} label="Privileged accounts" value={users.filter(u=>u.role==="REA Administrator"||u.role==="Programme Manager").length} tone="blue"/><Stat icon={UserRoundX} label="Suspended" value={suspended} tone="amber"/></section>
-    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center"><div className="relative flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search staff, email or department" className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-xs outline-none focus:border-[#08733f]"/></div><select value={roleFilter} onChange={e=>setRoleFilter(e.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600"><option>All roles</option>{roles.map(r=><option key={r}>{r}</option>)}</select></div>
-      <div className="overflow-x-auto"><table className="w-full min-w-[1040px] table-fixed text-left"><colgroup><col className="w-[20%]"/><col className="w-[20%]"/><col className="w-[18%]"/><col className="w-[10%]"/><col className="w-[13%]"/><col className="w-[9%]"/><col className="w-[10%]"/></colgroup><thead className="bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-500"><tr><th className="px-5 py-3">Staff Name</th><th className="px-4 py-3">Email Address</th><th className="px-4 py-3">Role / Department</th><th className="px-4 py-3 text-center">Access</th><th className="px-4 py-3 text-center">Last Login</th><th className="px-4 py-3 text-center">Status</th><th className="px-4 py-3 text-center">Actions</th></tr></thead><tbody>{visible.map(u=><tr key={u.id} className="border-t border-slate-100 transition hover:bg-[#f8fcf9]"><td className="px-5 py-4"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 text-xs font-bold text-emerald-700">{u.name.split(/\s+/).slice(0,2).map(x=>x[0]).join("")}</span><p className="text-xs font-bold text-slate-800">{u.name}</p></div></td><td className="px-4 py-4 text-xs font-medium text-slate-600">{u.email}</td><td className="px-4 py-4"><p className="text-xs font-semibold text-slate-700">{u.role}</p><p className="mt-0.5 text-[10px] text-slate-500">{u.department}</p></td><td className="px-4 py-4 text-center"><span className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700">{u.access.length} modules</span></td><td className="px-4 py-4 text-center text-[11px] text-slate-500">{u.lastLogin || "Never"}</td><td className="px-4 py-4 text-center"><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${u.status==="Active"?"bg-emerald-50 text-emerald-700":u.status==="Suspended"?"bg-rose-50 text-rose-700":"bg-amber-50 text-amber-700"}`}>{u.status}</span></td><td className="px-4 py-4"><div className="flex justify-center gap-1"><button title="Access control" onClick={()=>setEditing({...u})} className="rounded-lg p-2 text-slate-500 hover:bg-blue-50 hover:text-blue-700"><LockKeyhole className="h-4 w-4"/></button><button title="Reset password" onClick={()=>resetPassword(u)} className="rounded-lg p-2 text-slate-500 hover:bg-violet-50 hover:text-violet-700"><KeyRound className="h-4 w-4"/></button><button title={u.status==="Suspended"?"Reactivate":"Suspend"} onClick={()=>toggleStatus(u)} className={`rounded-lg p-2 ${u.status==="Suspended"?"text-emerald-600 hover:bg-emerald-50":"text-slate-500 hover:bg-rose-50 hover:text-rose-700"}`}>{u.status==="Suspended"?<UserCheck className="h-4 w-4"/>:<UserX className="h-4 w-4"/>}</button></div></td></tr>)}</tbody></table></div>
+    <section className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+      <div><div className="flex items-center gap-2"><UserRoundCog className="h-5 w-5 text-[#08733f]"/><h2 className="text-xl font-bold text-[#173b2a]">Staff & Access Management</h2></div><p className="mt-1 text-xs text-slate-500">Live portal accounts from the Veritas production database, classified by organisation role.</p></div>
+      <span className="inline-flex h-10 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-4 text-xs font-bold text-emerald-700">Database source</span>
     </section>
-    {showAdd && <Modal title="Add REA staff account" onClose={()=>setShowAdd(false)}><div className="grid gap-3 sm:grid-cols-2"><Field label="Full name" value={form.name} onChange={v=>setForm({...form,name:v})}/><Field label="REA email" value={form.email} onChange={v=>setForm({...form,email:v})}/><Field label="Department" value={form.department} onChange={v=>setForm({...form,department:v})}/><Field label="Phone" value={form.phone} onChange={v=>setForm({...form,phone:v})}/><label className="text-[11px] font-bold text-slate-600">Role<select value={form.role} onChange={e=>setForm({...form,role:e.target.value as ReaStaffRole})} className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-normal">{roles.map(r=><option key={r}>{r}</option>)}</select></label><Field label="Temporary password" value={form.password} onChange={v=>setForm({...form,password:v})}/></div><AccessGrid access={form.access} setAccess={access=>setForm({...form,access})}/><div className="mt-5 flex justify-end gap-2"><button onClick={()=>setShowAdd(false)} className="rounded-lg border px-4 py-2 text-xs font-bold">Cancel</button><button onClick={createUser} className="rounded-lg bg-[#08733f] px-4 py-2 text-xs font-bold text-white">Create account</button></div></Modal>}
-    {editing && <Modal title="Role & access control" onClose={()=>setEditing(null)}><label className="text-[11px] font-bold text-slate-600">Role<select value={editing.role} onChange={e=>setEditing({...editing,role:e.target.value as ReaStaffRole})} className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs font-normal">{roles.map(r=><option key={r}>{r}</option>)}</select></label><AccessGrid access={editing.access} setAccess={access=>setEditing({...editing,access})}/><div className="mt-5 flex justify-end gap-2"><button onClick={()=>setEditing(null)} className="rounded-lg border px-4 py-2 text-xs font-bold">Cancel</button><button onClick={saveAccess} className="rounded-lg bg-[#08733f] px-4 py-2 text-xs font-bold text-white">Save access</button></div></Modal>}
+
+    <section className="grid gap-3 sm:grid-cols-3"><Stat icon={BadgeCheck} label="Active accounts" value={activeAccounts} tone="emerald" detail="All active portal users"/><Stat icon={ShieldCheck} label="REA Staff" value={reaStaff} tone="blue" detail="REA-owned user roles only"/><Stat icon={UserRoundX} label="Suspended" value={suspended} tone="amber" detail="All suspended portal users"/></section>
+
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center"><div className="relative flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/><input value={query} onChange={(event)=>setQuery(event.target.value)} placeholder="Search portal users" className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-xs outline-none focus:border-[#08733f]"/></div><select value={classificationFilter} onChange={(event)=>setClassificationFilter(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600"><option>All users</option><option>REA Staff</option><option>Consultant Admin</option><option>Field Officer</option><option>Other</option></select></div>
+      {loading && <div className="p-8 text-center text-xs font-medium text-slate-500">Loading users from the Veritas database…</div>}
+      {!loading && error && <div className="m-4 rounded-lg border border-rose-200 bg-rose-50 p-4 text-xs font-semibold text-rose-700">{error} No demo or browser-stored users are being shown.</div>}
+      {!loading && !error && <div className="overflow-x-auto"><table className="w-full min-w-[940px] table-fixed text-left"><colgroup><col className="w-[22%]"/><col className="w-[23%]"/><col className="w-[18%]"/><col className="w-[20%]"/><col className="w-[9%]"/><col className="w-[8%]"/></colgroup><thead className="bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-500"><tr><th className="px-5 py-3">User Name</th><th className="px-4 py-3">Email Address</th><th className="px-4 py-3">Classification</th><th className="px-4 py-3">Role / Organisation</th><th className="px-4 py-3 text-center">Status</th><th className="px-4 py-3 text-center">Source</th></tr></thead><tbody>{visible.map((user)=><tr key={user.id} className="border-t border-slate-100 transition hover:bg-[#f8fcf9]"><td className="px-5 py-4"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 text-xs font-bold text-emerald-700">{user.name.split(/\s+/).slice(0,2).map((part)=>part[0]).join("")}</span><p className="text-xs font-bold text-slate-800">{user.name}</p></div></td><td className="px-4 py-4 text-xs font-medium text-slate-600">{user.email || "—"}</td><td className="px-4 py-4"><span className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700">{user.classification}</span></td><td className="px-4 py-4"><p className="text-xs font-semibold text-slate-700">{roleLabel(user.role)}</p><p className="mt-0.5 text-[10px] text-slate-500">{user.consultantFirm || (user.classification === "REA Staff" ? "Rural Electrification Agency" : "—")}</p></td><td className="px-4 py-4 text-center"><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${user.status === "Active" ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>{user.status}</span></td><td className="px-4 py-4 text-center text-[10px] font-bold text-slate-500">D1</td></tr>)}</tbody></table>{visible.length === 0 && <div className="border-t border-slate-100 p-8 text-center text-xs text-slate-500">No database users match this view.</div>}</div>}
+    </section>
   </div>;
 }
-function Stat({icon:Icon,label,value,tone}:{icon:any,label:string,value:number,tone:string}){const c=tone==="emerald"?"bg-emerald-50 text-emerald-700":tone==="blue"?"bg-blue-50 text-blue-700":"bg-amber-50 text-amber-700";return <article className="group min-h-[104px] rounded-lg border border-slate-200 bg-white p-4 text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#9dceb0] hover:shadow-md"><div className="flex h-full items-start gap-3"><div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-all duration-200 group-hover:bg-[#08733f] group-hover:text-white ${c}`}><Icon className="h-5 w-5 transition-transform duration-200 group-hover:scale-110"/></div><div className="min-w-0 flex-1"><p className="text-sm font-semibold text-[#263c31]">{label}</p><p className="mt-1 text-[23px] font-bold leading-none tracking-tight text-[#13281e]">{value}</p><p className="mt-2 text-[11px] text-slate-500">REA staff access</p></div></div></article>}
-function Field({label,value,onChange}:{label:string,value:string,onChange:(v:string)=>void}){return <label className="text-[11px] font-bold text-slate-600">{label}<input value={value} onChange={e=>onChange(e.target.value)} className="mt-1 h-10 w-full rounded-lg border border-slate-200 px-3 text-xs font-normal outline-none focus:border-[#08733f]"/></label>}
-function AccessGrid({access,setAccess}:{access:string[],setAccess:(a:string[])=>void}){return <div className="mt-4"><p className="mb-2 text-[11px] font-bold text-slate-600">Module access</p><div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{reaAccessModules.map(m=>{const on=access.includes(m);return <button key={m} onClick={()=>setAccess(on?access.filter(x=>x!==m):[...access,m])} className={`flex items-center gap-2 rounded-lg border p-2.5 text-left text-[10px] font-bold transition ${on?"border-emerald-200 bg-emerald-50 text-emerald-700":"border-slate-200 text-slate-500 hover:bg-slate-50"}`}><span className={`flex h-4 w-4 items-center justify-center rounded ${on?"bg-emerald-600 text-white":"bg-slate-100"}`}>{on&&<Check className="h-3 w-3"/>}</span>{m}</button>})}</div></div>}
-function Modal({title,onClose,children}:{title:string,onClose:()=>void,children:any}){return <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm"><div className="w-full max-w-2xl rounded-2xl bg-white p-5 shadow-2xl"><div className="mb-5 flex items-center justify-between"><h3 className="text-base font-bold text-[#173b2a]">{title}</h3><button onClick={onClose} className="rounded-lg p-2 hover:bg-slate-100"><X className="h-4 w-4"/></button></div>{children}</div></div>}
+
+function Stat({icon:Icon,label,value,tone,detail}:{icon:any,label:string,value:number,tone:string,detail:string}){const classes=tone==="emerald"?"bg-emerald-50 text-emerald-700":tone==="blue"?"bg-blue-50 text-blue-700":"bg-amber-50 text-amber-700";return <article className="group min-h-[104px] rounded-lg border border-slate-200 bg-white p-4 text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#9dceb0] hover:shadow-md"><div className="flex h-full items-start gap-3"><div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-all duration-200 group-hover:bg-[#08733f] group-hover:text-white ${classes}`}><Icon className="h-5 w-5 transition-transform duration-200 group-hover:scale-110"/></div><div className="min-w-0 flex-1"><p className="text-sm font-semibold text-[#263c31]">{label}</p><p className="mt-1 text-[23px] font-bold leading-none tracking-tight text-[#13281e]">{value}</p><p className="mt-2 text-[11px] text-slate-500">{detail}</p></div></div></article>}
