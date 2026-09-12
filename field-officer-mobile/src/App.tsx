@@ -24,7 +24,7 @@ import {
   View,
 } from "react-native";
 
-import { assignmentValues, assignmentsForSection, displayStatus, formSections, isFormComplete, isReportLocked } from "./domain";
+import { assignmentValues, assignmentsForSection, displayStatus, formatCurrentLocation, formSections, isFormComplete, isReportLocked } from "./domain";
 import { colors } from "./theme";
 import { deviceName, StoreProvider, useStore } from "./store";
 import { deviceAudit, networkAudit, sha256File, timezone } from "./audit";
@@ -252,7 +252,8 @@ function AnimatedTab({ item, active, onPress }: { item: { label: string; icon: k
 }
 
 function Overview({ onOpen, onNavigate }: { onOpen: (item: Assignment) => void; onNavigate: (tab: Tab) => void }) {
-  const { assignments, officerName } = useStore();
+  const { assignments, officerName, consultantFirm } = useStore();
+  const [locationLabel, setLocationLabel] = useState("Locating...");
   const assigned = assignments.filter((item) => item.status === "Assigned");
   const drafts = assignments.filter((item) => item.status === "Draft");
   const dueThisWeek = assignments.filter((item) => ["Assigned", "Draft"].includes(item.status) && new Date(item.dueDate).getTime() <= Date.now() + 7 * 86_400_000);
@@ -262,9 +263,56 @@ function Overview({ onOpen, onNavigate }: { onOpen: (item: Assignment) => void; 
     .sort((a, b) => new Date(b.report?.updatedAt ?? b.dueDate).getTime() - new Date(a.report?.updatedAt ?? a.dueDate).getTime())
     .slice(0, 3);
   const next = drafts[0] ?? assigned[0];
+
+  useEffect(() => {
+    let active = true;
+    const resolveLocation = async () => {
+      try {
+        let permission = await Location.getForegroundPermissionsAsync();
+        if (permission.status !== "granted") permission = await Location.requestForegroundPermissionsAsync();
+        if (permission.status !== "granted") {
+          if (active) setLocationLabel("Location unavailable");
+          return;
+        }
+        const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        const [place] = await Location.reverseGeocodeAsync({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        if (active) setLocationLabel(place ? formatCurrentLocation(place) : "Location unavailable");
+      } catch {
+        if (active) setLocationLabel("Location unavailable");
+      }
+    };
+    void resolveLocation();
+    return () => { active = false; };
+  }, []);
+
   return (
     <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-      <View style={styles.heroCopy}><Text style={styles.greeting}>Good day, {officerName.split(" ")[0]}.</Text><Text style={styles.pageSubtitle}>Here’s what’s happening across your assigned sites.</Text></View>
+      <View style={styles.greetingBanner}>
+        <View style={styles.greetingGlow} />
+        <View style={styles.greetingTopRow}>
+          <View style={styles.sunBadge}><Ionicons name="sunny" size={24} color="#F6B817" /></View>
+          <View style={styles.greetingIdentity}>
+            <Text style={styles.greeting} numberOfLines={1}>Good day, {officerName.split(" ")[0]}.</Text>
+            <Text style={styles.greetingFirm} numberOfLines={1}>{consultantFirm}</Text>
+          </View>
+          <View style={styles.energyMessage}>
+            <Text style={styles.energyMessageText}>Clean Energy.</Text>
+            <Text style={styles.energyMessageText}>A Brighter Nigeria.</Text>
+          </View>
+        </View>
+        <View style={styles.greetingMetaRow}>
+          <View style={styles.greetingLocation}>
+            <Ionicons name="location" size={15} color={colors.primary} />
+            <Text style={styles.greetingLocationText} numberOfLines={1}>{locationLabel}</Text>
+          </View>
+          <View style={styles.greetingDivider} />
+          <Ionicons name="sunny-outline" size={15} color="#EFAF12" />
+          <Text style={styles.fieldReadyText}>Field ready</Text>
+        </View>
+      </View>
       <View style={styles.metricsGrid}>
         <Metric label="Assigned" value={assigned.length} note="Ready to start" icon="grid-outline" tone="green" onPress={() => onNavigate("Assignments")} />
         <Metric label="Due" value={dueThisWeek.length} note="Next visit" icon="time-outline" tone="amber" onPress={() => onNavigate("Assignments")} />
@@ -576,7 +624,20 @@ const styles = StyleSheet.create({
   offlineDot: { backgroundColor: colors.amber },
   onlineText: { color: colors.primary, fontSize: 8, fontWeight: "900", letterSpacing: 1.4 },
   heroCopy: { marginTop: 14, marginBottom: 6 },
-  greeting: { fontSize: 28, lineHeight: 34, color: colors.deep, fontWeight: "800", letterSpacing: -0.8 },
+  greetingBanner: { minHeight: 108, marginTop: 8, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 13, backgroundColor: "#E8F6EC", borderWidth: 1, borderColor: "#D8EDDF", overflow: "hidden", justifyContent: "space-between" },
+  greetingGlow: { position: "absolute", width: 150, height: 150, borderRadius: 75, right: -34, bottom: -84, backgroundColor: "rgba(79, 174, 111, 0.12)" },
+  greetingTopRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  sunBadge: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.72)", borderWidth: 1, borderColor: "rgba(255,255,255,0.9)" },
+  greetingIdentity: { flex: 1, minWidth: 0 },
+  greeting: { fontSize: 20, lineHeight: 24, color: colors.deep, fontWeight: "800", letterSpacing: -0.5 },
+  greetingFirm: { color: colors.deep, fontSize: 10.5, lineHeight: 15, fontWeight: "700", marginTop: 1 },
+  energyMessage: { width: 83, alignSelf: "flex-start", paddingTop: 2 },
+  energyMessageText: { color: colors.deep, fontSize: 8.5, lineHeight: 12, fontWeight: "800" },
+  greetingMetaRow: { minHeight: 23, marginLeft: 50, flexDirection: "row", alignItems: "center", gap: 6 },
+  greetingLocation: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 4 },
+  greetingLocationText: { flex: 1, color: colors.deep, fontSize: 9.5, fontWeight: "700" },
+  greetingDivider: { width: 1, height: 14, backgroundColor: "rgba(18,60,43,0.18)", marginHorizontal: 2 },
+  fieldReadyText: { color: colors.deep, fontSize: 9, fontWeight: "700" },
   pageTitle: { fontSize: 28, lineHeight: 34, color: colors.deep, fontWeight: "800", letterSpacing: -0.7 },
   pageSubtitle: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 4 },
   metricsRow: { flexDirection: "row", gap: 9 },

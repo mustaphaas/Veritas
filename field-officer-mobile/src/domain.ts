@@ -10,6 +10,23 @@ const EARTH_RADIUS_METRES = 6_371_000;
 
 const radians = (value: number) => (value * Math.PI) / 180;
 
+type CurrentLocation = {
+  city?: string | null;
+  district?: string | null;
+  subregion?: string | null;
+  region?: string | null;
+};
+
+export function formatCurrentLocation(location: CurrentLocation) {
+  const state = location.region?.trim();
+  const area = [location.district, location.city, location.subregion]
+    .map((value) => value?.trim())
+    .find((value) => value && value.toLocaleLowerCase() !== state?.toLocaleLowerCase());
+
+  if (area && state) return `${area}, ${state}`;
+  return area || state || "Location unavailable";
+}
+
 export function distanceMetres(
   latitudeA: number,
   longitudeA: number,

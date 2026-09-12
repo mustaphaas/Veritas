@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { assignmentValues, assignmentsForSection, displayStatus, distanceMetres, formSections, isFormComplete, isReportLocked, isWithinProjectGeofence } from "./domain.ts";
+import { assignmentValues, assignmentsForSection, displayStatus, distanceMetres, formatCurrentLocation, formSections, isFormComplete, isReportLocked, isWithinProjectGeofence } from "./domain.ts";
 import { demoAssignments } from "./demoData.ts";
 
 describe("field officer mobile domain", () => {
@@ -71,5 +71,21 @@ describe("field officer mobile domain", () => {
     assert.equal(durumi?.community, "Durumi");
     assert.equal(durumi?.latitude, 9.0232043);
     assert.equal(durumi?.longitude, 7.4518017);
+  });
+
+  it("shows a current area with its state without repeating names", () => {
+    assert.equal(
+      formatCurrentLocation({ district: "Wuse 2", city: "Abuja", region: "Federal Capital Territory" }),
+      "Wuse 2, Federal Capital Territory",
+    );
+    assert.equal(
+      formatCurrentLocation({ city: "Kano", region: "Kano" }),
+      "Kano",
+    );
+  });
+
+  it("falls back from an unknown area to the state, then unavailable", () => {
+    assert.equal(formatCurrentLocation({ region: "Kaduna" }), "Kaduna");
+    assert.equal(formatCurrentLocation({}), "Location unavailable");
   });
 });
