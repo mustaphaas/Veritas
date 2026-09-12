@@ -191,21 +191,19 @@ function AssignmentList({ mode, onOpen }: { mode: "assignments" | "inspections" 
   const subtitle = mode === "drafts" ? "Forms you started are autosaved here" : mode === "assignments" ? "Projects ready for field inspection" : "Submitted and reviewed field inspections";
   const summaries = mode === "assignments"
     ? [
-        { label: "Assigned", value: base.length, icon: "folder-open-outline" as const, tone: "green" as const },
-        { label: "Due this week", value: base.filter((item) => new Date(item.dueDate).getTime() <= Date.now() + 7 * 86_400_000).length, icon: "calendar-outline" as const, tone: "amber" as const },
-        { label: "States", value: new Set(base.map((item) => item.state)).size, icon: "map-outline" as const, tone: "blue" as const },
+        { label: "Assigned", value: base.length, icon: "sunny-outline" as const, tone: "green" as const },
+        { label: "Due Soon", value: base.filter((item) => new Date(item.dueDate).getTime() <= Date.now() + 7 * 86_400_000).length, icon: "time-outline" as const, tone: "amber" as const },
       ]
     : mode === "drafts"
       ? [
-          { label: "Autosaved", value: base.length, icon: "cloud-done-outline" as const, tone: "green" as const },
-          { label: "With evidence", value: base.filter((item) => (item.report?.evidence.length ?? 0) > 0).length, icon: "camera-outline" as const, tone: "blue" as const },
-          { label: "To complete", value: base.length, icon: "create-outline" as const, tone: "amber" as const },
+          { label: "Drafts", value: base.length, icon: "document-text-outline" as const, tone: "blue" as const },
+          { label: "With Evidence", value: base.filter((item) => (item.report?.evidence.length ?? 0) > 0).length, icon: "camera-outline" as const, tone: "green" as const },
+          { label: "To Complete", value: base.length, icon: "create-outline" as const, tone: "amber" as const },
         ]
       : [
           { label: "Submitted", value: base.filter((item) => item.status === "Submitted").length, icon: "paper-plane-outline" as const, tone: "blue" as const },
           { label: "Approved", value: base.filter((item) => item.status === "Approved").length, icon: "checkmark-circle-outline" as const, tone: "green" as const },
-          { label: "Verified", value: base.filter((item) => item.status === "Verified").length, icon: "shield-checkmark-outline" as const, tone: "green" as const },
-          { label: "Re-inspection", value: base.filter((item) => item.status === "Re-inspection").length, icon: "refresh-outline" as const, tone: "amber" as const },
+          { label: "Verified", value: base.filter((item) => item.status === "Verified").length, icon: "shield-checkmark-outline" as const, tone: "violet" as const },
         ];
   return (
     <FlatList data={base} keyExtractor={(item) => item.id} contentContainerStyle={styles.scrollContent} ListHeaderComponent={<><View style={styles.heroCopy}><Text style={styles.pageTitle}>{title}</Text><Text style={styles.pageSubtitle}>{subtitle}</Text></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.summaryStrip}>{summaries.map((item) => <SummaryCard key={item.label} {...item} />)}</ScrollView><Text style={styles.listLabel}>{mode === "drafts" ? "Autosaved forms" : mode === "assignments" ? "Assignment list" : "Inspection history"}</Text></>} renderItem={({ item }) => <AssignmentCard item={item} onOpen={onOpen} />} ListEmptyComponent={<EmptyState icon={mode === "drafts" ? "document-text-outline" : "checkmark-done-outline"} title={mode === "drafts" ? "No drafts" : "Nothing here"} text={mode === "drafts" ? "A form appears here automatically after you start filling it." : "No records are available in this section."} />} />
@@ -343,10 +341,10 @@ function Metric({ label, value, note, icon, tone, onPress }: { label: string; va
   return <Pressable onPress={onPress} style={[styles.metricCard, { backgroundColor: pale }]}><View style={[styles.metricIcon, { backgroundColor: "rgba(255,255,255,0.66)" }]}><Ionicons name={icon} size={20} color={color} /></View><Text style={styles.metricValue}>{String(value).padStart(2, "0")}</Text><Text style={styles.metricLabel}>{label}</Text><Text style={styles.metricNote}>{note}</Text><View style={[styles.metricLine, { backgroundColor: color }]} /></Pressable>;
 }
 
-function SummaryCard({ label, value, icon, tone }: { label: string; value: number; icon: keyof typeof Ionicons.glyphMap; tone: "green" | "amber" | "blue" }) {
-  const color = tone === "amber" ? colors.amber : tone === "blue" ? colors.blue : colors.primary;
-  const pale = tone === "amber" ? colors.amberPale : tone === "blue" ? colors.bluePale : colors.paleStrong;
-  return <View style={[styles.summaryCard, { backgroundColor: pale }]}><Ionicons name={icon} size={20} color={color} /><Text style={styles.summaryValue}>{String(value).padStart(2, "0")}</Text><Text style={styles.summaryLabel}>{label}</Text></View>;
+function SummaryCard({ label, value, icon, tone }: { label: string; value: number; icon: keyof typeof Ionicons.glyphMap; tone: "green" | "amber" | "blue" | "violet" }) {
+  const color = tone === "amber" ? colors.amber : tone === "blue" ? colors.blue : tone === "violet" ? colors.violet : colors.primary;
+  const pale = tone === "amber" ? colors.amberPale : tone === "blue" ? colors.bluePale : tone === "violet" ? colors.violetPale : colors.paleStrong;
+  return <View style={[styles.summaryCard, { backgroundColor: pale }]}><View style={[styles.summaryIcon, { backgroundColor: "rgba(255,255,255,0.72)" }]}><Ionicons name={icon} size={20} color={color} /></View><Text style={styles.summaryValue}>{String(value).padStart(2, "0")}</Text><Text style={styles.summaryLabel}>{label}</Text></View>;
 }
 
 function MetricMini({ label, value, icon, color }: { label: string; value: number; icon: keyof typeof Ionicons.glyphMap; color: string }) {
@@ -469,10 +467,11 @@ const styles = StyleSheet.create({
   empty: { padding: 36, alignItems: "center", justifyContent: "center" },
   emptyTitle: { marginTop: 9, color: colors.deep, fontSize: 14, fontWeight: "800" },
   emptyText: { marginTop: 5, color: colors.muted, textAlign: "center", fontSize: 11, lineHeight: 17 },
-  summaryStrip: { gap: 9, paddingVertical: 2 },
-  summaryCard: { width: 112, height: 122, borderRadius: 21, padding: 14, justifyContent: "center" },
-  summaryValue: { color: colors.deep, fontSize: 23, fontWeight: "800", marginTop: 8 },
-  summaryLabel: { color: colors.muted, fontSize: 9, fontWeight: "700", marginTop: 2 },
+  summaryStrip: { gap: 12, paddingVertical: 4, paddingRight: 18 },
+  summaryCard: { width: 132, height: 136, borderRadius: 24, padding: 15, alignItems: "center", justifyContent: "center" },
+  summaryIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  summaryValue: { color: colors.deep, fontSize: 24, fontWeight: "800", marginTop: 8, textAlign: "center" },
+  summaryLabel: { color: colors.muted, fontSize: 10, fontWeight: "700", marginTop: 2, textAlign: "center" },
   syncSummary: { flexDirection: "row", gap: 8 },
   metricMini: { flex: 1, alignItems: "center", backgroundColor: "rgba(255,255,255,0.94)", borderRadius: 20, paddingVertical: 15 },
   metricMiniValue: { color: colors.deep, fontSize: 20, fontWeight: "800", marginTop: 4 },
