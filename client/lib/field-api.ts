@@ -45,6 +45,7 @@ export const reviewFieldAssignment = (id: string, status: string, note: string) 
 export const createFieldAssignment = (assignment: unknown) => call("/assignments", { method: "POST", body: JSON.stringify(assignment) });
 export const createFieldOfficerApi = (officer: unknown) => call("/users/field-officers", { method: "POST", body: JSON.stringify(officer) });
 export const createConsultantApi = (consultant: unknown) => reaCall("/consultants", { method: "POST", body: JSON.stringify(consultant) });
+export const fetchReaPortalUsers = () => reaCall("/users");
 export const updateFieldOfficerStatusApi = (id: string, status: "Active" | "Suspended") => call(`/users/field-officers/${encodeURIComponent(id)}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
 export const deleteFieldOfficerApi = (id: string) => call(`/users/field-officers/${encodeURIComponent(id)}`, { method: "DELETE" });
 export const fetchConsultantFieldOfficers = () => consultantCall("/field-officers");
