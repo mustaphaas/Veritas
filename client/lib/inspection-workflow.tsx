@@ -1196,7 +1196,7 @@ export function InspectionWorkflowProvider({
         },
         ...current,
       ]);
-      void createFieldOfficerApi({ ...account, name, email, consultantFirm: "Supreme Way" }).catch(() => undefined);
+      void createFieldOfficerApi({ ...account, name, email }).catch(() => undefined);
       return { ok: true, message: "Field officer created." };
     },
     [fieldOfficers],

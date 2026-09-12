@@ -4,6 +4,7 @@ import { appendConsultantActivity, readConsultants, writeConsultants, type Consu
 import { getAssignmentConsultant, getOfficerConsultant } from "../lib/consultant-tenancy";
 import { useInspectionWorkflow } from "../lib/inspection-workflow";
 import { appendAuditEvent } from "../lib/rea-admin";
+import { createConsultantApi } from "../lib/field-api";
 
 const nigeriaStates=["Abia","Adamawa","Akwa Ibom","Anambra","Bauchi","Bayelsa","Benue","Borno","Cross River","Delta","Ebonyi","Edo","Ekiti","Enugu","FCT","Gombe","Imo","Jigawa","Kaduna","Kano","Katsina","Kebbi","Kogi","Kwara","Lagos","Nasarawa","Niger","Ogun","Ondo","Osun","Oyo","Plateau","Rivers","Sokoto","Taraba","Yobe","Zamfara"];
 const regions=["North West","North East","North Central","South West","South East","South South"];
@@ -26,9 +27,10 @@ export default function ReaConsultantsManagement(){
  const filtered=useMemo(()=>records.filter(r=>`${r.firmName} ${r.adminName} ${r.adminEmail} ${r.states.join(" ")}`.toLowerCase().includes(query.toLowerCase())),[records,query]);
  const actualOfficers=(consultantId:string)=>workflow.fieldOfficers.filter(o=>{const owner=getOfficerConsultant(o.email);return owner===consultantId||(!owner&&consultantId==="con-001")});
  const actualAssignments=(consultantId:string)=>{const names=new Set(actualOfficers(consultantId).map(o=>o.name));return workflow.assignments.filter(a=>{const owner=getAssignmentConsultant(a.id);return owner===consultantId||(!owner&&names.has(a.officer))})};
- const upsert=(form:Form)=>{
+ const upsert=async(form:Form)=>{
   if(modal?.record){const next={...form,id:modal.record.id};save(records.map(r=>r.id===next.id?next:r));log(next,"Consultant updated",`${next.firmName} profile and access settings updated.`);setModal(null);return;}
-  const next={...form,id:`con-${Date.now()}`};save([next,...records]);log(next,"Consultant created",`${next.firmName} dashboard created for ${next.adminEmail}.`);setModal(null);
+  const next={...form,id:`con-${Date.now()}`};
+  try{await createConsultantApi(next);save([next,...records]);log(next,"Consultant created",`${next.firmName} dashboard created in the Veritas database for ${next.adminEmail}.`);setModal(null);}catch(error){setNotice(error instanceof Error?error.message:"Unable to create consultant in the database.");}
  };
  if(selected){
   const officers=actualOfficers(selected.id);const assignments=actualAssignments(selected.id);const submitted=assignments.filter(a=>a.status==="Submitted").length;const approved=assignments.filter(a=>a.status==="Approved").length;const verified=assignments.filter(a=>a.status==="Verified").length;

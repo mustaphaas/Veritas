@@ -3,6 +3,14 @@ import { analyticsCatalog, analyticsAnswerPrompt, executeAnalyticsPlan, parsePla
 
 const BUILD_ID = "veritas-2026-09-11-public-rea-team-r4";
 const encoder = new TextEncoder();
+const managementB64 = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes)));
+
+async function managementPasswordRecord(password) {
+  const saltBytes = crypto.getRandomValues(new Uint8Array(16));
+  const key = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: saltBytes, iterations: 100000 }, key, 256);
+  return { salt: managementB64(saltBytes), hash: managementB64(bits) };
+}
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -87,6 +95,108 @@ async function reaProjectsResponse(request, env) {
     })),
     serverTime: new Date().toISOString(),
   });
+}
+
+async function reaConsultantCreateResponse(request, env) {
+  const user = await authenticatedDatabaseUser(request, env);
+  if (!user) return json({ error: "Authentication required." }, 401);
+  if (user.role !== "rea_admin") return json({ error: "REA access required." }, 403);
+
+  const body = await request.json().catch(() => null);
+  const required = ["firmName", "adminName", "adminEmail", "engagementRef", "temporaryPassword"];
+  if (!body || required.some((key) => !String(body[key] || "").trim()) || !Array.isArray(body.states) || !body.states.length) {
+    return json({ error: "Complete the firm, admin, email, engagement reference, password and at least one state." }, 400);
+  }
+  const email = String(body.adminEmail).trim().toLowerCase();
+  if (!/^\S+@\S+\.\S+$/.test(email)) return json({ error: "A valid consultant admin email is required." }, 400);
+  const firmName = String(body.firmName).trim();
+  const duplicateConsultant = await env.DB.prepare("SELECT id FROM consultants WHERE lower(firm_name)=lower(?) OR lower(admin_email)=lower(?)").bind(firmName, email).first();
+  const duplicateUser = await env.DB.prepare("SELECT id FROM users WHERE lower(email)=lower(?)").bind(email).first();
+  if (duplicateConsultant || duplicateUser) return json({ error: "A consultant with this firm name or admin email already exists." }, 409);
+
+  const id = String(body.id || `con-${crypto.randomUUID()}`);
+  const adminUserId = `consultant-${crypto.randomUUID()}`;
+  const timestamp = new Date().toISOString();
+  const credentials = await managementPasswordRecord(String(body.temporaryPassword));
+  const consultantStatus = ["Active", "Inactive", "Pending Activation"].includes(body.status) ? body.status : "Active";
+  const userStatus = consultantStatus === "Active" ? "active" : "suspended";
+
+  try {
+    await env.DB.prepare(`INSERT INTO consultants
+      (id,firm_name,admin_name,admin_email,admin_phone,regions_json,states_json,status,engagement_ref,scope_note,engagement_start,engagement_end,created_at,updated_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(id, firmName, String(body.adminName).trim(), email, body.adminPhone ? String(body.adminPhone).trim() : null,
+        JSON.stringify(Array.isArray(body.regions) ? body.regions : []), JSON.stringify(body.states), consultantStatus,
+        String(body.engagementRef).trim(), body.scopeNote ? String(body.scopeNote).trim() : "",
+        body.engagementStart || null, body.engagementEnd || null, timestamp, timestamp).run();
+    try {
+      await env.DB.prepare("INSERT INTO users(id,name,email,phone,role,consultant_firm,password_salt,password_hash,status,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)")
+        .bind(adminUserId, String(body.adminName).trim(), email, body.adminPhone ? String(body.adminPhone).trim() : null,
+          "consultant_admin", firmName, credentials.salt, credentials.hash, userStatus, timestamp).run();
+    } catch (error) {
+      await env.DB.prepare("DELETE FROM consultants WHERE id=?").bind(id).run();
+      throw error;
+    }
+  } catch (error) {
+    console.error(JSON.stringify({ event: "consultant-create-failed", message: error instanceof Error ? error.message : "Unknown error" }));
+    return json({ error: "Unable to create the consultant account in the database." }, 409);
+  }
+
+  await env.DB.prepare("INSERT INTO audit_events(id,assignment_id,actor_id,action,details_json,ip_address,created_at) VALUES(?,?,?,?,?,?,?)")
+    .bind(crypto.randomUUID(), null, user.id, "consultant-created", JSON.stringify({ consultantId: id, firmName, adminUserId }), request.headers.get("CF-Connecting-IP"), timestamp).run();
+  return json({ ok: true, consultant: { ...body, id, firmName, adminEmail: email, status: consultantStatus } }, 201);
+}
+
+async function consultantProfileResponse(request, env) {
+  const user = await authenticatedDatabaseUser(request, env);
+  if (!user) return json({ error: "Authentication required." }, 401);
+  if (user.role !== "consultant_admin" || !user.consultantFirm) return json({ error: "Consultant access required." }, 403);
+  const record = await env.DB.prepare(`SELECT id,firm_name AS firmName,admin_name AS adminName,admin_email AS adminEmail,admin_phone AS adminPhone,
+    regions_json AS regionsJson,states_json AS statesJson,status,engagement_ref AS engagementRef,scope_note AS scopeNote,
+    engagement_start AS engagementStart,engagement_end AS engagementEnd FROM consultants WHERE firm_name=?`)
+    .bind(user.consultantFirm).first();
+  if (!record) return json({ error: "Consultant profile not found." }, 404);
+  return json({ consultant: {
+    id: record.id, firmName: record.firmName, adminName: record.adminName, adminEmail: record.adminEmail,
+    adminPhone: record.adminPhone || "", regions: JSON.parse(record.regionsJson || "[]"), states: JSON.parse(record.statesJson || "[]"),
+    status: record.status, engagementRef: record.engagementRef || "", scopeNote: record.scopeNote || "",
+    engagementStart: record.engagementStart || "", engagementEnd: record.engagementEnd || "", temporaryPassword: "Managed in D1",
+  } });
+}
+
+async function fieldOfficerLifecycleResponse(request, env, officerId, action) {
+  const user = await authenticatedDatabaseUser(request, env);
+  if (!user) return json({ error: "Authentication required." }, 401);
+  if (!["consultant_admin", "rea_admin"].includes(user.role)) return json({ error: "Consultant or REA access required." }, 403);
+
+  const officer = await env.DB.prepare("SELECT id,name,role,consultant_firm AS consultantFirm,status FROM users WHERE id=? AND role='field_officer'")
+    .bind(officerId).first();
+  if (!officer) return json({ error: "Field officer not found." }, 404);
+  if (user.role === "consultant_admin" && officer.consultantFirm !== user.consultantFirm) {
+    return json({ error: "Field officer is outside your consultant firm." }, 403);
+  }
+
+  const timestamp = new Date().toISOString();
+  if (action === "status") {
+    const body = await request.json().catch(() => null);
+    if (!body || !["Active", "Suspended"].includes(body.status)) return json({ error: "Status must be Active or Suspended." }, 400);
+    const databaseStatus = body.status === "Active" ? "active" : "suspended";
+    await env.DB.prepare("UPDATE users SET status=? WHERE id=?").bind(databaseStatus, officerId).run();
+    if (databaseStatus !== "active") await env.DB.prepare("DELETE FROM sessions WHERE user_id=?").bind(officerId).run();
+    await env.DB.prepare("INSERT INTO audit_events(id,assignment_id,actor_id,action,details_json,ip_address,created_at) VALUES(?,?,?,?,?,?,?)")
+      .bind(crypto.randomUUID(), null, user.id, "field-officer-status-changed", JSON.stringify({ officerId, consultantFirm: officer.consultantFirm, status: body.status }), request.headers.get("CF-Connecting-IP"), timestamp).run();
+    return json({ ok: true, officerId, status: body.status });
+  }
+
+  const assignmentCount = await env.DB.prepare("SELECT COUNT(*) AS count FROM assignments WHERE officer_id=?").bind(officerId).first();
+  if (Number(assignmentCount?.count || 0) > 0) {
+    return json({ error: "Cannot delete a field officer with assignment history. Suspend the account instead." }, 409);
+  }
+  await env.DB.prepare("DELETE FROM sessions WHERE user_id=?").bind(officerId).run();
+  await env.DB.prepare("DELETE FROM users WHERE id=? AND role='field_officer'").bind(officerId).run();
+  await env.DB.prepare("INSERT INTO audit_events(id,assignment_id,actor_id,action,details_json,ip_address,created_at) VALUES(?,?,?,?,?,?,?)")
+    .bind(crypto.randomUUID(), null, user.id, "field-officer-deleted", JSON.stringify({ officerId, consultantFirm: officer.consultantFirm }), request.headers.get("CF-Connecting-IP"), timestamp).run();
+  return json({ ok: true, officerId, deleted: true });
 }
 
 function latestQuestion(messages = []) {
@@ -962,6 +1072,23 @@ export default {
         console.error(JSON.stringify({ event: "consultant_roster_failure", message: error instanceof Error ? error.message : "Unknown error", build: BUILD_ID }));
         return json({ error: "Unable to load the consultant field-officer roster." }, 503);
       }
+    }
+
+    if (url.pathname === "/api/consultant/profile") {
+      if (request.method !== "GET") return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
+      return consultantProfileResponse(request, env);
+    }
+
+    if (url.pathname === "/api/rea/consultants") {
+      if (request.method !== "POST") return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
+      return reaConsultantCreateResponse(request, env);
+    }
+
+    const officerLifecycleMatch = url.pathname.match(/^\/api\/field\/users\/field-officers\/([^/]+)(?:\/(status))?$/);
+    if (officerLifecycleMatch && (request.method === "PATCH" || request.method === "DELETE")) {
+      const action = officerLifecycleMatch[2] === "status" && request.method === "PATCH" ? "status" : request.method === "DELETE" && !officerLifecycleMatch[2] ? "delete" : null;
+      if (!action) return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
+      return fieldOfficerLifecycleResponse(request, env, decodeURIComponent(officerLifecycleMatch[1]), action);
     }
 
     const fieldResponse = await handleFieldApi(request, env);
