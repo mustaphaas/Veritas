@@ -106,7 +106,7 @@ function LoginScreen() {
 }
 
 function FieldOfficerApp() {
-  const { officerName, isOnline, logout } = useStore();
+  const { officerName, consultantFirm, isOnline, logout } = useStore();
   const [tab, setTab] = useState<Tab>("Overview");
   const [selected, setSelected] = useState<Assignment | null>(null);
   const [showProfile, setShowProfile] = useState(false);
@@ -132,7 +132,67 @@ function FieldOfficerApp() {
       </View>
       <InspectionModal assignment={selected} onClose={() => setSelected(null)} />
       <Modal visible={showProfile} transparent animationType="fade" onRequestClose={() => setShowProfile(false)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setShowProfile(false)}><Pressable style={styles.profileCard} onPress={() => undefined}><View style={styles.profileAvatar}><Text style={styles.profileAvatarText}>{initials(officerName)}</Text></View><Text style={styles.profileName}>{officerName}</Text><Text style={styles.profileRole}>Field Officer · Supreme Way</Text><View style={styles.profileRow}><Ionicons name="phone-portrait-outline" size={18} color={colors.primary} /><Text style={styles.profileValue}>{deviceName()}</Text></View><Pressable onPress={() => void logout()} style={styles.logoutButton}><Ionicons name="log-out-outline" size={18} color={colors.red} /><Text style={styles.logoutText}>Sign out</Text></Pressable></Pressable></Pressable>
+        <Pressable style={styles.modalBackdrop} onPress={() => setShowProfile(false)}>
+          <Pressable style={styles.profileCard} onPress={() => undefined}>
+            <View style={styles.profileAvatar}>
+              <Text style={styles.profileAvatarText}>{initials(officerName)}</Text>
+            </View>
+
+            <Text style={styles.profileName}>{officerName}</Text>
+            <Text style={styles.profileRole}>Field Officer</Text>
+            <Text style={styles.profileCompany}>{consultantFirm}</Text>
+
+            <View style={styles.profileRow}>
+              <Ionicons name="phone-portrait-outline" size={19} color={colors.primary} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.profileRowTitle}>This device</Text>
+                <Text style={styles.profileValue}>{deviceName()}</Text>
+              </View>
+              <View style={styles.profileActiveBadge}>
+                <Text style={styles.profileActiveText}>Active</Text>
+              </View>
+            </View>
+
+            <Pressable
+              style={styles.profileOption}
+              onPress={() => Alert.alert(
+                "Settings",
+                "Field data remains available offline and can be synchronized from the Sync Queue."
+              )}
+            >
+              <View style={[styles.profileOptionIcon, { backgroundColor: colors.bluePale }]}>
+                <Ionicons name="settings-outline" size={20} color={colors.blue} />
+              </View>
+              <View style={styles.profileOptionCopy}>
+                <Text style={styles.profileOptionTitle}>Settings</Text>
+                <Text style={styles.profileOptionText}>App and synchronization preferences</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+            </Pressable>
+
+            <Pressable
+              style={styles.profileOption}
+              onPress={() => Alert.alert(
+                "Help & Support",
+                "Contact your Consultant Administrator for assignment, inspection or synchronization support."
+              )}
+            >
+              <View style={[styles.profileOptionIcon, { backgroundColor: colors.violetPale }]}>
+                <Ionicons name="help-circle-outline" size={20} color={colors.violet} />
+              </View>
+              <View style={styles.profileOptionCopy}>
+                <Text style={styles.profileOptionTitle}>Help & Support</Text>
+                <Text style={styles.profileOptionText}>Assistance with field inspections</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+            </Pressable>
+
+            <Pressable onPress={() => void logout()} style={styles.logoutButton}>
+              <Ionicons name="log-out-outline" size={18} color={colors.red} />
+              <Text style={styles.logoutText}>Sign out</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
       </Modal>
     </SafeAreaView>
   );
@@ -747,13 +807,22 @@ const styles = StyleSheet.create({
   lockedText: { flex: 1, color: colors.primary, fontSize: 10, fontWeight: "700" },
   submitRow: { flexDirection: "row", gap: 9 },
   modalBackdrop: { flex: 1, backgroundColor: "rgba(10,25,17,0.42)", justifyContent: "flex-start", alignItems: "flex-end", paddingTop: 72, paddingRight: 15 },
-  profileCard: { width: 270, borderRadius: 14, backgroundColor: colors.white, padding: 18, alignItems: "center" },
+  profileCard: { width: "88%", maxWidth: 380, borderRadius: 28, backgroundColor: colors.white, padding: 18, alignItems: "center" },
   profileAvatar: { width: 58, height: 58, borderRadius: 29, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
   profileAvatarText: { color: colors.white, fontWeight: "800", fontSize: 17 },
   profileName: { color: colors.deep, fontSize: 16, fontWeight: "800", marginTop: 10 },
   profileRole: { color: colors.muted, fontSize: 10, marginTop: 3 },
   profileRow: { alignSelf: "stretch", flexDirection: "row", alignItems: "center", gap: 8, marginTop: 16, paddingVertical: 11, borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#edf1ee" },
-  profileValue: { color: colors.deep, fontSize: 11, flex: 1 },
+  profileValue: { color: colors.muted, fontSize: 10, marginTop: 2 },
+  profileCompany: { color: colors.primary, fontSize: 11, fontWeight: "800", marginTop: 4 },
+  profileRowTitle: { color: colors.deep, fontSize: 12, fontWeight: "800" },
+  profileActiveBadge: { backgroundColor: colors.paleStrong, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 999 },
+  profileActiveText: { color: colors.primary, fontSize: 9, fontWeight: "900" },
+  profileOption: { alignSelf: "stretch", flexDirection: "row", alignItems: "center", gap: 10, minHeight: 64, paddingVertical: 10, borderBottomWidth: 1, borderColor: colors.border },
+  profileOptionIcon: { width: 38, height: 38, borderRadius: 13, alignItems: "center", justifyContent: "center" },
+  profileOptionCopy: { flex: 1 },
+  profileOptionTitle: { color: colors.deep, fontSize: 12, fontWeight: "800" },
+  profileOptionText: { color: colors.muted, fontSize: 9, marginTop: 3 },
   logoutButton: { alignSelf: "stretch", height: 42, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 13, borderRadius: 8, backgroundColor: colors.redPale },
   logoutText: { color: colors.red, fontSize: 11, fontWeight: "800" },
   loginSafe: { flex: 1, backgroundColor: colors.pale },
