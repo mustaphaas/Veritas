@@ -95,10 +95,12 @@ s = s.replaceAll(
 );
 
 // Surface safe completion diagnostics in the final provider debug object when available.
-s = s.replace(
-  '    geminiMessage = result.ok ? "" : result.message;',
-  '    geminiMessage = result.ok ? "" : result.message;\n    const geminiFinishReason = result.finishReason || null;\n    const geminiBlockReason = result.blockReason || null;',
-);
+if (!s.includes('const geminiFinishReason = result.finishReason || null;')) {
+  s = s.replace(
+    '    geminiMessage = result.ok ? "" : result.message;',
+    '    geminiMessage = result.ok ? "" : result.message;\n    const geminiFinishReason = result.finishReason || null;\n    const geminiBlockReason = result.blockReason || null;',
+  );
+}
 s = s.replace(
   '        gemini: { status: geminiStatus, message: geminiMessage, model },',
   '        gemini: { status: geminiStatus, message: geminiMessage, model, finishReason: typeof geminiFinishReason !== "undefined" ? geminiFinishReason : null, blockReason: typeof geminiBlockReason !== "undefined" ? geminiBlockReason : null },',
