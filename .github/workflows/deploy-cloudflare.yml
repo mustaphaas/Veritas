@@ -40,6 +40,12 @@ jobs:
       - name: Apply official REA public knowledge and team snapshot
         run: node scripts/patch-veritas-public-rea-knowledge.mjs
 
+      - name: Apply consultant D1 tenancy and field-officer lifecycle
+        run: node scripts/patch-consultant-d1-tenancy.mjs
+
+      - name: Validate consultant tenancy regression
+        run: node --test tests/consultant-tenancy-patch.test.mjs
+
       - name: Validate worker syntax
         run: node --check worker/index.js
 

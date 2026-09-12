@@ -1,10 +1,10 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { defaultFieldOfficers, FIELD_OFFICERS_STORAGE_KEY, type FieldOfficerAccount } from "./inspection-workflow";
-import { readConsultants } from "./consultants";
+import { readConsultants, writeConsultants } from "./consultants";
 import { getOfficerConsultant } from "./consultant-tenancy";
 import { appendAuditEvent, readReaStaff } from "./rea-admin";
-import { authenticateFieldApi } from "./field-api";
+import { authenticateFieldApi, fetchConsultantProfileWithToken } from "./field-api";
 
 export type DemoRole = "rea" | "field" | "consultant";
 export type DemoAccount = { role: DemoRole; roleLabel: string; name: string; initials: string; email: string; password: string; path: string; consultantId?: string; };
@@ -101,9 +101,17 @@ export function AuthProvider({children}:{children:ReactNode}){
   return()=>{window.removeEventListener("veritas-rea-staff-updated",refresh);window.removeEventListener("veritas-consultant-ownership-updated",refresh);window.removeEventListener("storage",refresh);};
  },[]);
  const login=async(email:string,password:string)=>{
-  const account=authenticateDemoAccount(email,password);if(!account)return null;
   let cloud;try{cloud=await authenticateFieldApi(email,password)}catch{return null}
-  const expected={rea:"rea_admin",field:"field_officer",consultant:"consultant_admin"}[account.role];if(cloud.user.role!==expected)return null;
+  const cloudRole=({rea_admin:"rea",field_officer:"field",consultant_admin:"consultant"} as const)[cloud.user.role as "rea_admin"|"field_officer"|"consultant_admin"];
+  if(!cloudRole)return null;
+  let consultantId:string|undefined;
+  if(cloudRole==="consultant"){
+   try{const profile=await fetchConsultantProfileWithToken(cloud.token);const record=profile?.consultant;if(record?.id){consultantId=record.id;const current=readConsultants();writeConsultants([record,...current.filter(item=>item.id!==record.id&&item.adminEmail.toLowerCase()!==String(record.adminEmail||"").toLowerCase())]);}}catch{return null}
+  }
+  const local=authenticateDemoAccount(email,password);
+  if(local&&local.role!==cloudRole)return null;
+  const account:LoginAccount=local??{role:cloudRole,roleLabel:cloudRole==="rea"?"REA Dashboard":cloudRole==="consultant"?"Consultant Admin":"Field Officer",name:cloud.user.name||email,initials:initials(cloud.user.name||email),email:cloud.user.email||email,password,path:cloudRole==="rea"?"/":cloudRole==="consultant"?"/consultant-admin":"/field-officer",consultantId};
+  if(cloudRole==="consultant"&&consultantId)account.consultantId=consultantId;
   if(account.role==="rea")appendAuditEvent({actor:account.name,action:"Signed in",category:"Authentication",target:"REA Dashboard",details:`Successful login for ${account.email}`,severity:"Success"});
   const{password:_password,...baseSession}=account;const nextSession={...baseSession,apiToken:cloud.token,apiExpiresAt:cloud.expiresAt};setSession(nextSession);window.sessionStorage.setItem(SESSION_KEY,JSON.stringify(nextSession));window.dispatchEvent(new Event("veritas-cloud-session"));return nextSession;
  };

@@ -10,6 +10,7 @@ import {
   Plus,
   RotateCcw,
   ShieldCheck,
+  Trash2,
   UserCheck,
   UserPlus,
   UsersRound,
@@ -22,6 +23,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import type { Project } from "../lib/dashboard-data";
 import { setAssignmentConsultant, setOfficerConsultant } from "../lib/consultant-tenancy";
 import { useConsultantPortfolio } from "../lib/use-consultant-portfolio";
+import { deleteFieldOfficerApi, updateFieldOfficerStatusApi } from "../lib/field-api";
 import {
   COMPONENT_FORM_SECTIONS,
   isSupportedAssignmentComponent,
@@ -657,6 +659,7 @@ function ConsultantWorkspace({
   onAssign,
   onCreateOfficer,
   onOfficerStatus,
+  onDeleteOfficer,
   onReview,
   onMap,
 }: {
@@ -666,6 +669,7 @@ function ConsultantWorkspace({
   onAssign: () => void;
   onCreateOfficer: () => void;
   onOfficerStatus: (id: string, status: FieldOfficerAccount["status"]) => void;
+  onDeleteOfficer: (id: string) => void;
   onReview: (assignment: InspectionAssignment) => void;
   onMap: (assignment: InspectionAssignment) => void;
 }) {
@@ -691,7 +695,7 @@ function ConsultantWorkspace({
         </div>
         <div className="overflow-x-auto">
           <div className="min-w-[980px]">
-            <div className="grid grid-cols-[minmax(210px,1.4fr)_145px_120px_90px_90px_100px_120px] items-center gap-4 bg-slate-50 px-5 py-3 text-[9px] font-bold uppercase tracking-wide text-slate-500">
+            <div className="grid grid-cols-[minmax(210px,1.4fr)_145px_120px_90px_90px_100px_190px] items-center gap-4 bg-slate-50 px-5 py-3 text-[9px] font-bold uppercase tracking-wide text-slate-500">
               <span>Field officer</span>
               <span>Zone / device</span>
               <span>Status</span>
@@ -714,7 +718,7 @@ function ConsultantWorkspace({
                 return (
                   <div
                     key={officer.id}
-                    className="grid grid-cols-[minmax(210px,1.4fr)_145px_120px_90px_90px_100px_120px] items-center gap-4 px-5 py-3.5 hover:bg-[#fbfefc]"
+                    className="grid grid-cols-[minmax(210px,1.4fr)_145px_120px_90px_90px_100px_190px] items-center gap-4 px-5 py-3.5 hover:bg-[#fbfefc]"
                   >
                     <div className="min-w-0">
                       <p className="truncate text-xs font-bold text-[#173b2a]">
@@ -742,13 +746,11 @@ function ConsultantWorkspace({
                     <strong className="text-center text-xs text-amber-600">
                       {reinspections}
                     </strong>
-                    <div className="flex justify-end">
+                    <div className="flex justify-end gap-2">
                       {officer.status === "Active" ? (
                         <button
                           type="button"
-                          onClick={() =>
-                            onOfficerStatus(officer.id, "Suspended")
-                          }
+                          onClick={() => onOfficerStatus(officer.id, "Suspended")}
                           className="flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[9px] font-bold text-red-700"
                         >
                           <Ban className="h-3.5 w-3.5" /> Suspend
@@ -762,6 +764,15 @@ function ConsultantWorkspace({
                           <RotateCcw className="h-3.5 w-3.5" /> Reactivate
                         </button>
                       )}
+                      <button
+                        type="button"
+                        disabled={rows.length > 0}
+                        title={rows.length > 0 ? "Officers with assignment history must be suspended, not deleted." : "Delete field officer"}
+                        onClick={() => onDeleteOfficer(officer.id)}
+                        className="flex items-center gap-1.5 rounded-md border border-slate-200 px-3 py-2 text-[9px] font-bold text-slate-600 disabled:cursor-not-allowed disabled:opacity-35"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Delete
+                      </button>
                     </div>
                   </div>
                 );
@@ -897,6 +908,8 @@ export default function ConsultantAdminDashboard() {
   const [assignOpen, setAssignOpen] = useState(false);
   const [createOfficerOpen, setCreateOfficerOpen] = useState(false);
   const [reviewing, setReviewing] = useState<InspectionAssignment | null>(null);
+  const handleOfficerStatus=async(id:string,status:FieldOfficerAccount["status"])=>{try{await updateFieldOfficerStatusApi(id,status);setFieldOfficerStatus(id,status);window.dispatchEvent(new Event("veritas-cloud-session"));}catch(error){window.alert(error instanceof Error?error.message:"Unable to update field officer.");}};
+  const handleDeleteOfficer=async(id:string)=>{if(!window.confirm("Delete this field officer? This is only allowed when the officer has no assignment history."))return;try{await deleteFieldOfficerApi(id);window.dispatchEvent(new Event("veritas-cloud-session"));}catch(error){window.alert(error instanceof Error?error.message:"Unable to delete field officer.");}};
   const location = useLocation();
   const navigate = useNavigate();
   const activeView = consultantPathViews[location.pathname] ?? "Overview";
@@ -979,7 +992,8 @@ export default function ConsultantAdminDashboard() {
           fieldOfficers={fieldOfficers}
           onAssign={() => setAssignOpen(true)}
           onCreateOfficer={() => setCreateOfficerOpen(true)}
-          onOfficerStatus={setFieldOfficerStatus}
+          onOfficerStatus={handleOfficerStatus}
+          onDeleteOfficer={handleDeleteOfficer}
           onReview={setReviewing}
           onMap={(assignment) => {
             setMapAssignment(assignment);

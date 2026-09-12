@@ -1,0 +1,31 @@
+name: Verify consultant tenancy
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run Node regression tests
+        run: node --test tests/*.test.mjs
+      - name: Run client Vitest suite
+        run: npx vitest --run client
+      - name: Validate worker syntax
+        run: node --check worker/index.js
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build application
+        run: npm run build
