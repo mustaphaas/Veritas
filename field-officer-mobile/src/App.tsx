@@ -105,40 +105,136 @@ function LoginScreen() {
   );
 }
 
+type Screen = "main" | "profile" | "settings" | "help";
+
 function FieldOfficerApp() {
-  const { officerName, isOnline, logout } = useStore();
+  const { officerName, isOnline } = useStore();
   const [tab, setTab] = useState<Tab>("Overview");
   const [selected, setSelected] = useState<Assignment | null>(null);
-  const [showProfile, setShowProfile] = useState(false);
+  const [view, setView] = useState<Screen>("main");
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar hidden />
-      <View style={styles.header}>
-        <View style={styles.headerBrand}><Image source={reaLogo} style={styles.headerLogo} resizeMode="contain" /><View><Text style={styles.headerTitle}>Veritas</Text><Text style={styles.headerSubtitle}>REA · FIELD OFFICER</Text></View></View>
-        <View style={styles.headerActions}>
-          <View style={styles.onlinePill}><View style={[styles.onlineDot, !isOnline && styles.offlineDot]} /><Text style={[styles.onlineText, !isOnline && { color: colors.amber }]}>{isOnline ? "ONLINE" : "OFFLINE"}</Text></View>
-          <Pressable onPress={() => setShowProfile(true)} style={styles.avatar}><Text style={styles.avatarText}>{initials(officerName)}</Text></Pressable>
+      {view === "main" ? (
+        <View style={styles.header}>
+          <View style={styles.headerBrand}><Image source={reaLogo} style={styles.headerLogo} resizeMode="contain" /><View><Text style={styles.headerTitle}>Veritas</Text><Text style={styles.headerSubtitle}>REA · FIELD OFFICER</Text></View></View>
+          <View style={styles.headerActions}>
+            <View style={styles.onlinePill}><View style={[styles.onlineDot, !isOnline && styles.offlineDot]} /><Text style={[styles.onlineText, !isOnline && { color: colors.amber }]}>{isOnline ? "ONLINE" : "OFFLINE"}</Text></View>
+            <Pressable onPress={() => setView("profile")} style={styles.avatar}><Text style={styles.avatarText}>{initials(officerName)}</Text></Pressable>
+          </View>
         </View>
-      </View>
+      ) : (
+        <View style={styles.backHeader}>
+          <Pressable onPress={() => setView(view === "profile" ? "main" : "profile")} style={styles.iconButton}><Ionicons name="chevron-back" size={22} color={colors.deep} /></Pressable>
+          <Text style={styles.backHeaderTitle}>{view === "profile" ? "Profile" : view === "settings" ? "Settings" : "Help & Support"}</Text>
+          <View style={styles.iconButton} />
+        </View>
+      )}
       <View style={styles.page}>
-        {tab === "Overview" && <Overview onOpen={setSelected} onNavigate={setTab} />}
-        {tab === "Assignments" && <AssignmentList mode="assignments" onOpen={setSelected} />}
-        {tab === "Inspections" && <AssignmentList mode="inspections" onOpen={setSelected} />}
-        {tab === "Drafts" && <AssignmentList mode="drafts" onOpen={setSelected} />}
-        {tab === "Sync" && <SyncScreen />}
+        {view === "main" && tab === "Overview" && <Overview onOpen={setSelected} onNavigate={setTab} />}
+        {view === "main" && tab === "Assignments" && <AssignmentList mode="assignments" onOpen={setSelected} />}
+        {view === "main" && tab === "Inspections" && <AssignmentList mode="inspections" onOpen={setSelected} />}
+        {view === "main" && tab === "Drafts" && <AssignmentList mode="drafts" onOpen={setSelected} />}
+        {view === "main" && tab === "Sync" && <SyncScreen />}
+        {view === "profile" && <ProfileScreen onOpenSettings={() => setView("settings")} onOpenHelp={() => setView("help")} />}
+        {view === "settings" && <SettingsScreen />}
+        {view === "help" && <HelpScreen />}
       </View>
       <View style={styles.tabBar}>
-        {tabs.map((item) => <AnimatedTab key={item.label} item={item} active={item.label === tab} onPress={() => setTab(item.label)} />)}
+        {tabs.map((item, index) => {
+          const isLast = index === tabs.length - 1;
+          const asProfile = isLast && view !== "main";
+          const display = asProfile ? { label: "Profile", icon: "person-outline" as const, color: colors.primary, pale: colors.paleStrong } : item;
+          const active = asProfile ? true : view === "main" && item.label === tab;
+          return <AnimatedTab key={item.label} item={display} active={active} onPress={() => { setView("main"); setTab(item.label); }} />;
+        })}
       </View>
       <InspectionModal assignment={selected} onClose={() => setSelected(null)} />
-      <Modal visible={showProfile} transparent animationType="fade" onRequestClose={() => setShowProfile(false)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setShowProfile(false)}><Pressable style={styles.profileCard} onPress={() => undefined}><View style={styles.profileAvatar}><Text style={styles.profileAvatarText}>{initials(officerName)}</Text></View><Text style={styles.profileName}>{officerName}</Text><Text style={styles.profileRole}>Field Officer · Supreme Way</Text><View style={styles.profileRow}><Ionicons name="phone-portrait-outline" size={18} color={colors.primary} /><Text style={styles.profileValue}>{deviceName()}</Text></View><Pressable onPress={() => void logout()} style={styles.logoutButton}><Ionicons name="log-out-outline" size={18} color={colors.red} /><Text style={styles.logoutText}>Sign out</Text></Pressable></Pressable></Pressable>
-      </Modal>
     </SafeAreaView>
   );
 }
 
-function AnimatedTab({ item, active, onPress }: { item: (typeof tabs)[number]; active: boolean; onPress: () => void }) {
+function ProfileScreen({ onOpenSettings, onOpenHelp }: { onOpenSettings: () => void; onOpenHelp: () => void }) {
+  const { officerName, logout } = useStore();
+  const rows: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress?: () => void }[] = [
+    { icon: "person-outline", label: "Personal Information", onPress: () => Alert.alert("Personal Information", "Contact your consultant admin to update these details.") },
+    { icon: "lock-closed-outline", label: "Change Password", onPress: () => Alert.alert("Change Password", "Password changes are managed from Settings.") },
+    { icon: "options-outline", label: "App Settings", onPress: onOpenSettings },
+    { icon: "map-outline", label: "Offline Maps", onPress: () => Alert.alert("Offline Maps", "Downloaded map tiles will appear here.") },
+    { icon: "help-circle-outline", label: "Help & Support", onPress: onOpenHelp },
+    { icon: "information-circle-outline", label: "About Veritas", onPress: () => Alert.alert("About Veritas", "Veritas Field Officer v1.0.0") },
+  ];
+  return (
+    <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <View style={styles.profileHero}>
+        <View style={styles.profileHeroAvatar}><Text style={styles.profileHeroAvatarText}>{initials(officerName)}</Text></View>
+        <Text style={styles.profileHeroName}>{officerName}</Text>
+        <Text style={styles.profileHeroRole}>Field Officer</Text>
+        <Text style={styles.profileHeroFirm}>Supreme Nigeria Limited</Text>
+        <View style={styles.profileStatusPill}><View style={styles.onlineDot} /><Text style={styles.onlineText}>Active</Text></View>
+      </View>
+      <View style={styles.listPanel}>
+        {rows.map((row, index) => <MenuRow key={row.label} icon={row.icon} label={row.label} onPress={row.onPress} last={index === rows.length - 1} />)}
+      </View>
+      <Pressable onPress={() => void logout()} style={styles.logoutRow}><Ionicons name="log-out-outline" size={18} color={colors.red} /><Text style={styles.logoutText}>Logout</Text></Pressable>
+    </ScrollView>
+  );
+}
+
+function SettingsScreen() {
+  const rows: { icon: keyof typeof Ionicons.glyphMap; label: string; value?: string }[] = [
+    { icon: "notifications-outline", label: "Notifications" },
+    { icon: "location-outline", label: "Location Services", value: "Enabled" },
+    { icon: "camera-outline", label: "Camera & Photos" },
+    { icon: "cloud-offline-outline", label: "Offline Mode", value: "Enabled" },
+    { icon: "stats-chart-outline", label: "Data Usage" },
+    { icon: "globe-outline", label: "Language", value: "English" },
+  ];
+  return (
+    <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <View style={styles.listPanel}>
+        {rows.map((row, index) => <MenuRow key={row.label} icon={row.icon} label={row.label} value={row.value} last={index === rows.length - 1} onPress={() => Alert.alert(row.label, "This setting is managed by your consultant admin.")} />)}
+      </View>
+    </ScrollView>
+  );
+}
+
+function HelpScreen() {
+  const rows: { icon: keyof typeof Ionicons.glyphMap; label: string; text: string }[] = [
+    { icon: "book-outline", label: "User Guide", text: "Step-by-step instructions" },
+    { icon: "play-circle-outline", label: "Video Tutorials", text: "Watch how to use the app" },
+    { icon: "help-circle-outline", label: "Frequently Asked Questions", text: "Find quick answers" },
+    { icon: "headset-outline", label: "Contact Support", text: "Get in touch with the Veritas team" },
+    { icon: "shield-outline", label: "Report an Issue", text: "Send feedback or bug report" },
+  ];
+  return (
+    <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <View style={styles.searchBar}><Ionicons name="search-outline" size={16} color={colors.slate} /><Text style={styles.searchPlaceholder}>Search help topics...</Text></View>
+      <View style={styles.listPanel}>
+        {rows.map((row, index) => (
+          <Pressable key={row.label} onPress={() => Alert.alert(row.label, "This resource is not available in the offline demo build.")} style={[styles.helpRow, index === rows.length - 1 && styles.menuRowLast]}>
+            <View style={styles.helpIcon}><Ionicons name={row.icon} size={18} color={colors.primary} /></View>
+            <View style={styles.menuInfo}><Text style={styles.menuLabel}>{row.label}</Text><Text style={styles.helpText}>{row.text}</Text></View>
+            <Ionicons name="chevron-forward" size={16} color={colors.slate} />
+          </Pressable>
+        ))}
+      </View>
+    </ScrollView>
+  );
+}
+
+function MenuRow({ icon, label, value, onPress, last = false }: { icon: keyof typeof Ionicons.glyphMap; label: string; value?: string; onPress?: () => void; last?: boolean }) {
+  return (
+    <Pressable onPress={onPress} style={[styles.menuRow, last && styles.menuRowLast]}>
+      <View style={styles.menuIcon}><Ionicons name={icon} size={18} color={colors.primary} /></View>
+      <View style={styles.menuInfo}><Text style={styles.menuLabel}>{label}</Text></View>
+      {value ? <Text style={styles.menuValue}>{value}</Text> : null}
+      <Ionicons name="chevron-forward" size={16} color={colors.slate} />
+    </Pressable>
+  );
+}
+
+function AnimatedTab({ item, active, onPress }: { item: { label: string; icon: keyof typeof Ionicons.glyphMap; color: string; pale: string }; active: boolean; onPress: () => void }) {
   const scale = useRef(new Animated.Value(1)).current;
   useEffect(() => {
     if (!active) return;
@@ -332,13 +428,13 @@ function AssignmentCard({ item, onOpen, compact = false }: { item: Assignment; o
 function Metric({ label, value, note, icon, tone, onPress }: { label: string; value: number; note: string; icon: keyof typeof Ionicons.glyphMap; tone: "green" | "amber" | "blue"; onPress: () => void }) {
   const color = tone === "amber" ? colors.amber : tone === "blue" ? colors.blue : colors.primary;
   const pale = tone === "amber" ? colors.amberPale : tone === "blue" ? colors.bluePale : colors.paleStrong;
-  return <Pressable onPress={onPress} style={[styles.metricCard, { backgroundColor: pale }]}><View style={[styles.metricIcon, { backgroundColor: "rgba(255,255,255,0.66)" }]}><Ionicons name={icon} size={20} color={color} /></View><Text style={styles.metricValue}>{String(value).padStart(2, "0")}</Text><Text style={styles.metricLabel}>{label}</Text><Text style={styles.metricNote}>{note}</Text><View style={[styles.metricLine, { backgroundColor: color }]} /></Pressable>;
+  return <Pressable onPress={onPress} style={[styles.metricCard, { backgroundColor: pale }]}><View style={[styles.metricIcon, { backgroundColor: "rgba(255,255,255,0.66)" }]}><Ionicons name={icon} size={20} color={color} /></View><Text style={styles.metricValue}>{String(value)}</Text><Text style={styles.metricLabel}>{label}</Text><Text style={styles.metricNote}>{note}</Text><View style={[styles.metricLine, { backgroundColor: color }]} /></Pressable>;
 }
 
 function SummaryCard({ label, value, icon, tone }: { label: string; value: number; icon: keyof typeof Ionicons.glyphMap; tone: "green" | "amber" | "blue" }) {
   const color = tone === "amber" ? colors.amber : tone === "blue" ? colors.blue : colors.primary;
   const pale = tone === "amber" ? colors.amberPale : tone === "blue" ? colors.bluePale : colors.paleStrong;
-  return <View style={[styles.summaryCard, { backgroundColor: pale }]}><Ionicons name={icon} size={20} color={color} /><Text style={styles.summaryValue}>{String(value).padStart(2, "0")}</Text><Text style={styles.summaryLabel}>{label}</Text></View>;
+  return <View style={[styles.summaryCard, { backgroundColor: pale }]}><Ionicons name={icon} size={20} color={color} /><Text style={styles.summaryValue}>{String(value)}</Text><Text style={styles.summaryLabel}>{label}</Text></View>;
 }
 
 function MetricMini({ label, value, icon, color }: { label: string; value: number; icon: keyof typeof Ionicons.glyphMap; color: string }) {
@@ -520,15 +616,28 @@ const styles = StyleSheet.create({
   lockedText: { flex: 1, color: colors.primary, fontSize: 10, fontWeight: "700" },
   submitRow: { flexDirection: "row", gap: 9 },
   modalBackdrop: { flex: 1, backgroundColor: "rgba(10,25,17,0.42)", justifyContent: "flex-start", alignItems: "flex-end", paddingTop: 72, paddingRight: 15 },
-  profileCard: { width: 270, borderRadius: 14, backgroundColor: colors.white, padding: 18, alignItems: "center" },
-  profileAvatar: { width: 58, height: 58, borderRadius: 29, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
-  profileAvatarText: { color: colors.white, fontWeight: "800", fontSize: 17 },
-  profileName: { color: colors.deep, fontSize: 16, fontWeight: "800", marginTop: 10 },
-  profileRole: { color: colors.muted, fontSize: 10, marginTop: 3 },
-  profileRow: { alignSelf: "stretch", flexDirection: "row", alignItems: "center", gap: 8, marginTop: 16, paddingVertical: 11, borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#edf1ee" },
-  profileValue: { color: colors.deep, fontSize: 11, flex: 1 },
-  logoutButton: { alignSelf: "stretch", height: 42, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 13, borderRadius: 8, backgroundColor: colors.redPale },
-  logoutText: { color: colors.red, fontSize: 11, fontWeight: "800" },
+  backHeader: { height: 70, backgroundColor: "rgba(255,255,255,0.94)", borderBottomWidth: 1, borderBottomColor: "rgba(223,233,226,0.75)", paddingHorizontal: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  backHeaderTitle: { color: colors.deep, fontSize: 16, fontWeight: "800" },
+  profileHero: { alignItems: "center", marginTop: 10, marginBottom: 6, gap: 3 },
+  profileHeroAvatar: { width: 84, height: 84, borderRadius: 42, backgroundColor: colors.paleStrong, alignItems: "center", justifyContent: "center", marginBottom: 8 },
+  profileHeroAvatarText: { color: colors.primary, fontWeight: "800", fontSize: 26 },
+  profileHeroName: { color: colors.deep, fontSize: 19, fontWeight: "800" },
+  profileHeroRole: { color: colors.muted, fontSize: 12, fontWeight: "600" },
+  profileHeroFirm: { color: colors.muted, fontSize: 12 },
+  profileStatusPill: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 8 },
+  menuRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: "#edf1ee" },
+  menuRowLast: { borderBottomWidth: 0 },
+  menuIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.paleStrong, alignItems: "center", justifyContent: "center" },
+  menuInfo: { flex: 1 },
+  menuLabel: { color: colors.deep, fontSize: 13, fontWeight: "700" },
+  menuValue: { color: colors.muted, fontSize: 11, fontWeight: "600" },
+  searchBar: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "rgba(255,255,255,0.92)", borderRadius: 14, paddingHorizontal: 14, height: 44, borderWidth: 1, borderColor: colors.border },
+  searchPlaceholder: { color: colors.slate, fontSize: 12 },
+  helpRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: "#edf1ee" },
+  helpIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.paleStrong, alignItems: "center", justifyContent: "center" },
+  helpText: { color: colors.muted, fontSize: 10, marginTop: 2 },
+  logoutRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, height: 46, borderRadius: 14, backgroundColor: colors.redPale, marginTop: 4 },
+  logoutText: { color: colors.red, fontSize: 13, fontWeight: "800" },
   loginSafe: { flex: 1, backgroundColor: colors.pale },
   loginWrap: { flex: 1, paddingHorizontal: 22, justifyContent: "center", alignItems: "center" },
   brandMark: { width: 92, height: 92, borderRadius: 46, backgroundColor: colors.white },
