@@ -46,6 +46,12 @@ jobs:
       - name: Validate consultant tenancy regression
         run: node --test tests/consultant-tenancy-patch.test.mjs
 
+      - name: Apply database-backed REA users and classifications
+        run: node scripts/patch-rea-users-database.mjs
+
+      - name: Validate REA users database regression
+        run: node --test tests/rea-users-database.test.mjs
+
       - name: Validate worker syntax
         run: node --check worker/index.js
 
