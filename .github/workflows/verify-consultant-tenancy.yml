@@ -21,9 +21,11 @@ jobs:
       - run: npm ci
       - name: Run consultant tenancy regression tests
         run: node --test tests/consultant-tenancy-patch.test.mjs
+      - name: Run full Vitest suite
+        run: npm test
       - name: Validate worker syntax
         run: node --check worker/index.js
       - name: Typecheck
         run: npm run typecheck
-      - name: Build client
-        run: npm run build:client
+      - name: Build application
+        run: npm run build
