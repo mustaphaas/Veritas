@@ -47,17 +47,17 @@ async function reaConsultantCreateResponse(request, env) {
   const duplicateUser = await env.DB.prepare("SELECT id FROM users WHERE lower(email)=lower(?)").bind(email).first();
   if (duplicateConsultant || duplicateUser) return json({ error: "A consultant with this firm name or admin email already exists." }, 409);
 
-  const id = String(body.id || `con-${crypto.randomUUID()}`);
-  const adminUserId = `consultant-${crypto.randomUUID()}`;
+  const id = String(body.id || \`con-\${crypto.randomUUID()}\`);
+  const adminUserId = \`consultant-\${crypto.randomUUID()}\`;
   const timestamp = new Date().toISOString();
   const credentials = await managementPasswordRecord(String(body.temporaryPassword));
   const consultantStatus = ["Active", "Inactive", "Pending Activation"].includes(body.status) ? body.status : "Active";
   const userStatus = consultantStatus === "Active" ? "active" : "suspended";
 
   try {
-    await env.DB.prepare(`INSERT INTO consultants
+    await env.DB.prepare(\`INSERT INTO consultants
       (id,firm_name,admin_name,admin_email,admin_phone,regions_json,states_json,status,engagement_ref,scope_note,engagement_start,engagement_end,created_at,updated_at)
-      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)\`)
       .bind(id, firmName, String(body.adminName).trim(), email, body.adminPhone ? String(body.adminPhone).trim() : null,
         JSON.stringify(Array.isArray(body.regions) ? body.regions : []), JSON.stringify(body.states), consultantStatus,
         String(body.engagementRef).trim(), body.scopeNote ? String(body.scopeNote).trim() : "",
@@ -84,9 +84,9 @@ async function consultantProfileResponse(request, env) {
   const user = await authenticatedDatabaseUser(request, env);
   if (!user) return json({ error: "Authentication required." }, 401);
   if (user.role !== "consultant_admin" || !user.consultantFirm) return json({ error: "Consultant access required." }, 403);
-  const record = await env.DB.prepare(`SELECT id,firm_name AS firmName,admin_name AS adminName,admin_email AS adminEmail,admin_phone AS adminPhone,
+  const record = await env.DB.prepare(\`SELECT id,firm_name AS firmName,admin_name AS adminName,admin_email AS adminEmail,admin_phone AS adminPhone,
     regions_json AS regionsJson,states_json AS statesJson,status,engagement_ref AS engagementRef,scope_note AS scopeNote,
-    engagement_start AS engagementStart,engagement_end AS engagementEnd FROM consultants WHERE firm_name=?`)
+    engagement_start AS engagementStart,engagement_end AS engagementEnd FROM consultants WHERE firm_name=?\`)
     .bind(user.consultantFirm).first();
   if (!record) return json({ error: "Consultant profile not found." }, 404);
   return json({ consultant: {
