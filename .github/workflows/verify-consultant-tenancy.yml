@@ -19,10 +19,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Run consultant tenancy regression tests
-        run: node --test tests/consultant-tenancy-patch.test.mjs
-      - name: Run full Vitest suite
-        run: npm test
+      - name: Run Node regression tests
+        run: node --test tests/*.test.mjs
+      - name: Run client Vitest suite
+        run: npx vitest --run client
       - name: Validate worker syntax
         run: node --check worker/index.js
       - name: Typecheck
