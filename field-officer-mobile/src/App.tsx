@@ -217,8 +217,209 @@ function SyncScreen() {
   const uploading = assignments.filter((item) => item.syncStatus === "uploading");
   const completed = assignments.filter((item) => item.syncStatus === "synced");
   const [busy, setBusy] = useState(false);
-  const sync = async () => { setBusy(true); await syncNow(); setBusy(false); };
-  return <ScrollView contentContainerStyle={styles.scrollContent}><View style={styles.heroCopy}><Text style={styles.pageTitle}>Sync</Text><Text style={styles.pageSubtitle}>Uploads continue safely when an internet connection is available.</Text></View><View style={styles.syncSummary}><MetricMini label="Uploading" value={uploading.length || (busy ? 1 : 0)} icon="cloud-upload-outline" color={colors.blue} /><MetricMini label="Waiting" value={waiting.length} icon="time-outline" color={colors.amber} /><MetricMini label="Completed" value={completed.length} icon="checkmark-circle-outline" color={colors.primary} /></View><Pressable disabled={!isOnline || !pending.length || busy} onPress={() => void sync()} style={[styles.primaryButton, (!isOnline || !pending.length || busy) && styles.disabled]}>{busy ? <ActivityIndicator color={colors.white} /> : <><Ionicons name="sync" size={18} color={colors.white} /><Text style={styles.primaryButtonText}>{isOnline ? "Synchronize now" : "Waiting for internet"}</Text></>}</Pressable><Text style={styles.listLabel}>Waiting to upload</Text><View style={styles.queueCard}>{pending.length ? pending.map((item, index) => <View key={item.id} style={styles.queueRow}><View style={styles.queueIndex}><Text style={styles.queueIndexText}>{index + 1}</Text></View><View style={styles.queueInfo}><Text style={styles.queueTitle}>{item.projectName}</Text><Text style={styles.queueMeta}>{item.id} · {item.report?.evidence.length ?? 0} evidence files</Text></View><Text style={styles.queueState}>{item.syncStatus}</Text></View>) : <EmptyState icon="checkmark-done-circle-outline" title="Everything is synchronized" text="There are no inspection packages waiting to upload." />}</View><Text style={styles.securityNote}>GPS coordinates, timestamps, evidence and signatories stay attached to every inspection package.</Text></ScrollView>;
+
+  const sync = async () => {
+    setBusy(true);
+    try {
+      await syncNow();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const total = pending.length + completed.length;
+  const progress = total ? Math.round((completed.length / total) * 100) : 100;
+
+  return (
+    <ScrollView contentContainerStyle={styles.scrollContent}>
+      <View style={styles.heroCopy}>
+        <View style={styles.syncTitleRow}>
+          <View>
+            <Text style={styles.pageTitle}>Sync Queue</Text>
+            <Text style={styles.pageSubtitle}>
+              Your field inspections upload securely one at a time.
+            </Text>
+          </View>
+
+          <View style={[
+            styles.connectionBadge,
+            { backgroundColor: isOnline ? colors.paleStrong : colors.redPale }
+          ]}>
+            <View style={[
+              styles.connectionDot,
+              { backgroundColor: isOnline ? colors.primary : colors.red }
+            ]} />
+            <Text style={[
+              styles.connectionText,
+              { color: isOnline ? colors.primary : colors.red }
+            ]}>
+              {isOnline ? "Online" : "Offline"}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.syncSummary}>
+        <MetricMini
+          label="Uploading"
+          value={uploading.length || (busy && pending.length ? 1 : 0)}
+          icon="cloud-upload-outline"
+          color={colors.blue}
+        />
+        <MetricMini
+          label="Waiting"
+          value={waiting.length}
+          icon="time-outline"
+          color={colors.amber}
+        />
+        <MetricMini
+          label="Completed"
+          value={completed.length}
+          icon="checkmark-circle-outline"
+          color={colors.primary}
+        />
+      </View>
+
+      <View style={styles.syncProgressCard}>
+        <View style={styles.syncProgressHeader}>
+          <View>
+            <Text style={styles.syncProgressTitle}>Synchronization progress</Text>
+            <Text style={styles.syncProgressMeta}>
+              {completed.length} completed · {pending.length} remaining
+            </Text>
+          </View>
+          <Text style={styles.syncProgressPercent}>{progress}%</Text>
+        </View>
+
+        <View style={styles.syncProgressTrack}>
+          <View
+            style={[
+              styles.syncProgressFill,
+              { width: `${progress}%` }
+            ]}
+          />
+        </View>
+      </View>
+
+      <Pressable
+        disabled={!isOnline || !pending.length || busy}
+        onPress={() => void sync()}
+        style={[
+          styles.syncButton,
+          (!isOnline || !pending.length || busy) && styles.disabled
+        ]}
+      >
+        {busy ? (
+          <>
+            <ActivityIndicator color={colors.white} />
+            <Text style={styles.primaryButtonText}>Uploading...</Text>
+          </>
+        ) : (
+          <>
+            <Ionicons
+              name={isOnline ? "cloud-upload-outline" : "cloud-offline-outline"}
+              size={20}
+              color={colors.white}
+            />
+            <Text style={styles.primaryButtonText}>
+              {!isOnline
+                ? "Waiting for internet"
+                : pending.length
+                  ? "Sync Now"
+                  : "Everything Synced"}
+            </Text>
+          </>
+        )}
+      </Pressable>
+
+      <View style={styles.queueHeadingRow}>
+        <View>
+          <Text style={styles.listLabel}>Upload Queue</Text>
+          <Text style={styles.queueSubtitle}>
+            Top inspection uploads first
+          </Text>
+        </View>
+
+        {!!pending.length && (
+          <View style={styles.queueCountBadge}>
+            <Text style={styles.queueCountText}>{pending.length}</Text>
+          </View>
+        )}
+      </View>
+
+      <View style={styles.queueCard}>
+        {pending.length ? (
+          pending.map((item, index) => {
+            const isUploading = item.syncStatus === "uploading" || (busy && index === 0);
+
+            return (
+              <View key={item.id} style={styles.queueRow}>
+                <View style={[
+                  styles.queueIndex,
+                  isUploading && { backgroundColor: colors.bluePale }
+                ]}>
+                  {isUploading ? (
+                    <ActivityIndicator size="small" color={colors.blue} />
+                  ) : (
+                    <Text style={styles.queueIndexText}>{index + 1}</Text>
+                  )}
+                </View>
+
+                <View style={styles.queueInfo}>
+                  <Text style={styles.queueTitle}>{item.projectName}</Text>
+                  <Text style={styles.queueMeta}>
+                    {item.id} · {item.report?.evidence.length ?? 0} evidence files
+                  </Text>
+                </View>
+
+                <View style={[
+                  styles.queueStatusBadge,
+                  {
+                    backgroundColor: isUploading
+                      ? colors.bluePale
+                      : item.syncStatus === "failed"
+                        ? colors.redPale
+                        : colors.amberPale
+                  }
+                ]}>
+                  <Text style={[
+                    styles.queueState,
+                    {
+                      color: isUploading
+                        ? colors.blue
+                        : item.syncStatus === "failed"
+                          ? colors.red
+                          : colors.amber
+                    }
+                  ]}>
+                    {isUploading
+                      ? "Uploading"
+                      : item.syncStatus === "failed"
+                        ? "Retry"
+                        : "Waiting"}
+                  </Text>
+                </View>
+              </View>
+            );
+          })
+        ) : (
+          <EmptyState
+            icon="checkmark-done-circle-outline"
+            title="Everything is synchronized"
+            text="There are no inspection packages waiting to upload."
+          />
+        )}
+      </View>
+
+      <View style={styles.syncSecurityCard}>
+        <Ionicons name="shield-checkmark-outline" size={20} color={colors.primary} />
+        <Text style={styles.securityNote}>
+          GPS coordinates, timestamps, evidence and signatories remain attached
+          to every inspection package.
+        </Text>
+      </View>
+    </ScrollView>
+  );
 }
 
 function InspectionModal({ assignment, onClose }: { assignment: Assignment | null; onClose: () => void }) {
@@ -476,6 +677,24 @@ const styles = StyleSheet.create({
   metricMini: { flex: 1, alignItems: "center", backgroundColor: "rgba(255,255,255,0.94)", borderRadius: 20, paddingVertical: 15 },
   metricMiniValue: { color: colors.deep, fontSize: 20, fontWeight: "800", marginTop: 4 },
   metricMiniLabel: { color: colors.muted, fontSize: 9, fontWeight: "700", marginTop: 2 },
+  syncTitleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 12 },
+  connectionBadge: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 999 },
+  connectionDot: { width: 7, height: 7, borderRadius: 4 },
+  connectionText: { fontSize: 10, fontWeight: "800" },
+  syncProgressCard: { backgroundColor: "rgba(255,255,255,0.94)", borderWidth: 1, borderColor: colors.border, borderRadius: 24, padding: 18, marginTop: 14, shadowColor: "#102A22", shadowOpacity: 0.06, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 2 },
+  syncProgressHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
+  syncProgressTitle: { color: colors.deep, fontSize: 14, fontWeight: "800" },
+  syncProgressMeta: { color: colors.muted, fontSize: 10, marginTop: 4 },
+  syncProgressPercent: { color: colors.primary, fontSize: 20, fontWeight: "900" },
+  syncProgressTrack: { height: 8, borderRadius: 999, backgroundColor: colors.paleStrong, overflow: "hidden" },
+  syncProgressFill: { height: 8, borderRadius: 999, backgroundColor: colors.primary },
+  syncButton: { minHeight: 56, borderRadius: 20, backgroundColor: colors.primary, marginTop: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, shadowColor: "#008A55", shadowOpacity: 0.2, shadowRadius: 14, shadowOffset: { width: 0, height: 7 }, elevation: 3 },
+  queueHeadingRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: 24, marginBottom: 10 },
+  queueSubtitle: { color: colors.muted, fontSize: 10, marginTop: 3 },
+  queueCountBadge: { minWidth: 28, height: 28, paddingHorizontal: 8, borderRadius: 14, backgroundColor: colors.violetPale, alignItems: "center", justifyContent: "center" },
+  queueCountText: { color: colors.violet, fontSize: 11, fontWeight: "900" },
+  queueStatusBadge: { paddingHorizontal: 9, paddingVertical: 6, borderRadius: 999 },
+  syncSecurityCard: { flexDirection: "row", alignItems: "flex-start", gap: 10, backgroundColor: colors.pale, borderRadius: 18, padding: 14, marginTop: 14 },
   queueCard: { backgroundColor: colors.white, borderRadius: 13, borderWidth: 1, borderColor: colors.border, overflow: "hidden" },
   queueRow: { flexDirection: "row", alignItems: "center", gap: 10, padding: 13, borderBottomWidth: 1, borderBottomColor: "#edf1ee" },
   queueIndex: { width: 26, height: 26, borderRadius: 13, backgroundColor: colors.amberPale, alignItems: "center", justifyContent: "center" },
