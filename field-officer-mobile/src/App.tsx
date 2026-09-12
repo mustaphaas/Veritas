@@ -295,14 +295,13 @@ function Overview({ onOpen, onNavigate }: { onOpen: (item: Assignment) => void; 
         <View style={styles.greetingArtwork} accessibilityLabel={greetingBannerSpec.slogan}>
           <Image source={greetingBannerArtwork} style={styles.greetingArtworkImage} resizeMode="stretch" />
         </View>
-        <View style={styles.greetingLeftTint} />
+        <View style={styles.greetingSolid} />
+        <View style={styles.greetingFadeStrong} />
+        <View style={styles.greetingFadeSoft} />
         <View style={styles.greetingContent}>
-          <View style={styles.greetingTopRow}>
-            <View style={styles.sunBadge}><Ionicons name="sunny" size={23} color="#F6B817" /></View>
-            <View style={styles.greetingIdentity}>
-              <Text style={styles.greeting} numberOfLines={1}>Good day, {officerName.split(" ")[0]}.</Text>
-              <Text style={styles.greetingFirm} numberOfLines={1}>{consultantFirm}</Text>
-            </View>
+          <View style={styles.greetingIdentity}>
+            <Text style={styles.greeting} numberOfLines={1}>Good day, {officerName.split(" ")[0]}.</Text>
+            <Text style={styles.greetingFirm} numberOfLines={1}>{consultantFirm}</Text>
           </View>
           <View style={styles.greetingMetaRow}>
             <View style={styles.greetingLocation}>
@@ -324,7 +323,7 @@ function Overview({ onOpen, onNavigate }: { onOpen: (item: Assignment) => void; 
       {next ? (
         <View style={styles.nextCard}>
           <View style={styles.assignmentTop}>
-            <View style={styles.projectIcon}><Ionicons name="flash-outline" size={21} color={colors.primary} /></View>
+            <SolarPanelIcon />
             <View style={styles.assignmentMain}><Text style={styles.eyebrow}>CURRENT ASSIGNMENT</Text><Text style={styles.cardTitle}>{next.projectName}</Text></View>
             <StatusBadge status={displayStatus(next.status)} />
           </View>
@@ -349,7 +348,7 @@ function RecentInspectionRow({ item, onOpen }: { item: Assignment; onOpen: (item
   const at = item.report?.updatedAt ?? item.report?.submittedAt ?? item.dueDate;
   return (
     <Pressable onPress={() => onOpen(item)} style={styles.recentRow}>
-      <View style={styles.projectIcon}><Ionicons name="grid-outline" size={18} color={colors.primary} /></View>
+      <SolarPanelIcon />
       <View style={styles.assignmentMain}><Text style={styles.recentTitle} numberOfLines={1}>{item.projectName}</Text><Text style={styles.assignmentId}>{item.component} · {item.community}, {item.state}</Text></View>
       <View style={styles.recentEnd}><StatusBadge status={displayStatus(item.status)} /><Text style={styles.recentTime}>{timeAgo(at)}</Text></View>
     </Pressable>
@@ -420,7 +419,7 @@ function SyncQueueCard({ item }: { item: Assignment }) {
   const label = item.syncStatus === "uploading" ? "Uploading…" : item.syncStatus === "failed" ? "Failed" : "Waiting…";
   return (
     <View style={styles.queueItemCard}>
-      <View style={styles.projectIcon}><Ionicons name="grid-outline" size={18} color={colors.primary} /></View>
+      <SolarPanelIcon />
       <View style={styles.assignmentMain}>
         <Text style={styles.assignmentName} numberOfLines={1}>{item.projectName}</Text>
         <Text style={styles.assignmentId}>{item.id} · {evidenceCount} evidence file{evidenceCount === 1 ? "" : "s"}</Text>
@@ -541,13 +540,40 @@ function FormInput({ field, value, locked, onChange }: { field: FormField; value
 
 function AssignmentCard({ item, onOpen, compact = false }: { item: Assignment; onOpen: (item: Assignment) => void; compact?: boolean }) {
   const status = displayStatus(item.status);
-  return <Pressable onPress={() => onOpen(item)} style={[styles.assignmentCard, compact && styles.assignmentCardCompact]}><View style={styles.assignmentTop}><View style={styles.projectIcon}><Ionicons name="grid-outline" size={20} color={colors.primary} /></View><View style={styles.assignmentMain}><Text style={styles.assignmentName}>{item.projectName}</Text><Text style={styles.assignmentId}>{item.id} · {item.component}</Text></View>{compact ? <Text style={styles.dueText}>{formatDate(item.dueDate)}</Text> : <StatusBadge status={status} />}<Ionicons name="chevron-forward" size={17} color={colors.slate} /></View>{compact ? null : <><View style={styles.locationRow}><Ionicons name="location-outline" size={15} color={colors.muted} /><Text style={styles.assignmentLocation}>{item.community}, {item.lga}, {item.state}</Text></View><View style={styles.assignmentFooter}><Text style={styles.dueText}>Due {formatDate(item.dueDate)}</Text><Text style={styles.openLinkText}>{isReportLocked(item.status) ? "View report" : item.status === "Draft" ? "Continue form" : item.status === "Re-inspection" ? "Start again" : "Open"}</Text></View></>}</Pressable>;
+  return <Pressable onPress={() => onOpen(item)} style={[styles.assignmentCard, compact && styles.assignmentCardCompact]}><View style={styles.assignmentTop}><SolarPanelIcon /><View style={styles.assignmentMain}><Text style={styles.assignmentName}>{item.projectName}</Text><Text style={styles.assignmentId}>{item.id} · {item.component}</Text></View>{compact ? <Text style={styles.dueText}>{formatDate(item.dueDate)}</Text> : <StatusBadge status={status} />}<Ionicons name="chevron-forward" size={17} color={colors.slate} /></View>{compact ? null : <><View style={styles.locationRow}><Ionicons name="location-outline" size={15} color={colors.muted} /><Text style={styles.assignmentLocation}>{item.community}, {item.lga}, {item.state}</Text></View><View style={styles.assignmentFooter}><Text style={styles.dueText}>Due {formatDate(item.dueDate)}</Text><Text style={styles.openLinkText}>{isReportLocked(item.status) ? "View report" : item.status === "Draft" ? "Continue form" : item.status === "Re-inspection" ? "Start again" : "Open"}</Text></View></>}</Pressable>;
+}
+
+function SolarPanelIcon() {
+  return (
+    <View style={styles.projectIcon} accessibilityLabel="Solar project">
+      <View style={styles.solarPanelFace}>
+        {Array.from({ length: 6 }, (_, index) => <View key={index} style={styles.solarPanelCell} />)}
+      </View>
+      <View style={styles.solarPanelStand} />
+      <View style={styles.solarPanelBase} />
+    </View>
+  );
 }
 
 function Metric({ label, value, note, icon, tone, onPress }: { label: string; value: number; note: string; icon: keyof typeof Ionicons.glyphMap; tone: "green" | "amber" | "blue" | "violet"; onPress: () => void }) {
   const color = tone === "amber" ? colors.amber : tone === "blue" ? colors.blue : tone === "violet" ? colors.violet : colors.primary;
   const pale = tone === "amber" ? colors.amberPale : tone === "blue" ? colors.bluePale : tone === "violet" ? colors.violetPale : colors.paleStrong;
-  return <Pressable onPress={onPress} style={[styles.metricCard, { backgroundColor: pale }]}><View style={[styles.metricIcon, { backgroundColor: "rgba(255,255,255,0.66)" }]}><Ionicons name={icon} size={17} color={color} /></View><Text style={styles.metricValue}>{String(value)}</Text><Text style={styles.metricLabel}>{label}</Text><Text style={styles.metricNote}>{note}</Text><View style={[styles.metricLine, { backgroundColor: color }]} /></Pressable>;
+  return (
+    <Pressable onPress={onPress} style={[styles.metricCard, { backgroundColor: pale, shadowColor: color }]}>
+      <View style={styles.metricGlassHighlight} />
+      <View style={[styles.metricIcon, { backgroundColor: color, shadowColor: color }]}>
+        <View style={styles.metricIconShine} />
+        <Ionicons name={icon} size={19} color={colors.white} />
+      </View>
+      <View style={styles.metricCopy}>
+        <Text style={styles.metricValue}>{String(value)}</Text>
+        <Text style={styles.metricLabel}>{label}</Text>
+        <Text style={styles.metricNote} numberOfLines={1}>{note}</Text>
+      </View>
+      <View style={[styles.metricChevron, { backgroundColor: "rgba(255,255,255,0.62)" }]}><Ionicons name="chevron-forward" size={14} color={color} /></View>
+      <View style={[styles.metricLine, { backgroundColor: color }]} />
+    </Pressable>
+  );
 }
 
 function SummaryCard({ label, value, icon, tone }: { label: string; value: number; icon: keyof typeof Ionicons.glyphMap; tone: "green" | "amber" | "blue" }) {
@@ -627,30 +653,34 @@ const styles = StyleSheet.create({
   onlineText: { color: colors.primary, fontSize: 8, fontWeight: "900", letterSpacing: 1.4 },
   heroCopy: { marginTop: 14, marginBottom: 6 },
   greetingBanner: { height: greetingBannerSpec.height, marginTop: 8, borderRadius: 17, backgroundColor: "#EAF8EF", borderWidth: 1, borderColor: "#D8EDDF", overflow: "hidden" },
-  greetingArtwork: { ...StyleSheet.absoluteFillObject, overflow: "hidden" },
+  greetingArtwork: { position: "absolute", top: 0, right: 0, bottom: 0, width: "52%", overflow: "hidden" },
   greetingArtworkImage: { position: "absolute", right: 0, top: 0, width: 438, height: greetingBannerSpec.height },
-  greetingLeftTint: { position: "absolute", left: 0, top: 0, bottom: 0, width: "62%", backgroundColor: "#EAF8EF" },
-  greetingContent: { width: "72%", height: "100%", paddingHorizontal: 12, paddingVertical: 10, justifyContent: "space-between" },
-  greetingTopRow: { flexDirection: "row", alignItems: "center", gap: 9 },
-  sunBadge: { width: 37, height: 37, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.78)", borderWidth: 1, borderColor: "rgba(255,255,255,0.96)" },
+  greetingSolid: { position: "absolute", left: 0, top: 0, bottom: 0, width: "52%", backgroundColor: "#EAF8EF" },
+  greetingFadeStrong: { position: "absolute", left: "52%", top: 0, bottom: 0, width: "6%", backgroundColor: "rgba(234,248,239,0.78)" },
+  greetingFadeSoft: { position: "absolute", left: "58%", top: 0, bottom: 0, width: "6%", backgroundColor: "rgba(234,248,239,0.38)" },
+  greetingContent: { width: "68%", height: "100%", paddingHorizontal: 14, paddingVertical: 11, justifyContent: "space-between" },
   greetingIdentity: { flex: 1, minWidth: 0 },
-  greeting: { fontSize: 17, lineHeight: 20, color: colors.deep, fontWeight: "800", letterSpacing: -0.4 },
-  greetingFirm: { color: colors.deep, fontSize: 9.5, lineHeight: 13, fontWeight: "700", marginTop: 1 },
-  greetingMetaRow: { height: 20, marginLeft: 43, flexDirection: "row", alignItems: "center", gap: 4 },
+  greeting: { fontSize: 18, lineHeight: 21, color: colors.deep, fontWeight: "800", letterSpacing: -0.45 },
+  greetingFirm: { color: colors.deep, fontSize: 10, lineHeight: 14, fontWeight: "700", marginTop: 2 },
+  greetingMetaRow: { height: 20, flexDirection: "row", alignItems: "center", gap: 4 },
   greetingLocation: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 4 },
-  greetingLocationText: { flex: 1, color: colors.deep, fontSize: 8.5, fontWeight: "700" },
+  greetingLocationText: { flex: 1, color: colors.deep, fontSize: 8.8, fontWeight: "700" },
   greetingDivider: { width: 1, height: 14, backgroundColor: "rgba(18,60,43,0.18)", marginHorizontal: 2 },
   greetingWeatherText: { color: colors.deep, fontSize: 7.5, fontWeight: "700" },
   pageTitle: { fontSize: 28, lineHeight: 34, color: colors.deep, fontWeight: "800", letterSpacing: -0.7 },
   pageSubtitle: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 4 },
   metricsRow: { flexDirection: "row", gap: 9 },
   metricsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
-  metricCard: { width: "48%", height: 108, borderRadius: 18, padding: 11, alignItems: "center", justifyContent: "center", overflow: "hidden" },
-  metricIcon: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  metricValue: { marginTop: 6, color: colors.deep, fontSize: 19, fontWeight: "800", letterSpacing: -0.4 },
-  metricLabel: { color: colors.muted, fontSize: 9, fontWeight: "700", textAlign: "center" },
-  metricNote: { color: colors.muted, fontSize: 8, marginTop: 3, textAlign: "center" },
-  metricLine: { position: "absolute", left: 13, right: 13, bottom: 8, height: 3, borderRadius: 2 },
+  metricCard: { width: "48%", height: 88, borderRadius: 20, paddingHorizontal: 11, paddingBottom: 10, paddingTop: 9, flexDirection: "row", alignItems: "center", gap: 9, overflow: "hidden", borderWidth: 1, borderColor: "rgba(255,255,255,0.88)", shadowOpacity: 0.12, shadowRadius: 14, shadowOffset: { width: 0, height: 7 }, elevation: 3 },
+  metricGlassHighlight: { position: "absolute", width: 100, height: 70, borderRadius: 50, top: -42, left: -18, backgroundColor: "rgba(255,255,255,0.58)" },
+  metricIcon: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", overflow: "hidden", shadowOpacity: 0.28, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
+  metricIconShine: { position: "absolute", width: 32, height: 18, borderRadius: 16, top: -7, left: 4, backgroundColor: "rgba(255,255,255,0.38)" },
+  metricCopy: { flex: 1, minWidth: 0 },
+  metricValue: { color: colors.deep, fontSize: 20, lineHeight: 21, fontWeight: "800", letterSpacing: -0.5 },
+  metricLabel: { color: colors.deep, fontSize: 9.5, lineHeight: 12, fontWeight: "800" },
+  metricNote: { color: colors.muted, fontSize: 7.5, lineHeight: 10, marginTop: 1 },
+  metricChevron: { position: "absolute", right: 7, top: 7, width: 21, height: 21, borderRadius: 11, alignItems: "center", justifyContent: "center" },
+  metricLine: { position: "absolute", left: 11, right: 11, bottom: 6, height: 3, borderRadius: 2 },
   nextCard: { backgroundColor: "rgba(255,255,255,0.94)", borderRadius: 24, padding: 17, gap: 12, shadowColor: "#214C38", shadowOpacity: 0.1, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 4, overflow: "hidden" },
   listPanel: { backgroundColor: "rgba(255,255,255,0.92)", borderRadius: 24, padding: 15, gap: 9, shadowColor: "#214C38", shadowOpacity: 0.06, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 2 },
   sectionHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 4 },
@@ -681,7 +711,11 @@ const styles = StyleSheet.create({
   assignmentCard: { backgroundColor: "rgba(255,255,255,0.94)", borderWidth: 1, borderColor: "rgba(223,233,226,0.9)", borderRadius: 16, padding: 12, gap: 8, marginBottom: 2 },
   assignmentCardCompact: { borderRadius: 14, paddingVertical: 9, paddingHorizontal: 10, shadowColor: "#214C38", shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 1 },
   assignmentTop: { flexDirection: "row", alignItems: "center", gap: 9 },
-  projectIcon: { width: 34, height: 34, borderRadius: 11, backgroundColor: colors.paleStrong, alignItems: "center", justifyContent: "center" },
+  projectIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#E2F8EA", alignItems: "center", justifyContent: "center" },
+  solarPanelFace: { width: 23, height: 14, borderRadius: 2, padding: 1, backgroundColor: colors.primary, flexDirection: "row", flexWrap: "wrap", gap: 1, transform: [{ skewY: "-7deg" }] },
+  solarPanelCell: { width: 6, height: 5, borderRadius: 0.7, backgroundColor: "#6BC98E" },
+  solarPanelStand: { width: 2, height: 4, backgroundColor: colors.primary, marginTop: -1 },
+  solarPanelBase: { width: 12, height: 2, borderRadius: 1, backgroundColor: colors.primary },
   assignmentMain: { flex: 1 },
   assignmentName: { color: colors.deep, fontSize: 13, lineHeight: 17, fontWeight: "800" },
   assignmentId: { color: colors.muted, fontSize: 9, marginTop: 3 },

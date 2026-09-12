@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 
 import { assignmentValues, assignmentsForSection, displayStatus, distanceMetres, formatCurrentLocation, formSections, isFormComplete, isReportLocked, isWithinProjectGeofence } from "./domain.ts";
 import { demoAssignments } from "./demoData.ts";
-import { greetingBannerSpec } from "./greetingBanner.ts";
+import { appVisualSpec, greetingBannerSpec } from "./greetingBanner.ts";
 
 describe("field officer mobile domain", () => {
   it("shows each field inspection workflow status clearly", () => {
@@ -96,6 +96,13 @@ describe("field officer mobile domain", () => {
     assert.equal(greetingBannerSpec.slogan, "Clean Energy.\nA Brighter Nigeria.");
     assert.equal(greetingBannerSpec.weather, "28°C  ·  Good conditions");
     assert.equal(greetingBannerSpec.usesReferenceArtwork, true);
+  });
+
+  it("uses the approved overview visual system", () => {
+    assert.equal(greetingBannerSpec.showLeadingSun, false);
+    assert.equal(appVisualSpec.overviewKpiColumns, 2);
+    assert.equal(appVisualSpec.glassKpiCards, true);
+    assert.equal(appVisualSpec.projectIcon, "solar-panel");
   });
 
   it("does not embed login credentials in the application screen", () => {
