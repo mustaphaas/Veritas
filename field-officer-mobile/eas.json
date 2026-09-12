@@ -8,6 +8,14 @@
       "developmentClient": true,
       "distribution": "internal"
     },
+    "preview-release-debug": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      }
+    },
     "preview": {
       "distribution": "internal",
       "autoIncrement": true,

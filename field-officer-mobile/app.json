@@ -5,6 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "newArchEnabled": false,
     "icon": "./assets/rea-logo.png",
     "scheme": "veritas-field",
     "splash": {
