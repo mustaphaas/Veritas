@@ -48,18 +48,18 @@ jobs:
       - name: Generate Android project
         run: npx expo prebuild --platform android --non-interactive --clean
 
-      - name: Build installable debug APK
+      - name: Build standalone release APK
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew --no-daemon assembleDebug
+          ./gradlew --no-daemon assembleRelease
 
       - name: Prepare APK
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk veritas-field-officer-redesign.apk
+        run: cp android/app/build/outputs/apk/release/app-release.apk veritas-field-officer-redesign-release.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: veritas-field-officer-redesign-apk
-          path: field-officer-mobile/veritas-field-officer-redesign.apk
+          name: veritas-field-officer-redesign-release-apk
+          path: field-officer-mobile/veritas-field-officer-redesign-release.apk
           retention-days: 30
