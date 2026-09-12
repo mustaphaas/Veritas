@@ -1,0 +1,45 @@
+name: Repair consultant patch quoting
+
+on:
+  push:
+    branches:
+      - fix/consultant-d1-tenancy
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/consultant-d1-tenancy
+      - name: Escape generated worker template literals
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = 'scripts/patch-consultant-d1-tenancy.mjs';
+          let source = fs.readFileSync(path, 'utf8');
+          const marker = 'const managementFunctions = `';
+          const start = source.indexOf(marker);
+          if (start < 0) throw new Error('managementFunctions start not found');
+          const bodyStart = start + marker.length;
+          const endMarker = '\n`;\n\nif (!worker.includes';
+          const end = source.indexOf(endMarker, bodyStart);
+          if (end < 0) throw new Error('managementFunctions end not found');
+          let body = source.slice(bodyStart, end);
+          body = body.replace(/(?<!\\)`/g, '\\`').replace(/(?<!\\)\$\{/g, '\\${');
+          source = source.slice(0, bodyStart) + body + source.slice(end);
+          fs.writeFileSync(path, source);
+          NODE
+          node --check scripts/patch-consultant-d1-tenancy.mjs
+      - name: Commit repaired generator
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name "veritas-ci"
+          git config user.email "actions@users.noreply.github.com"
+          git add scripts/patch-consultant-d1-tenancy.mjs
+          git commit -m "fix: escape tenancy patch generated templates"
+          git push origin HEAD:fix/consultant-d1-tenancy
