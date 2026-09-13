@@ -43,8 +43,11 @@ jobs:
       - name: Apply consultant D1 tenancy and field-officer lifecycle
         run: node scripts/patch-consultant-d1-tenancy.mjs
 
+      - name: Apply consultant full-portfolio coverage map
+        run: node scripts/patch-consultant-coverage-map-full-portfolio.mjs
+
       - name: Validate consultant tenancy regression
-        run: node --test tests/consultant-tenancy-patch.test.mjs tests/consultant-live-profile.test.mjs tests/consultant-projects-visible-before-field-assignment.test.mjs tests/consultant-map-allocated-projects.test.mjs
+        run: node --test tests/consultant-tenancy-patch.test.mjs tests/consultant-live-profile.test.mjs tests/consultant-projects-visible-before-field-assignment.test.mjs tests/consultant-map-allocated-projects.test.mjs tests/consultant-coverage-map-full-portfolio.test.mjs
 
       - name: Apply database-backed REA users and classifications
         run: node scripts/patch-rea-users-database.mjs
