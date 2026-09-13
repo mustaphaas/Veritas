@@ -50,6 +50,7 @@ export const updateFieldOfficerStatusApi = (id: string, status: "Active" | "Susp
 export const deleteFieldOfficerApi = (id: string) => call(`/users/field-officers/${encodeURIComponent(id)}`, { method: "DELETE" });
 export const fetchConsultantFieldOfficers = () => consultantCall("/field-officers");
 export const fetchConsultantProjects = () => consultantCall("/projects");
+export const fetchConsultantProfile = () => consultantCall("/profile");
 export async function fetchConsultantProfileWithToken(apiToken: string) {
   const response = await fetch("/api/consultant/profile", { headers: { Accept: "application/json", Authorization: `Bearer ${apiToken}` } });
   const payload = await response.json().catch(() => ({}));
