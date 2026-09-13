@@ -1,4 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+
+const VERITAS_SESSION_KEY = "rea-demo-session";
+function veritasSessionToken(): string | undefined {
+  try {
+    const raw = window.sessionStorage.getItem(VERITAS_SESSION_KEY);
+    return raw ? (JSON.parse(raw) as { apiToken?: string }).apiToken : undefined;
+  } catch {
+    return undefined;
+  }
+}
 import {
   BadgeCheck,
   BarChart3,
@@ -363,10 +373,14 @@ export default function VeritasAssistant() {
     setLoading(true);
 
     try {
+      const veritasToken = veritasSessionToken();
       const response = await fetch("/api/veritas", {
         method: "POST",
         signal: AbortSignal.timeout(60000),
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(veritasToken ? { Authorization: `Bearer ${veritasToken}` } : {}),
+        },
         credentials: "same-origin",
         body: JSON.stringify({
           messages: next

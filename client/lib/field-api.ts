@@ -49,6 +49,7 @@ export const fetchReaPortalUsers = () => reaCall("/users");
 export const updateFieldOfficerStatusApi = (id: string, status: "Active" | "Suspended") => call(`/users/field-officers/${encodeURIComponent(id)}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
 export const deleteFieldOfficerApi = (id: string) => call(`/users/field-officers/${encodeURIComponent(id)}`, { method: "DELETE" });
 export const fetchConsultantFieldOfficers = () => consultantCall("/field-officers");
+export const fetchConsultantProjects = () => consultantCall("/projects");
 export async function fetchConsultantProfileWithToken(apiToken: string) {
   const response = await fetch("/api/consultant/profile", { headers: { Accept: "application/json", Authorization: `Bearer ${apiToken}` } });
   const payload = await response.json().catch(() => ({}));

@@ -147,6 +147,42 @@ async function reaConsultantCreateResponse(request, env) {
   return json({ ok: true, consultant: { ...body, id, firmName, adminEmail: email, status: consultantStatus } }, 201);
 }
 
+async function consultantProjectsResponse(request, env) {
+  const user = await authenticatedDatabaseUser(request, env);
+  if (!user) return json({ error: "Authentication required." }, 401);
+  if (user.role !== "consultant_admin" && user.role !== "rea_admin") {
+    return json({ error: "Consultant or REA access required." }, 403);
+  }
+
+  let consultantFirm = user.consultantFirm;
+  if (user.role === "rea_admin") {
+    consultantFirm = new URL(request.url).searchParams.get("consultantFirm") || consultantFirm;
+  }
+  if (!consultantFirm) return json({ error: "Consultant firm is required." }, 400);
+
+  const result = await env.DB.prepare(`SELECT id,name,programme,component,contractor,consultant_firm AS consultantFirm,state,lga,community,
+    reporting_month AS reportingMonth,portfolio_status AS status,installed_capacity_kw AS installedCapacityKw,
+    households,verified,latitude,longitude,geofence_radius_metres AS geofenceRadiusMetres,
+    data_source AS dataSource,updated_at AS updatedAt
+    FROM projects WHERE consultant_firm=? ORDER BY state,name`)
+    .bind(consultantFirm)
+    .all();
+
+  return json({
+    consultantFirm,
+    projects: (result.results || []).map((project) => ({
+      ...project,
+      installedCapacityKw: Number(project.installedCapacityKw || 0),
+      households: Number(project.households || 0),
+      verified: Number(project.verified) === 1,
+      latitude: Number(project.latitude),
+      longitude: Number(project.longitude),
+      geofenceRadiusMetres: Number(project.geofenceRadiusMetres || 250),
+    })),
+    serverTime: new Date().toISOString(),
+  });
+}
+
 async function consultantProfileResponse(request, env) {
   const user = await authenticatedDatabaseUser(request, env);
   if (!user) return json({ error: "Authentication required." }, 401);
@@ -1074,6 +1110,16 @@ export default {
       }
     }
 
+    if (url.pathname === "/api/consultant/projects") {
+      if (request.method !== "GET") return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
+      try {
+        return await consultantProjectsResponse(request, env);
+      } catch (error) {
+        console.error(JSON.stringify({ event: "consultant_projects_failure", message: error instanceof Error ? error.message : "Unknown error", build: BUILD_ID }));
+        return json({ error: "Unable to load the consultant project portfolio." }, 503);
+      }
+    }
+
     if (url.pathname === "/api/consultant/profile") {
       if (request.method !== "GET") return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
       return consultantProfileResponse(request, env);
@@ -1096,6 +1142,9 @@ export default {
 
     if (url.pathname === "/api/veritas") {
       if (request.method !== "POST") return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
+      const veritasCaller = await authenticatedDatabaseUser(request, env);
+      if (!veritasCaller) return json({ error: "Authentication required.", build: BUILD_ID }, 401);
+      if (veritasCaller.role !== "rea_admin") return json({ error: "REA access required.", build: BUILD_ID }, 403);
       try {
         return await veritasResponse(request, env);
       } catch (error) {
