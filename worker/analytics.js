@@ -61,6 +61,7 @@ const DATASETS = {
     from: "users u",
     dimensions: {
       role: "u.role",
+      classification: "CASE WHEN u.role LIKE 'rea_%' THEN 'REA Staff' WHEN u.role='consultant_admin' THEN 'Consultant Admin' WHEN u.role='field_officer' THEN 'Field Officer' ELSE 'Other' END",
       consultantFirm: "u.consultant_firm",
       status: "u.status",
       name: "u.name",
@@ -117,10 +118,14 @@ export function validateAnalyticsPlan(raw) {
   const filters = [];
   if (Array.isArray(raw.filters)) {
     for (const filter of raw.filters.slice(0, 8)) {
-      const field = cleanString(filter?.field, 40);
+      let field = cleanString(filter?.field, 40);
       const op = cleanString(filter?.op, 20);
-      if (!dataset.dimensions[field] || !OPS.has(op)) continue;
       let value = filter?.value;
+      if (datasetName === "users" && field === "role" && /^rea[ _-]*staff$/i.test(String(filter?.value || "").trim())) {
+        field = "classification";
+        value = "REA Staff";
+      }
+      if (!dataset.dimensions[field] || !OPS.has(op)) continue;
       if (op === "in") {
         if (!Array.isArray(value)) continue;
         value = value.map((v) => typeof v === "number" ? v : cleanString(String(v), 120)).slice(0, 30);
