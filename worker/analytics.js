@@ -154,6 +154,21 @@ export function validateAnalyticsPlan(raw) {
   return { dataset: datasetName, dimensions, measures, filters, orderBy, limit };
 }
 
+export function deterministicAnalyticsPlan(question) {
+  if (!/(?:\bhow many\b|\bcount\b|\btotal\b|\bnumber of\b).*?\brea[ _-]*staff\b/i.test(String(question || ""))) {
+    return null;
+  }
+  return validateAnalyticsPlan({
+    mode: "analytics",
+    dataset: "users",
+    dimensions: [],
+    measures: ["userCount"],
+    filters: [{ field: "classification", op: "eq", value: "REA Staff" }],
+    orderBy: [],
+    limit: 1,
+  });
+}
+
 export function compileAnalyticsPlan(plan) {
   const dataset = DATASETS[plan.dataset];
   if (!dataset) throw new Error("Unsupported analytics dataset.");

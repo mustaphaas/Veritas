@@ -1,5 +1,5 @@
 import { handleFieldApi } from "./field-api.js";
-import { analyticsCatalog, analyticsAnswerPrompt, executeAnalyticsPlan, parsePlannerJson, plannerPrompt, validateAnalyticsPlan } from "./analytics.js";
+import { analyticsCatalog, analyticsAnswerPrompt, deterministicAnalyticsPlan, executeAnalyticsPlan, parsePlannerJson, plannerPrompt, validateAnalyticsPlan } from "./analytics.js";
 
 const BUILD_ID = "veritas-2026-09-11-public-rea-team-r4";
 const encoder = new TextEncoder();
@@ -845,16 +845,17 @@ async function veritasResponse(request, env) {
     }
   }
   let analyticsResult = null;
-  if (isLikelyAnalyticsQuestion(question) && !isReportRequest(question)) {
+  let plan = deterministicAnalyticsPlan(question);
+  if (!plan && isLikelyAnalyticsQuestion(question) && !isReportRequest(question)) {
     const plannerText = await analyticsPlannerResponse(question, env);
     const rawPlan = parsePlannerJson(plannerText);
-    const plan = validateAnalyticsPlan(rawPlan);
-    if (plan) {
-      try {
-        analyticsResult = await executeAnalyticsPlan(env, plan);
-      } catch (error) {
-        console.error(JSON.stringify({ event: "veritas_analytics_execution_failure", message: error instanceof Error ? error.message : "Unknown error", build: BUILD_ID }));
-      }
+    plan = validateAnalyticsPlan(rawPlan);
+  }
+  if (plan) {
+    try {
+      analyticsResult = await executeAnalyticsPlan(env, plan);
+    } catch (error) {
+      console.error(JSON.stringify({ event: "veritas_analytics_execution_failure", message: error instanceof Error ? error.message : "Unknown error", build: BUILD_ID }));
     }
   }
 
