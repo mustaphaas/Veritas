@@ -28,7 +28,7 @@ async function requireRea(request, env) {
   return { user };
 }
 
-async function listClaims(request, env, user) {
+async function listClaims(request, env) {
   const allocation = new URL(request.url).searchParams.get('allocation') || 'All';
   const where = allocation === 'Assigned' || allocation === 'Unassigned' ? ' WHERE allocation_status=?' : '';
   const stmt = env.DB.prepare(`SELECT * FROM claims${where} ORDER BY created_at DESC, claim_id`);
@@ -60,7 +60,7 @@ function normalizedImport(row, index) {
   };
 }
 
-async function importClaims(request, env, user) {
+async function importClaims(request, env) {
   const body = await request.json().catch(() => null);
   if (!body || !Array.isArray(body.claims) || !body.claims.length) return json({ error: 'Upload at least one valid claim row.' }, 400);
   let rows;
@@ -70,7 +70,7 @@ async function importClaims(request, env, user) {
     (id,claim_id,project_id,programme,state,lga,community,latitude,longitude,contractor,claim_amount,claim_date,allocation_status,verification_status,audit_status,source,source_reference,submitted_date,created_at,updated_at)
     VALUES(?,?,?,?,?,?,?,?,?,?,?,?, 'Unassigned','Uploaded','Pending','import',?,?,?,?)`)
     .bind(row.id,row.claimId,row.projectId,row.programme,row.state,row.lga,row.community,row.latitude,row.longitude,row.contractor,row.amount,row.claimDate,row.sourceReference,row.submittedDate,now,now));
-  try { await env.DB.batch(statements); } catch (error) { return json({ error: 'Import failed. Check duplicate Claim IDs/source references and row values.' }, 409); }
+  try { await env.DB.batch(statements); } catch { return json({ error: 'Import failed. Check duplicate Claim IDs/source references and row values.' }, 409); }
   return json({ ok: true, imported: rows.length }, 201);
 }
 
@@ -80,17 +80,23 @@ async function assignClaim(request, env, user, id) {
   if (!consultantId) return json({ error: 'Choose an active consultant.' }, 400);
   const consultant = await env.DB.prepare(`SELECT id,firm_name AS firmName,status FROM consultants WHERE id=? AND status='Active'`).bind(consultantId).first();
   if (!consultant) return json({ error: 'Active consultant not found.' }, 404);
-  const claim = await env.DB.prepare(`SELECT id,allocation_status AS allocationStatus,consultant_id AS consultantId,consultant_firm AS consultantFirm FROM claims WHERE id=? OR claim_id=?`).bind(id, id).first();
+  const claim = await env.DB.prepare(`SELECT id,project_id AS projectId,allocation_status AS allocationStatus,consultant_id AS consultantId,consultant_firm AS consultantFirm FROM claims WHERE id=? OR claim_id=?`).bind(id, id).first();
   if (!claim) return json({ error: 'Claim not found.' }, 404);
   if (claim.allocationStatus === 'Assigned' || claim.consultantId || claim.consultantFirm) return json({ error: 'This project is already assigned and cannot be reassigned.' }, 409);
+  if (claim.projectId) {
+    const existingProjectAssignment = await env.DB.prepare(`SELECT consultant_firm AS consultantFirm FROM claims WHERE project_id=? AND allocation_status='Assigned' LIMIT 1`).bind(claim.projectId).first();
+    if (existingProjectAssignment) return json({ error: `Project ${claim.projectId} is already assigned to ${existingProjectAssignment.consultantFirm} and cannot be reassigned.` }, 409);
+  }
   const now = new Date().toISOString();
-  const update = await env.DB.prepare(`UPDATE claims SET consultant_id=?,consultant_firm=?,allocation_status='Assigned',verification_status=CASE WHEN verification_status='Uploaded' THEN 'Assigned for Verification' ELSE verification_status END,updated_at=? WHERE id=? AND allocation_status='Unassigned' AND consultant_id IS NULL AND consultant_firm IS NULL`)
-    .bind(consultant.id, consultant.firmName, now, claim.id).run();
-  if (Number(update.meta?.changes || 0) !== 1) return json({ error: 'This project was assigned by another user and cannot be reassigned.' }, 409);
+  const statement = claim.projectId
+    ? env.DB.prepare(`UPDATE claims SET consultant_id=?,consultant_firm=?,allocation_status='Assigned',verification_status=CASE WHEN verification_status='Uploaded' THEN 'Assigned for Verification' ELSE verification_status END,updated_at=? WHERE project_id=? AND allocation_status='Unassigned' AND consultant_id IS NULL AND consultant_firm IS NULL`).bind(consultant.id, consultant.firmName, now, claim.projectId)
+    : env.DB.prepare(`UPDATE claims SET consultant_id=?,consultant_firm=?,allocation_status='Assigned',verification_status=CASE WHEN verification_status='Uploaded' THEN 'Assigned for Verification' ELSE verification_status END,updated_at=? WHERE id=? AND allocation_status='Unassigned' AND consultant_id IS NULL AND consultant_firm IS NULL`).bind(consultant.id, consultant.firmName, now, claim.id);
+  const update = await statement.run();
+  if (Number(update.meta?.changes || 0) < 1) return json({ error: 'This project was assigned by another user and cannot be reassigned.' }, 409);
   await env.DB.prepare(`INSERT INTO claim_events(id,claim_id,event_type,from_value,to_value,actor_user_id,note,created_at) VALUES(?,?,?,?,?,?,?,?)`)
-    .bind(crypto.randomUUID(), claim.id, 'assignment', 'Unassigned', consultant.firmName, user.id, 'Immutable consultant assignment', now).run();
+    .bind(crypto.randomUUID(), claim.id, 'assignment', 'Unassigned', consultant.firmName, user.id, claim.projectId ? `Immutable project assignment: ${claim.projectId}` : 'Immutable consultant assignment', now).run();
   const updated = await env.DB.prepare('SELECT * FROM claims WHERE id=?').bind(claim.id).first();
-  return json({ ok: true, claim: mapClaim(updated) });
+  return json({ ok: true, claim: mapClaim(updated), affectedClaims: Number(update.meta?.changes || 0) });
 }
 
 async function updateClaim(request, env, user, id) {
@@ -118,8 +124,8 @@ export async function handleClaimsApi(request, env) {
   if (!isClaims && !isConsultantsGet) return null;
   const auth = await requireRea(request, env); if (auth.response) return auth.response;
   if (isConsultantsGet) return listConsultants(env);
-  if (url.pathname === '/api/rea/claims' && request.method === 'GET') return listClaims(request, env, auth.user);
-  if (url.pathname === '/api/rea/claims/import' && request.method === 'POST') return importClaims(request, env, auth.user);
+  if (url.pathname === '/api/rea/claims' && request.method === 'GET') return listClaims(request, env);
+  if (url.pathname === '/api/rea/claims/import' && request.method === 'POST') return importClaims(request, env);
   const match = url.pathname.match(/^\/api\/rea\/claims\/([^/]+)(?:\/(assign))?$/);
   if (match && match[2] === 'assign' && request.method === 'POST') return assignClaim(request, env, auth.user, decodeURIComponent(match[1]));
   if (match && !match[2] && request.method === 'PATCH') return updateClaim(request, env, auth.user, decodeURIComponent(match[1]));
