@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "veritas-local",
-  "main": "./worker/index.js",
+  "main": "./worker/entry.js",
   "compatibility_date": "2026-08-22",
   "vars": { "GEMINI_MODEL": "gemini-3.6-flash" },
   "assets": {
