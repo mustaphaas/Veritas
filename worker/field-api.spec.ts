@@ -15,7 +15,8 @@ describe("Cloudflare field operations API", () => {
   });
 
   it("verifies PBKDF2 credentials without storing a plaintext password", async () => {
-    await expect(fieldApiTest.verifyPassword("siddiqa12", "eYNKA0vls6Zk4n8LD36AHA==", "lWX9W0BTwYvqs+UjovqLkWp0Lv9023aOJ+ApZHKZ/hA=")).resolves.toBe(true);
-    await expect(fieldApiTest.verifyPassword("wrong", "eYNKA0vls6Zk4n8LD36AHA==", "lWX9W0BTwYvqs+UjovqLkWp0Lv9023aOJ+ApZHKZ/hA=")).resolves.toBe(false);
+    const credential = await fieldApiTest.passwordRecord("test-only-password");
+    await expect(fieldApiTest.verifyPassword("test-only-password", credential.salt, credential.hash)).resolves.toBe(true);
+    await expect(fieldApiTest.verifyPassword("wrong", credential.salt, credential.hash)).resolves.toBe(false);
   });
 });

@@ -26,7 +26,12 @@ export default defineConfig(({ mode }) => ({
   },
   test: {
     environment: "jsdom",
-    exclude: ["field-officer-mobile/**", "node_modules/**", "dist/**"],
+    exclude: [
+      "field-officer-mobile/**",
+      "tests/**",
+      "node_modules/**",
+      "dist/**",
+    ],
   },
 }));
 

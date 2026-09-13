@@ -74,6 +74,45 @@ async function consultantFieldOfficerResponse(request, env) {
   });
 }
 
+async function reaUsersResponse(request, env) {
+  const user = await authenticatedDatabaseUser(request, env);
+  if (!user) return json({ error: "Authentication required." }, 401);
+  if (!String(user.role || "").startsWith("rea_")) return json({ error: "REA access required." }, 403);
+
+  const result = await env.DB.prepare(`SELECT id,name,email,phone,role,consultant_firm AS consultantFirm,status,created_at AS createdAt
+    FROM users ORDER BY role,name`).all();
+  const users = (result.results || []).map((record) => ({
+    id: record.id,
+    name: record.name,
+    email: record.email || "",
+    phone: record.phone || "",
+    role: record.role,
+    classification: String(record.role || "").startsWith("rea_")
+      ? "REA Staff"
+      : record.role === "consultant_admin"
+        ? "Consultant Admin"
+        : record.role === "field_officer"
+          ? "Field Officer"
+          : "Other",
+    consultantFirm: record.consultantFirm || "",
+    status: String(record.status || "").toLowerCase() === "active" ? "Active" : "Suspended",
+    createdAt: record.createdAt,
+  }));
+
+  return json({
+    users,
+    summary: {
+      totalPortalUsers: users.length,
+      reaStaff: users.filter((record) => record.classification === "REA Staff").length,
+      consultantAdmins: users.filter((record) => record.classification === "Consultant Admin").length,
+      fieldOfficers: users.filter((record) => record.classification === "Field Officer").length,
+      active: users.filter((record) => record.status === "Active").length,
+      suspended: users.filter((record) => record.status === "Suspended").length,
+    },
+    serverTime: new Date().toISOString(),
+  });
+}
+
 async function reaProjectsResponse(request, env) {
   const user = await authenticatedDatabaseUser(request, env);
   if (!user) return json({ error: "Authentication required." }, 401);
@@ -286,11 +325,11 @@ function compactContext(databaseContext = {}, question = "") {
   if (!needsConsultants) delete context.consultants;
   delete context.componentStateProgramme;
 
-  if (context.users && !/\b(users?|field officers?|consultant admins?|rea admins?)\b/i.test(q)) {
+  if (context.users && !/\b(users?|portal users?|field officers?|consultant admins?|rea staff|rea admins?)\b/i.test(q)) {
     context.users = {
       fieldOfficerCount: Array.isArray(context.users.fieldOfficers) ? context.users.fieldOfficers.length : 0,
       consultantAdminCount: Array.isArray(context.users.consultantAdmins) ? context.users.consultantAdmins.length : 0,
-      reaAdminCount: Array.isArray(context.users.reaAdmins) ? context.users.reaAdmins.length : 0,
+      reaStaffCount: Array.isArray(context.users.reaStaff) ? context.users.reaStaff.length : 0,
     };
   }
 
@@ -335,7 +374,7 @@ async function liveDatabaseContext(env) {
   const evidenceCounts = Object.fromEntries((evidenceResult.results || []).map((row) => [row.assignmentId, Number(row.count || 0)]));
   const fieldOfficers = users.filter((user) => user.role === "field_officer");
   const consultantAdmins = users.filter((user) => user.role === "consultant_admin");
-  const reaAdmins = users.filter((user) => user.role === "rea_admin");
+  const reaStaff = users.filter((user) => String(user.role || "").startsWith("rea_"));
   const verifiedProjects = projects.filter((project) => Number(project.verified) === 1).length;
   const installedCapacityKw = projects.reduce((sum, project) => sum + Number(project.installedCapacityKw || 0), 0);
   const households = projects.reduce((sum, project) => sum + Number(project.households || 0), 0);
@@ -402,7 +441,7 @@ async function liveDatabaseContext(env) {
     users: {
       fieldOfficers: fieldOfficers.map(({ id, name, consultantFirm, status, createdAt }) => ({ id, name, consultantFirm, status, createdAt })),
       consultantAdmins: consultantAdmins.map(({ id, name, consultantFirm, status, createdAt }) => ({ id, name, consultantFirm, status, createdAt })),
-      reaAdmins: reaAdmins.map(({ id, name, status, createdAt }) => ({ id, name, status, createdAt })),
+      reaStaff: reaStaff.map(({ id, name, role, status, createdAt }) => ({ id, name, role, status, createdAt })),
     },
     assignments: assignments.map((assignment) => ({ ...assignment, evidenceCount: evidenceCounts[assignment.id] || 0 })),
     assignmentStatusCounts: Object.fromEntries(
@@ -1123,6 +1162,11 @@ export default {
     if (url.pathname === "/api/consultant/profile") {
       if (request.method !== "GET") return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
       return consultantProfileResponse(request, env);
+    }
+
+    if (url.pathname === "/api/rea/users") {
+      if (request.method !== "GET") return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
+      return reaUsersResponse(request, env);
     }
 
     if (url.pathname === "/api/rea/consultants") {

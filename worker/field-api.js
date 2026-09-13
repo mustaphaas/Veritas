@@ -248,4 +248,4 @@ export async function handleFieldApi(request, env) {
   return response({ error: "Method not allowed." }, 405);
 }
 
-export const fieldApiTest = { distanceMetres, verifyPassword };
+export const fieldApiTest = { distanceMetres, passwordRecord, verifyPassword };

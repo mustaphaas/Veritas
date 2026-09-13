@@ -176,7 +176,9 @@ const routeReplacement = `    if (url.pathname === "/api/consultant/field-office
     }
 
     const fieldResponse = await handleFieldApi(request, env);`;
-worker = replaceOnce(worker, routeAnchor, routeReplacement, "worker management routes");
+if (!worker.includes('if (url.pathname === "/api/rea/consultants")')) {
+  worker = replaceOnce(worker, routeAnchor, routeReplacement, "worker management routes");
+}
 fs.writeFileSync(workerPath, worker);
 
 // ---------------------------------------------------------------------------
@@ -215,11 +217,12 @@ async function reaCall(path: string, init: RequestInit = {}) {
     "REA API helper",
   );
 }
-api = replaceOnce(
-  api,
-  `export const createFieldOfficerApi = (officer: unknown) => call("/users/field-officers", { method: "POST", body: JSON.stringify(officer) });
+if (!api.includes("export const createConsultantApi")) {
+  api = replaceOnce(
+    api,
+    `export const createFieldOfficerApi = (officer: unknown) => call("/users/field-officers", { method: "POST", body: JSON.stringify(officer) });
 export const fetchConsultantFieldOfficers = () => consultantCall("/field-officers");`,
-  `export const createFieldOfficerApi = (officer: unknown) => call("/users/field-officers", { method: "POST", body: JSON.stringify(officer) });
+    `export const createFieldOfficerApi = (officer: unknown) => call("/users/field-officers", { method: "POST", body: JSON.stringify(officer) });
 export const createConsultantApi = (consultant: unknown) => reaCall("/consultants", { method: "POST", body: JSON.stringify(consultant) });
 export const updateFieldOfficerStatusApi = (id: string, status: "Active" | "Suspended") => call(\`/users/field-officers/\${encodeURIComponent(id)}/status\`, { method: "PATCH", body: JSON.stringify({ status }) });
 export const deleteFieldOfficerApi = (id: string) => call(\`/users/field-officers/\${encodeURIComponent(id)}\`, { method: "DELETE" });
@@ -230,8 +233,9 @@ export async function fetchConsultantProfileWithToken(apiToken: string) {
   if (!response.ok) throw new Error(payload.error || \`Veritas API returned \${response.status}.\`);
   return payload;
 }`,
-  "client management API exports",
-);
+    "client management API exports",
+  );
+}
 fs.writeFileSync(apiPath, api);
 
 // ---------------------------------------------------------------------------
@@ -250,8 +254,9 @@ let rea = fs.readFileSync(reaPath, "utf8");
 if (!rea.includes('createConsultantApi')) {
   rea = replaceOnce(rea, 'import { appendAuditEvent } from "../lib/rea-admin";', 'import { appendAuditEvent } from "../lib/rea-admin";\nimport { createConsultantApi } from "../lib/field-api";', "REA consultant API import");
 }
-rea = replaceOnce(
-  rea,
+if (!rea.includes("await createConsultantApi(next)")) {
+  rea = replaceOnce(
+    rea,
   ` const upsert=(form:Form)=>{
   if(modal?.record){const next={...form,id:modal.record.id};save(records.map(r=>r.id===next.id?next:r));log(next,"Consultant updated",\`\${next.firmName} profile and access settings updated.\`);setModal(null);return;}
   const next={...form,id:\`con-\${Date.now()}\`};save([next,...records]);log(next,"Consultant created",\`\${next.firmName} dashboard created for \${next.adminEmail}.\`);setModal(null);
@@ -261,8 +266,9 @@ rea = replaceOnce(
   const next={...form,id:\`con-\${Date.now()}\`};
   try{await createConsultantApi(next);save([next,...records]);log(next,"Consultant created",\`\${next.firmName} dashboard created in the Veritas database for \${next.adminEmail}.\`);setModal(null);}catch(error){setNotice(error instanceof Error?error.message:"Unable to create consultant in the database.");}
  };`,
-  "REA consultant D1 upsert",
-);
+    "REA consultant D1 upsert",
+  );
+}
 fs.writeFileSync(reaPath, rea);
 
 // ---------------------------------------------------------------------------
