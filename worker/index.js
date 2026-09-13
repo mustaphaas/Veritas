@@ -149,9 +149,12 @@ async function reaConsultantCreateResponse(request, env) {
   const email = String(body.adminEmail).trim().toLowerCase();
   if (!/^\S+@\S+\.\S+$/.test(email)) return json({ error: "A valid consultant admin email is required." }, 400);
   const firmName = String(body.firmName).trim();
+  const phone = body.adminPhone ? String(body.adminPhone).trim() : null;
   const duplicateConsultant = await env.DB.prepare("SELECT id FROM consultants WHERE lower(firm_name)=lower(?) OR lower(admin_email)=lower(?)").bind(firmName, email).first();
   const duplicateUser = await env.DB.prepare("SELECT id FROM users WHERE lower(email)=lower(?)").bind(email).first();
   if (duplicateConsultant || duplicateUser) return json({ error: "A consultant with this firm name or admin email already exists." }, 409);
+  const duplicatePhone = phone ? await env.DB.prepare("SELECT id FROM users WHERE phone=?").bind(phone).first() : null;
+  if (duplicatePhone) return json({ error: "This phone number already belongs to another Veritas account." }, 409);
 
   const id = String(body.id || `con-${crypto.randomUUID()}`);
   const adminUserId = `consultant-${crypto.randomUUID()}`;
@@ -164,13 +167,13 @@ async function reaConsultantCreateResponse(request, env) {
     await env.DB.prepare(`INSERT INTO consultants
       (id,firm_name,admin_name,admin_email,admin_phone,regions_json,states_json,status,engagement_ref,scope_note,engagement_start,engagement_end,created_at,updated_at)
       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-      .bind(id, firmName, String(body.adminName).trim(), email, body.adminPhone ? String(body.adminPhone).trim() : null,
+      .bind(id, firmName, String(body.adminName).trim(), email, phone,
         JSON.stringify(Array.isArray(body.regions) ? body.regions : []), JSON.stringify(body.states), consultantStatus,
         String(body.engagementRef).trim(), body.scopeNote ? String(body.scopeNote).trim() : "",
         body.engagementStart || null, body.engagementEnd || null, timestamp, timestamp).run();
     try {
       await env.DB.prepare("INSERT INTO users(id,name,email,phone,role,consultant_firm,password_salt,password_hash,status,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)")
-        .bind(adminUserId, String(body.adminName).trim(), email, body.adminPhone ? String(body.adminPhone).trim() : null,
+        .bind(adminUserId, String(body.adminName).trim(), email, phone,
           "consultant_admin", firmName, credentials.salt, credentials.hash, userStatus, timestamp).run();
     } catch (error) {
       await env.DB.prepare("DELETE FROM consultants WHERE id=?").bind(id).run();

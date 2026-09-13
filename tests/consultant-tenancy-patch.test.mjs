@@ -66,6 +66,48 @@ test("REA consultant creation writes consultant and consultant-admin user to D1"
   assert.ok(statements.some((entry) => entry.sql.includes("INSERT INTO users") && entry.args.includes("consultant_admin")));
 });
 
+test("REA consultant creation reports an existing login phone before writing", async () => {
+  const statements = [];
+  const env = {
+    ASSETS: { fetch: async () => new Response("asset") },
+    DB: {
+      prepare(sql) {
+        return {
+          bind() { return this; },
+          async first() {
+            if (sql.includes("FROM sessions")) return { id: "rea-1", name: "REA Admin", role: "rea_admin", consultantFirm: null };
+            if (sql.includes("FROM consultants")) return null;
+            if (sql.includes("FROM users") && sql.includes("phone")) return { id: "officer-existing" };
+            return null;
+          },
+          async run() { statements.push(sql); return { success: true }; },
+          async all() { return { results: [] }; },
+        };
+      },
+    },
+  };
+  const { default: worker } = await import(`../worker/index.js?duplicate-phone=${Date.now()}`);
+  const response = await worker.fetch(new Request("https://example.com/api/rea/consultants", {
+    method: "POST",
+    headers: { Authorization: "Bearer token", "Content-Type": "application/json" },
+    body: JSON.stringify({
+      id: "con-new",
+      firmName: "North Star Verification Ltd",
+      adminName: "Amina Bello",
+      adminEmail: "amina@northstar.ng",
+      adminPhone: "08030001001",
+      states: ["Kano"],
+      status: "Active",
+      engagementRef: "REA/CONS/2026/100",
+      temporaryPassword: "ConsultSafe2026!",
+    }),
+  }), env);
+
+  assert.equal(response.status, 409);
+  assert.deepEqual(await response.json(), { error: "This phone number already belongs to another Veritas account." });
+  assert.equal(statements.length, 0);
+});
+
 test("consultant cannot manage another firm's field officer", async () => {
   const env = {
     ASSETS: { fetch: async () => new Response("asset") },
