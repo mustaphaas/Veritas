@@ -1,0 +1,37 @@
+name: Verify Claims
+
+on:
+  pull_request:
+    paths:
+      - 'client/components/ReaClaimsManagement.tsx'
+      - 'client/lib/claims-*.ts'
+      - 'worker/claims-api.js'
+      - 'worker/entry.js'
+      - 'migrations/000*_claims*.sql'
+      - 'tests/claims-*.test.mjs'
+      - 'wrangler*.jsonc'
+      - 'scripts/provision-cloudflare.mjs'
+      - '.github/workflows/verify-claims.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Check Claims worker syntax
+        run: |
+          node --check worker/claims-api.js
+          node --check worker/entry.js
+      - name: Run Claims contract tests
+        run: node --test tests/claims-api-contract.test.mjs tests/claims-immutable-assignment.test.mjs tests/claims-migration.test.mjs
+      - name: Build web client
+        run: npm run build:client

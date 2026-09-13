@@ -52,8 +52,14 @@ jobs:
       - name: Validate REA users database regression
         run: node --test tests/rea-users-database.test.mjs
 
-      - name: Validate worker syntax
-        run: node --check worker/index.js
+      - name: Validate worker and Claims syntax
+        run: |
+          node --check worker/index.js
+          node --check worker/entry.js
+          node --check worker/claims-api.js
+
+      - name: Validate Claims contracts
+        run: node --test tests/claims-api-contract.test.mjs tests/claims-immutable-assignment.test.mjs tests/claims-migration.test.mjs
 
       - name: Build client
         run: npm run build:client
