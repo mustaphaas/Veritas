@@ -9,7 +9,8 @@ const dashboardData = fs.readFileSync('client/lib/dashboard-data.ts', 'utf8');
 test('consultant coverage enhancer consumes allocated projects as well as assignments', () => {
   assert.match(enhancer, /visibleAssignments: assignments, unallocatedProjects/);
   assert.match(enhancer, /const mapAssignments = useMemo/);
-  assert.match(enhancer, /unallocatedProjects\.map/);
+  assert.match(enhancer, /unallocatedProjects[\s\S]*?\.map\(\(project\)/);
+  assert.match(enhancer, /return \[\.\.\.allocated, \.\.\.assignments\]/);
   assert.match(enhancer, /<ConsultantCoverageMap assignments=\{mapAssignments\}/);
 });
 
