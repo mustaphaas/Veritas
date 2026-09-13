@@ -26,7 +26,7 @@ try {
 
 const config = {
   name: "veritas",
-  main: "./worker/index.js",
+  main: "./worker/entry.js",
   compatibility_date: "2026-08-22",
   keep_vars: true,
   build: { command: "npm run build:client" },
