@@ -165,7 +165,7 @@ export function deterministicAnalyticsPlan(question) {
     measures: ["userCount"],
     filters: [{ field: "classification", op: "eq", value: "REA Staff" }],
     orderBy: [],
-    limit: 1,
+    limit: 100,
   });
 }
 
