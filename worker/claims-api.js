@@ -41,6 +41,69 @@ async function listConsultants(env) {
   return json({ consultants: result.results || [] });
 }
 
+async function consultantProjectsFromClaims(request, env) {
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'Authentication required.' }, 401);
+  if (user.role !== 'consultant_admin' && user.role !== 'rea_admin') return json({ error: 'Consultant or REA access required.' }, 403);
+
+  let consultantFirm = user.consultantFirm;
+  if (user.role === 'rea_admin') consultantFirm = new URL(request.url).searchParams.get('consultantFirm') || consultantFirm;
+  if (!consultantFirm) return json({ error: 'Consultant firm is required.' }, 400);
+
+  const [projectResult, claimResult] = await Promise.all([
+    env.DB.prepare(`SELECT id,name,programme,component,contractor,consultant_firm AS consultantFirm,state,lga,community,
+      reporting_month AS reportingMonth,portfolio_status AS status,installed_capacity_kw AS installedCapacityKw,
+      households,verified,latitude,longitude,geofence_radius_metres AS geofenceRadiusMetres,
+      data_source AS dataSource,updated_at AS updatedAt
+      FROM projects WHERE consultant_firm=? ORDER BY state,name`).bind(consultantFirm).all(),
+    env.DB.prepare(`SELECT id,claim_id AS claimId,project_id AS projectId,programme,state,lga,community,latitude,longitude,contractor,
+      claim_date AS claimDate,verification_status AS verificationStatus,consultant_firm AS consultantFirm,updated_at AS updatedAt
+      FROM claims WHERE consultant_firm=? AND allocation_status='Assigned' ORDER BY state,claim_id`).bind(consultantFirm).all(),
+  ]);
+
+  const projects = (projectResult.results || []).map((project) => ({
+    ...project,
+    installedCapacityKw: Number(project.installedCapacityKw || 0),
+    households: Number(project.households || 0),
+    verified: Number(project.verified) === 1,
+    latitude: Number(project.latitude),
+    longitude: Number(project.longitude),
+    geofenceRadiusMetres: Number(project.geofenceRadiusMetres || 250),
+  }));
+  const seen = new Set(projects.map((project) => project.id));
+
+  for (const row of claimResult.results || []) {
+    const id = row.projectId || `claimProject-${row.claimId}`;
+    if (seen.has(id)) continue;
+    const claimProject = {
+      id,
+      name: row.community ? `${row.community} - ${row.claimId}` : row.projectId || row.claimId,
+      programme: row.programme || 'DARES',
+      component: 'Claim Verification',
+      contractor: row.contractor || '',
+      consultantFirm: row.consultantFirm,
+      state: row.state || '',
+      lga: row.lga || '',
+      community: row.community || '',
+      reportingMonth: row.claimDate ? String(row.claimDate).slice(0, 7) : '',
+      status: row.verificationStatus || 'Assigned for Verification',
+      installedCapacityKw: 0,
+      households: 0,
+      verified: row.verificationStatus === 'REA Verified',
+      latitude: Number(row.latitude || 0),
+      longitude: Number(row.longitude || 0),
+      geofenceRadiusMetres: 250,
+      dataSource: 'claim',
+      updatedAt: row.updatedAt,
+      claimId: row.claimId,
+    };
+    projects.push(claimProject);
+    seen.add(id);
+  }
+
+  return json({ consultantFirm, projects, serverTime: new Date().toISOString() });
+}
+
 function normalizedImport(row, index) {
   const claimId = String(row.claimId || row.id || '').trim();
   const projectId = String(row.projectId || '').trim();
@@ -86,6 +149,11 @@ async function assignClaim(request, env, user, id) {
   if (claim.projectId) {
     const existingProjectAssignment = await env.DB.prepare(`SELECT consultant_firm AS consultantFirm FROM claims WHERE project_id=? AND allocation_status='Assigned' LIMIT 1`).bind(claim.projectId).first();
     if (existingProjectAssignment) return json({ error: `Project ${claim.projectId} is already assigned to ${existingProjectAssignment.consultantFirm} and cannot be reassigned.` }, 409);
+    const project = await env.DB.prepare(`SELECT consultant_firm AS consultantFirm FROM projects WHERE id=?`).bind(claim.projectId).first();
+    const projectFirm = String(project?.consultantFirm || '').trim();
+    if (projectFirm && projectFirm !== 'REA Unallocated' && projectFirm !== consultant.firmName) {
+      return json({ error: `Project ${claim.projectId} is already assigned to ${projectFirm} and cannot be reassigned.` }, 409);
+    }
   }
   const now = new Date().toISOString();
   const statement = claim.projectId
@@ -93,6 +161,10 @@ async function assignClaim(request, env, user, id) {
     : env.DB.prepare(`UPDATE claims SET consultant_id=?,consultant_firm=?,allocation_status='Assigned',verification_status=CASE WHEN verification_status='Uploaded' THEN 'Assigned for Verification' ELSE verification_status END,updated_at=? WHERE id=? AND allocation_status='Unassigned' AND consultant_id IS NULL AND consultant_firm IS NULL`).bind(consultant.id, consultant.firmName, now, claim.id);
   const update = await statement.run();
   if (Number(update.meta?.changes || 0) < 1) return json({ error: 'This project was assigned by another user and cannot be reassigned.' }, 409);
+  if (claim.projectId) {
+    await env.DB.prepare(`UPDATE projects SET consultant_firm=?,updated_at=? WHERE id=? AND (consultant_firm IS NULL OR consultant_firm='' OR consultant_firm='REA Unallocated' OR consultant_firm=?)`)
+      .bind(consultant.firmName, now, claim.projectId, consultant.firmName).run();
+  }
   await env.DB.prepare(`INSERT INTO claim_events(id,claim_id,event_type,from_value,to_value,actor_user_id,note,created_at) VALUES(?,?,?,?,?,?,?,?)`)
     .bind(crypto.randomUUID(), claim.id, 'assignment', 'Unassigned', consultant.firmName, user.id, claim.projectId ? `Immutable project assignment: ${claim.projectId}` : 'Immutable consultant assignment', now).run();
   const updated = await env.DB.prepare('SELECT * FROM claims WHERE id=?').bind(claim.id).first();
@@ -121,7 +193,9 @@ export async function handleClaimsApi(request, env) {
   const url = new URL(request.url);
   const isClaims = url.pathname === '/api/rea/claims' || url.pathname === '/api/rea/claims/import' || /^\/api\/rea\/claims\/[^/]+(?:\/assign)?$/.test(url.pathname);
   const isConsultantsGet = url.pathname === '/api/rea/consultants' && request.method === 'GET';
-  if (!isClaims && !isConsultantsGet) return null;
+  const isConsultantProjects = url.pathname === '/api/consultant/projects' && request.method === 'GET';
+  if (!isClaims && !isConsultantsGet && !isConsultantProjects) return null;
+  if (isConsultantProjects) return consultantProjectsFromClaims(request, env);
   const auth = await requireRea(request, env); if (auth.response) return auth.response;
   if (isConsultantsGet) return listConsultants(env);
   if (url.pathname === '/api/rea/claims' && request.method === 'GET') return listClaims(request, env);
