@@ -67,6 +67,9 @@ jobs:
       - name: Apply Project Map marker click zoom
         run: node scripts/patch-project-map-click-zoom.mjs
 
+      - name: Apply standard Project Map pin zoom
+        run: node scripts/patch-standard-project-pin-zoom.mjs
+
       - name: Validate Project Map satellite providers and D1 state
         run: node --test tests/project-map-satellite-shared-state.test.mjs tests/project-map-satellite-click-zoom.test.mjs
 
