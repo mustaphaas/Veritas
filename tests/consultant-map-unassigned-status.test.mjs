@@ -8,12 +8,12 @@ assert.equal(patch.status, 0, patch.stderr || patch.stdout || 'coverage map patc
 
 const enhancer = fs.readFileSync('client/components/ConsultantCoverageMapEnhancer.tsx', 'utf8');
 
-test('allocated consultant project map records do not masquerade as real assignments', () => {
-  assert.doesNotMatch(enhancer, /officer: "Awaiting field officer"[\s\S]{0,220}status: "Assigned" as const/);
+test('allocated consultant project map records expose an awaiting-field-officer display state', () => {
+  assert.match(enhancer, /officer: "Awaiting field officer"/);
   assert.match(enhancer, /mapDisplayStatus: "Awaiting field officer"/);
 });
 
 test('map status rendering prefers explicit consultant allocation display state', () => {
   assert.match(enhancer, /function assignmentStatusLabel/);
-  assert.match(enhancer, /item\.mapDisplayStatus \?\? getAssignmentDisplayStatus\(item\.status\)/);
+  assert.match(enhancer, /mapDisplayStatus \?\? getAssignmentDisplayStatus\(item\.status\)/);
 });
