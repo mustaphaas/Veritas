@@ -64,8 +64,11 @@ jobs:
       - name: Remove Project Map summary badges
         run: node scripts/patch-project-map-summary-badges.mjs
 
+      - name: Apply Project Map marker click zoom
+        run: node scripts/patch-project-map-click-zoom.mjs
+
       - name: Validate Project Map satellite providers and D1 state
-        run: node --test tests/project-map-satellite-shared-state.test.mjs
+        run: node --test tests/project-map-satellite-shared-state.test.mjs tests/project-map-satellite-click-zoom.test.mjs
 
       - name: Validate worker and Claims syntax
         run: |
