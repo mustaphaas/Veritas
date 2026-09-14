@@ -3,9 +3,9 @@ import type { ImportClaimRow } from './claims-api';
 export type ParsedClaim = ImportClaimRow & { rowNumber: number; issues: string[]; valid: boolean };
 
 const aliases: Record<string, keyof ImportClaimRow> = {
-  claimid:'claimId', externalid:'claimId', serialno:'claimId', serialnumber:'claimId', projectid:'projectId', programme:'programme', program:'programme',
-  state:'state', lga:'lga', community:'community', latitude:'latitude', longitude:'longitude', contractor:'contractor', developer:'contractor',
-  claimamount:'claimAmount', amount:'claimAmount', claimdate:'claimDate', submitteddate:'submittedDate', sourcereference:'sourceReference',
+  claimid:'claimId', externalid:'claimId', externalidserialno:'claimId', serialno:'claimId', serialnumber:'claimId', projectid:'projectId', programme:'programme', program:'programme',
+  state:'state', locationstate:'state', lga:'lga', locationlga:'lga', community:'community', latitude:'latitude', longitude:'longitude', contractor:'contractor', developer:'contractor', contractordeveloper:'contractor',
+  claimamount:'claimAmount', amount:'claimAmount', retailcostofsystemngn:'claimAmount', claimdate:'claimDate', paymentdate:'claimDate', submitteddate:'submittedDate', sourcereference:'sourceReference',
 };
 const norm = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g,'');
 function csvLine(line: string) { const out:string[]=[]; let cell='', quoted=false; for(let i=0;i<line.length;i++){const c=line[i]; if(c==='"'&&line[i+1]==='"'){cell+='"';i++;}else if(c==='"')quoted=!quoted;else if(c===','&&!quoted){out.push(cell.trim());cell='';}else cell+=c;} out.push(cell.trim()); return out; }
