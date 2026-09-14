@@ -36,6 +36,13 @@ dashboard = replaceOnce(
 
 dashboard = replaceOnce(
   dashboard,
+  `  const rows =\n    view === "Verification"`,
+  `  const rows =\n    view === "Projects"\n      ? assignments.filter((item) => item.status !== "Draft")\n      : view === "Verification"`,
+  "projects hide Draft status",
+);
+
+dashboard = replaceOnce(
+  dashboard,
   `          assignments={filtered}\n          fieldOfficers={fieldOfficers}\n          onAssign={() => setAssignOpen(true)}`,
   `          assignments={filtered}\n          fieldOfficers={fieldOfficers}\n          unallocatedProjects={unallocatedProjects}\n          onAssign={() => setAssignOpen(true)}`,
   "workspace project prop wiring",
@@ -44,7 +51,7 @@ dashboard = replaceOnce(
 dashboard = replaceOnce(
   dashboard,
   `  const approved = filtered.filter((item) =>`,
-  `  const portfolioProjectCount = filtered.length + unallocatedProjects.length;\n  const approved = filtered.filter((item) =>`,
+  `  const portfolioProjectCount = filtered.filter((item) => item.status !== "Draft").length + unallocatedProjects.length;\n  const approved = filtered.filter((item) =>`,
   "portfolio project count",
 );
 
@@ -56,4 +63,4 @@ dashboard = replaceOnce(
 );
 
 fs.writeFileSync(dashboardPath, dashboard);
-console.log("Consultant REA-allocated project visibility patch applied.");
+console.log("Consultant Projects list hides Draft status while retaining awaiting field-officer projects.");
