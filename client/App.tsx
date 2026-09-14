@@ -23,6 +23,7 @@ import VeritasAssistant from "./components/VeritasAssistant";
 import VeritasFooter from "./components/VeritasFooter";
 import ReaProjectMapHost from "./components/ReaProjectMapProgramme";
 import ProjectMapFullscreenControl from "./components/ProjectMapFullscreenControl";
+import ProjectMapSatelliteEnhancer from "./components/ProjectMapSatelliteEnhancer";
 import ConsultantCoverageMapEnhancer from "./components/ConsultantCoverageMapEnhancer";
 import ConsultantProjectLgaDrilldown from "./components/ConsultantProjectLgaDrilldown";
 import ConsultantWorkflowBridge from "./components/ConsultantWorkflowBridge";
@@ -64,6 +65,7 @@ function ProjectMapGate() {
     <>
       <ReaProjectMapHost />
       <ProjectMapFullscreenControl />
+      <ProjectMapSatelliteEnhancer />
     </>
   );
 }
