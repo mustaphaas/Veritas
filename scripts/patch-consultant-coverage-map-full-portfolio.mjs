@@ -43,9 +43,14 @@ enhancer = replaceOnce(
 enhancer = replaceOnce(
   enhancer,
   `  const { visibleAssignments: assignments } = useConsultantPortfolio();`,
-  `  const { visibleAssignments: assignments, unallocatedProjects } = useConsultantPortfolio();\n  const mapAssignments = useMemo<Array<InspectionAssignment & { mapDisplayStatus?: string }>>(() => {\n    const allocated = unallocatedProjects\n      .filter((project) => Number.isFinite(project.latitude) && Number.isFinite(project.longitude))\n      .map((project) => ({\n        id: project.id || \`allocated-\${project.name}\`,\n        projectName: project.name,\n        programme: project.programme,\n        component: project.component,\n        contractor: project.contractor,\n        consultantFirm: \"\",\n        state: project.state,\n        lga: project.lga || \"\",\n        community: project.community || \"\",\n        latitude: Number(project.latitude),\n        longitude: Number(project.longitude),\n        geofenceRadiusMetres: 250,\n        officer: \"Awaiting field officer\",\n        dueDate: \"\",\n        status: \"Assigned\" as const,\n        mapDisplayStatus: \"Awaiting field officer\",\n        audit: [],\n      }));\n    return [...allocated, ...assignments];\n  }, [assignments, unallocatedProjects]);`,
+  `  const { visibleAssignments: assignments, unallocatedProjects } = useConsultantPortfolio();\n  const mapAssignments = useMemo<Array<InspectionAssignment & { mapDisplayStatus?: string }>>(() => {\n    const allocated = unallocatedProjects\n      .map((project) => ({\n        id: project.id || \`allocated-\${project.name}\`,\n        projectName: project.name,\n        programme: project.programme,\n        component: project.component,\n        contractor: project.contractor,\n        consultantFirm: \"\",\n        state: project.state,\n        lga: project.lga || \"\",\n        community: project.community || \"\",\n        latitude: Number(project.latitude),\n        longitude: Number(project.longitude),\n        geofenceRadiusMetres: 250,\n        officer: \"Awaiting field officer\",\n        dueDate: \"\",\n        status: \"Assigned\" as const,\n        mapDisplayStatus: \"Awaiting field officer\",\n        audit: [],\n      }));\n    return [...allocated, ...assignments];\n  }, [assignments, unallocatedProjects]);`,
   "coverage map portfolio source",
 );
+const oldGpsFilteredAllocated = `    const allocated = unallocatedProjects\n      .filter((project) => Number.isFinite(project.latitude) && Number.isFinite(project.longitude))\n      .map((project) => ({`;
+const gpsIndependentAllocated = `    const allocated = unallocatedProjects\n      .map((project) => ({`;
+if (enhancer.includes(oldGpsFilteredAllocated)) {
+  enhancer = enhancer.replace(oldGpsFilteredAllocated, gpsIndependentAllocated);
+}
 enhancer = replaceOnce(
   enhancer,
   `{getAssignmentDisplayStatus(item.status)}`,
@@ -60,4 +65,4 @@ enhancer = replaceOnce(
 );
 fs.writeFileSync(enhancerPath, enhancer);
 
-console.log("Consultant coverage map now includes REA-allocated project coordinates without mislabelling them as field assignments.");
+console.log("Consultant coverage map keeps REA-allocated projects visible while suppressing only pins without valid GPS.");
