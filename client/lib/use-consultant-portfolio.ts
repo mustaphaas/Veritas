@@ -39,18 +39,19 @@ export function useConsultantPortfolio(){
  useEffect(()=>{
   if(session?.role!=="consultant"){setLiveConsultant(null);setLiveFieldOfficers(null);setLiveAssignments(null);setLiveProjects(null);return;}
   let cancelled=false;
-  const load=()=>Promise.all([
-   fetchConsultantProfile().then((payload)=>payload?.consultant??null),
-   fetchConsultantFieldOfficers().then((payload)=>Array.isArray(payload?.fieldOfficers)?payload.fieldOfficers.map(normalizeLiveOfficer):[]),
-   fetchFieldAssignments().then((payload)=>Array.isArray(payload?.assignments)?payload.assignments.map(normalizeCloudAssignment):[]),
-   fetchConsultantProjects().then((payload)=>Array.isArray(payload?.projects)?(payload.projects as ReaMapProjectRecord[]).map(reaRecordToDashboardProject):[]),
-  ]).then(([profile,officers,liveAssignmentsResult,liveProjectsResult])=>{
+  const load=async()=>{
+   const[profileResult,officersResult,assignmentsResult,projectsResult]=await Promise.allSettled([
+    fetchConsultantProfile().then((payload)=>payload?.consultant??null),
+    fetchConsultantFieldOfficers().then((payload)=>Array.isArray(payload?.fieldOfficers)?payload.fieldOfficers.map(normalizeLiveOfficer):[]),
+    fetchFieldAssignments().then((payload)=>Array.isArray(payload?.assignments)?payload.assignments.map(normalizeCloudAssignment):[]),
+    fetchConsultantProjects().then((payload)=>Array.isArray(payload?.projects)?(payload.projects as ReaMapProjectRecord[]).map(reaRecordToDashboardProject):[]),
+   ]);
    if(cancelled)return;
-   setLiveConsultant(profile as ConsultantRecord|null);
-   setLiveFieldOfficers(officers);
-   setLiveAssignments(liveAssignmentsResult as InspectionAssignment[]);
-   setLiveProjects(liveProjectsResult);
-  }).catch(()=>{if(!cancelled){setLiveConsultant(null);setLiveFieldOfficers(null);setLiveAssignments(null);setLiveProjects(null);}});
+   if(profileResult.status === "fulfilled")setLiveConsultant(profileResult.value as ConsultantRecord|null);
+   if(officersResult.status === "fulfilled")setLiveFieldOfficers(officersResult.value as FieldOfficerAccount[]);
+   if(assignmentsResult.status === "fulfilled")setLiveAssignments(assignmentsResult.value as InspectionAssignment[]);
+   if(projectsResult.status === "fulfilled")setLiveProjects(projectsResult.value);
+  };
   void load();
   const timer=window.setInterval(load,30000);
   const refresh=()=>void load();
