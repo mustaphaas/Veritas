@@ -378,8 +378,9 @@ function AssignmentList({ mode, onOpen }: { mode: "assignments" | "inspections" 
           { label: "Verified", value: base.filter((item) => item.status === "Verified").length, note: "Field verified", icon: "shield-checkmark-outline" as const, tone: "green" as const },
           { label: "Re-inspection", value: base.filter((item) => item.status === "Re-inspection").length, note: "Needs a revisit", icon: "refresh-outline" as const, tone: "amber" as const },
         ];
+  const threeUp = mode === "assignments" || mode === "drafts";
   return (
-    <FlatList data={base} keyExtractor={(item) => item.id} contentContainerStyle={[styles.scrollContent, styles.listContent]} ListHeaderComponent={<><View style={styles.heroCopy}><Text style={styles.pageTitle}>{title}</Text><Text style={styles.pageSubtitle}>{subtitle}</Text></View><View style={styles.metricsGrid}>{summaries.map((item) => <KpiCard key={item.label} {...item} />)}</View><Text style={styles.listLabel}>{mode === "drafts" ? "Autosaved forms" : mode === "assignments" ? "Assignment list" : "Inspection history"}</Text></>} renderItem={({ item }) => <AssignmentCard item={item} onOpen={onOpen} />} ListEmptyComponent={<EmptyState icon={mode === "drafts" ? "document-text-outline" : "checkmark-done-outline"} title={mode === "drafts" ? "No drafts" : "Nothing here"} text={mode === "drafts" ? "A form appears here automatically after you start filling it." : "No records are available in this section."} />} />
+    <FlatList data={base} keyExtractor={(item) => item.id} contentContainerStyle={[styles.scrollContent, styles.listContent]} ListHeaderComponent={<><View style={styles.heroCopy}><Text style={styles.pageTitle}>{title}</Text><Text style={styles.pageSubtitle}>{subtitle}</Text></View><View style={threeUp ? styles.metricsGridRow : styles.metricsGrid}>{summaries.map((item) => <KpiCard key={item.label} {...item} compact={threeUp} />)}</View><Text style={styles.listLabel}>{mode === "drafts" ? "Autosaved forms" : mode === "assignments" ? "Assignment list" : "Inspection history"}</Text></>} renderItem={({ item }) => <AssignmentCard item={item} onOpen={onOpen} />} ListEmptyComponent={<EmptyState icon={mode === "drafts" ? "document-text-outline" : "checkmark-done-outline"} title={mode === "drafts" ? "No drafts" : "Nothing here"} text={mode === "drafts" ? "A form appears here automatically after you start filling it." : "No records are available in this section."} />} />
   );
 }
 
@@ -549,14 +550,25 @@ function AssignmentCard({ item, onOpen, compact = false }: { item: Assignment; o
 }
 
 function ProjectIcon() {
-  // A clean bolt glyph reads as "electrification project" across every
-  // component type (Grid Extension, Mini Grid, SAS) instead of implying
-  // every project is solar. Styled like the KPI icon badges (colored
-  // circle + soft shine) so it matches the rest of the card language.
+  // Solar panel glyph — a small tilted panel with a grid of cells, built
+  // from plain Views so it renders crisply at icon size without a new SVG
+  // dependency. Styled like the KPI icon badges (colored circle + shine)
+  // so it matches the rest of the card language.
   return (
-    <View style={styles.projectIcon} accessibilityLabel="Electrification project">
+    <View style={styles.projectIcon} accessibilityLabel="Solar project">
       <View style={styles.projectIconShine} />
-      <Ionicons name="flash" size={18} color={colors.white} />
+      <View style={styles.solarPanel}>
+        <View style={styles.solarRow}>
+          <View style={styles.solarCell} />
+          <View style={styles.solarCell} />
+          <View style={styles.solarCell} />
+        </View>
+        <View style={styles.solarRow}>
+          <View style={styles.solarCell} />
+          <View style={styles.solarCell} />
+          <View style={styles.solarCell} />
+        </View>
+      </View>
     </View>
   );
 }
@@ -573,22 +585,22 @@ function tonePale(tone: "green" | "amber" | "blue" | "violet") {
 // a vibrant icon badge with a shine, and a colored accent line — the
 // same recipe everywhere so every tab's stats feel like one design
 // system instead of Overview looking different from the rest.
-function KpiCard({ label, value, note, icon, tone, onPress }: { label: string; value: number; note?: string; icon: keyof typeof Ionicons.glyphMap; tone: "green" | "amber" | "blue" | "violet"; onPress?: () => void }) {
+function KpiCard({ label, value, note, icon, tone, onPress, compact = false }: { label: string; value: number; note?: string; icon: keyof typeof Ionicons.glyphMap; tone: "green" | "amber" | "blue" | "violet"; onPress?: () => void; compact?: boolean }) {
   const color = toneColor(tone);
   const pale = tonePale(tone);
   return (
-    <Pressable disabled={!onPress} onPress={onPress} style={[styles.metricCard, { backgroundColor: pale, shadowColor: color }]}>
+    <Pressable disabled={!onPress} onPress={onPress} style={[styles.metricCard, compact && styles.metricCardCompact, { backgroundColor: pale, shadowColor: color }]}>
       <View style={styles.metricGlassHighlight} />
-      <View style={[styles.metricIcon, { backgroundColor: color, shadowColor: color }]}>
+      <View style={[styles.metricIcon, compact && styles.metricIconCompact, { backgroundColor: color, shadowColor: color }]}>
         <View style={styles.metricIconShine} />
-        <Ionicons name={icon} size={19} color={colors.white} />
+        <Ionicons name={icon} size={compact ? 15 : 19} color={colors.white} />
       </View>
-      <View style={styles.metricCopy}>
-        <Text style={styles.metricValue}>{String(value)}</Text>
-        <Text style={styles.metricLabel}>{label}</Text>
-        {note ? <Text style={styles.metricNote} numberOfLines={1}>{note}</Text> : null}
+      <View style={[styles.metricCopy, compact && styles.metricCopyCompact]}>
+        <Text style={[styles.metricValue, compact && styles.metricValueCompact]}>{String(value)}</Text>
+        <Text style={[styles.metricLabel, compact && styles.metricLabelCompact]} numberOfLines={1}>{label}</Text>
+        {note && !compact ? <Text style={styles.metricNote} numberOfLines={1}>{note}</Text> : null}
       </View>
-      {onPress ? <View style={[styles.metricChevron, { backgroundColor: "rgba(255,255,255,0.62)" }]}><Ionicons name="chevron-forward" size={14} color={color} /></View> : null}
+      {onPress && !compact ? <View style={[styles.metricChevron, { backgroundColor: "rgba(255,255,255,0.62)" }]}><Ionicons name="chevron-forward" size={14} color={color} /></View> : null}
       <View style={[styles.metricLine, { backgroundColor: color }]} />
     </Pressable>
   );
@@ -679,13 +691,19 @@ const styles = StyleSheet.create({
   pageSubtitle: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 4 },
   metricsRow: { flexDirection: "row", gap: 9 },
   metricsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
+  metricsGridRow: { flexDirection: "row", gap: 7 },
   metricCard: { width: "48%", height: 90, borderRadius: 26, paddingHorizontal: 12, paddingBottom: 10, paddingTop: 9, flexDirection: "row", alignItems: "center", gap: 9, overflow: "hidden", borderWidth: 1, borderColor: "rgba(255,255,255,0.75)", shadowOpacity: 0.1, shadowRadius: 18, shadowOffset: { width: 0, height: 9 }, elevation: 3 },
+  metricCardCompact: { width: undefined, flex: 1, height: 94, flexDirection: "column", alignItems: "flex-start", justifyContent: "flex-start", gap: 6, paddingHorizontal: 8, paddingTop: 10, paddingBottom: 10 },
   metricGlassHighlight: { position: "absolute", width: 100, height: 70, borderRadius: 50, top: -42, left: -18, backgroundColor: "rgba(255,255,255,0.58)" },
   metricIcon: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", overflow: "hidden", shadowOpacity: 0.24, shadowRadius: 9, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
+  metricIconCompact: { width: 30, height: 30, borderRadius: 15 },
   metricIconShine: { position: "absolute", width: 32, height: 18, borderRadius: 16, top: -7, left: 4, backgroundColor: "rgba(255,255,255,0.38)" },
   metricCopy: { flex: 1, minWidth: 0 },
+  metricCopyCompact: { flex: 0, minWidth: 0, width: "100%" },
   metricValue: { color: colors.deep, fontSize: 20, lineHeight: 21, fontWeight: "800", letterSpacing: -0.5 },
+  metricValueCompact: { fontSize: 16, lineHeight: 18 },
   metricLabel: { color: colors.deep, fontSize: 9.5, lineHeight: 12, fontWeight: "800" },
+  metricLabelCompact: { fontSize: 8.5, lineHeight: 10 },
   metricNote: { color: colors.muted, fontSize: 7.5, lineHeight: 10, marginTop: 1 },
   metricChevron: { position: "absolute", right: 8, top: 8, width: 21, height: 21, borderRadius: 11, alignItems: "center", justifyContent: "center" },
   metricLine: { position: "absolute", left: 11, right: 11, bottom: 6, height: 3, borderRadius: 2 },
@@ -721,6 +739,9 @@ const styles = StyleSheet.create({
   assignmentTop: { flexDirection: "row", alignItems: "center", gap: 9 },
   projectIcon: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center", overflow: "hidden", shadowColor: colors.primary, shadowOpacity: 0.3, shadowRadius: 7, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
   projectIconShine: { position: "absolute", width: 28, height: 15, borderRadius: 13, top: -5, left: 5, backgroundColor: "rgba(255,255,255,0.4)" },
+  solarPanel: { width: 21, height: 15, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.95)", padding: 1.5, justifyContent: "space-between", transform: [{ rotate: "-8deg" }] },
+  solarRow: { flex: 1, flexDirection: "row", gap: 1.5 },
+  solarCell: { flex: 1, backgroundColor: colors.primary, borderRadius: 1, opacity: 0.85 },
   assignmentMain: { flex: 1 },
   assignmentName: { color: colors.deep, fontSize: 13, lineHeight: 17, fontWeight: "800" },
   assignmentId: { color: colors.muted, fontSize: 9, marginTop: 3 },
