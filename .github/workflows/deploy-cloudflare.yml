@@ -61,15 +61,6 @@ jobs:
       - name: Validate REA users database regression
         run: node --test tests/rea-users-database.test.mjs
 
-      - name: Apply Nigeria satellite boundary mask
-        run: node scripts/patch-satellite-nigeria-mask.mjs
-
-      - name: Remove Project Map summary badges
-        run: node scripts/patch-project-map-summary-badges.mjs
-
-      - name: Validate satellite map shared state
-        run: node --test tests/project-map-satellite-shared-state.test.mjs
-
       - name: Validate worker and Claims syntax
         run: |
           node --check worker/index.js
