@@ -36,9 +36,21 @@ const enhancerPath = "client/components/ConsultantCoverageMapEnhancer.tsx";
 let enhancer = fs.readFileSync(enhancerPath, "utf8");
 enhancer = replaceOnce(
   enhancer,
+  `function statusColor(assignment: InspectionAssignment) {\n  const status = getAssignmentDisplayStatus(assignment.status);`,
+  `function assignmentStatusLabel(item: InspectionAssignment) {\n  return (item as InspectionAssignment & { mapDisplayStatus?: string }).mapDisplayStatus ?? getAssignmentDisplayStatus(item.status);\n}\nfunction statusColor(assignment: InspectionAssignment) {\n  const status = getAssignmentDisplayStatus(assignment.status);`,
+  "map display status helper",
+);
+enhancer = replaceOnce(
+  enhancer,
   `  const { visibleAssignments: assignments } = useConsultantPortfolio();`,
-  `  const { visibleAssignments: assignments, unallocatedProjects } = useConsultantPortfolio();\n  const mapAssignments = useMemo<InspectionAssignment[]>(() => {\n    const allocated = unallocatedProjects\n      .filter((project) => Number.isFinite(project.latitude) && Number.isFinite(project.longitude))\n      .map((project) => ({\n        id: project.id || \`allocated-\${project.name}\`,\n        projectName: project.name,\n        programme: project.programme,\n        component: project.component,\n        contractor: project.contractor,\n        consultantFirm: \"\",\n        state: project.state,\n        lga: project.lga || \"\",\n        community: project.community || \"\",\n        latitude: Number(project.latitude),\n        longitude: Number(project.longitude),\n        geofenceRadiusMetres: 250,\n        officer: \"Awaiting field officer\",\n        dueDate: \"\",\n        status: \"Assigned\" as const,\n        audit: [],\n      }));\n    return [...allocated, ...assignments];\n  }, [assignments, unallocatedProjects]);`,
+  `  const { visibleAssignments: assignments, unallocatedProjects } = useConsultantPortfolio();\n  const mapAssignments = useMemo<Array<InspectionAssignment & { mapDisplayStatus?: string }>>(() => {\n    const allocated = unallocatedProjects\n      .filter((project) => Number.isFinite(project.latitude) && Number.isFinite(project.longitude))\n      .map((project) => ({\n        id: project.id || \`allocated-\${project.name}\`,\n        projectName: project.name,\n        programme: project.programme,\n        component: project.component,\n        contractor: project.contractor,\n        consultantFirm: \"\",\n        state: project.state,\n        lga: project.lga || \"\",\n        community: project.community || \"\",\n        latitude: Number(project.latitude),\n        longitude: Number(project.longitude),\n        geofenceRadiusMetres: 250,\n        officer: \"Awaiting field officer\",\n        dueDate: \"\",\n        status: \"Assigned\" as const,\n        mapDisplayStatus: \"Awaiting field officer\",\n        audit: [],\n      }));\n    return [...allocated, ...assignments];\n  }, [assignments, unallocatedProjects]);`,
   "coverage map portfolio source",
+);
+enhancer = replaceOnce(
+  enhancer,
+  `{getAssignmentDisplayStatus(item.status)}`,
+  `{assignmentStatusLabel(item)}`,
+  "project list status label",
 );
 enhancer = replaceOnce(
   enhancer,
@@ -48,4 +60,4 @@ enhancer = replaceOnce(
 );
 fs.writeFileSync(enhancerPath, enhancer);
 
-console.log("Consultant coverage map now includes REA-allocated project coordinates.");
+console.log("Consultant coverage map now includes REA-allocated project coordinates without mislabelling them as field assignments.");
