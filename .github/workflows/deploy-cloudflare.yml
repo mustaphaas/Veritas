@@ -64,14 +64,8 @@ jobs:
       - name: Remove Project Map summary badges
         run: node scripts/patch-project-map-summary-badges.mjs
 
-      - name: Apply Project Map marker click zoom
-        run: node scripts/patch-project-map-click-zoom.mjs
-
-      - name: Apply standard Project Map pin zoom
-        run: node scripts/patch-standard-project-pin-zoom.mjs
-
-      - name: Validate Project Map satellite providers and D1 state
-        run: node --test tests/project-map-satellite-shared-state.test.mjs tests/project-map-satellite-click-zoom.test.mjs
+      - name: Validate restored satellite click zoom
+        run: npx vitest run client/components/ProjectMapSatelliteEnhancer.spec.ts
 
       - name: Validate worker and Claims syntax
         run: |
@@ -85,8 +79,6 @@ jobs:
 
       - name: Build client
         run: npm run build:client
-        env:
-          VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
 
       - name: Provision D1 and optional R2 bindings
         run: node scripts/provision-cloudflare.mjs
@@ -105,7 +97,6 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
 
       - name: Inspect active production deployment
         run: npx wrangler@latest deployments list
