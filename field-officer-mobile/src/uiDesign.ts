@@ -4,7 +4,7 @@ export function greetingName(officerName: string) {
 }
 
 export const sectionKpiCardSpec = {
-  borderRadius: 20,
+  borderRadius: 26,
   centered: true,
   iconDiameter: 40,
 } as const;

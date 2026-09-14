@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
-import { assignmentValues, assignmentsForSection, displayStatus, distanceMetres, formatCurrentLocation, formSections, isFormComplete, isReportLocked, isWithinProjectGeofence } from "./domain.ts";
+import { assignmentValues, assignmentsForSection, displayStatus, distanceMetres, formatCurrentLocation, formSections, getFormSections, isFormComplete, isReportLocked, isSupportedComponent, isWithinProjectGeofence } from "./domain.ts";
 import { demoAssignments } from "./demoData.ts";
 import { appVisualSpec, greetingBannerSpec } from "./greetingBanner.ts";
 
@@ -67,6 +67,23 @@ describe("field officer mobile domain", () => {
     assert.ok(dateFields.every((field) => (field.options?.length ?? 0) > 0));
   });
 
+  it("degrades gracefully instead of crashing when a project has an unrecognised component", () => {
+    // Real projects come from the REA admin dashboard, where "component" is
+    // free text. Any value outside the three known keys must never throw —
+    // that was the exact cause of the "Start inspection" crash on Android.
+    const brokenAssignment = { ...demoAssignments[0]!, component: "Solar Mini Grid" as never };
+    assert.equal(isSupportedComponent(brokenAssignment.component), false);
+    assert.deepEqual(getFormSections(brokenAssignment.component), []);
+    assert.doesNotThrow(() => assignmentValues(brokenAssignment));
+    assert.doesNotThrow(() => isFormComplete(brokenAssignment.component, {}));
+    assert.equal(isFormComplete(brokenAssignment.component, {}), false);
+
+    assert.equal(isSupportedComponent(undefined), false);
+    assert.equal(isSupportedComponent(""), false);
+    assert.deepEqual(getFormSections(null), []);
+    assert.deepEqual(getFormSections("Mini Grid"), formSections["Mini Grid"]);
+  });
+
   it("includes Mustapha's Durumi GPS test assignment", () => {
     const durumi = demoAssignments.find((item) => item.id === "REA-FCT-MG-DEMO-001");
     assert.equal(durumi?.officer, "Mustapha Aliyu");
@@ -102,7 +119,7 @@ describe("field officer mobile domain", () => {
     assert.equal(greetingBannerSpec.showLeadingSun, false);
     assert.equal(appVisualSpec.overviewKpiColumns, 2);
     assert.equal(appVisualSpec.glassKpiCards, true);
-    assert.equal(appVisualSpec.projectIcon, "solar-panel");
+    assert.equal(appVisualSpec.projectIcon, "flash");
   });
 
   it("does not embed login credentials in the application screen", () => {

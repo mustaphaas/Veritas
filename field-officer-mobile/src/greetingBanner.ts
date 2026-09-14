@@ -9,5 +9,5 @@ export const greetingBannerSpec = {
 export const appVisualSpec = {
   overviewKpiColumns: 2,
   glassKpiCards: true,
-  projectIcon: "solar-panel",
+  projectIcon: "flash",
 } as const;

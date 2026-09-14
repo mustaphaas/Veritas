@@ -7,7 +7,7 @@ test("greeting uses the field officer full name", () => {
 });
 
 test("section KPI cards share the compact overview visual specification", () => {
-  assert.equal(sectionKpiCardSpec.borderRadius, 20);
+  assert.equal(sectionKpiCardSpec.borderRadius, 26);
   assert.equal(sectionKpiCardSpec.centered, true);
   assert.equal(sectionKpiCardSpec.iconDiameter, 40);
 });

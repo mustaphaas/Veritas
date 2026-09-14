@@ -60,13 +60,33 @@ export function isReportLocked(status: AssignmentStatus) {
   return ["Submitted", "Approved", "Verified"].includes(status);
 }
 
+// Real projects are created through the REA admin dashboard, where the
+// "component" field is free text tied to whatever the admin selected/typed.
+// Demo data always matches one of the three known keys below, but live data
+// can arrive with a missing, blank, or unrecognised component. formSections
+// is a plain object keyed by the exact three strings, so indexing it with
+// anything else silently returns `undefined` rather than throwing at the
+// lookup site — the crash actually happens later wherever the result gets
+// treated as an array (e.g. `sections.map(...)`). isSupportedComponent /
+// getFormSections give every call site a single guarded path so an
+// unrecognised component degrades to "no form" instead of closing the app.
+const SUPPORTED_COMPONENTS: ProjectComponent[] = ["Grid Extension", "Mini Grid", "SAS"];
+
+export function isSupportedComponent(component: unknown): component is ProjectComponent {
+  return typeof component === "string" && (SUPPORTED_COMPONENTS as string[]).includes(component);
+}
+
+export function getFormSections(component: unknown): FormSection[] {
+  return isSupportedComponent(component) ? formSections[component] : [];
+}
+
 export function isWithinProjectGeofence(distance: number, radius = 250) {
   return Number.isFinite(distance) && distance <= radius;
 }
 
 export function assignmentValues(assignment: Assignment) {
   const values: Record<string, string> = {};
-  for (const section of formSections[assignment.component]) {
+  for (const section of getFormSections(assignment.component)) {
     for (const field of section.fields) {
       values[field.key] = field.assigned
         ? String(assignment[field.assigned] ?? "")
@@ -80,7 +100,8 @@ export function isFormComplete(
   component: ProjectComponent,
   values: Record<string, string>,
 ) {
-  return formSections[component]
+  const sections = getFormSections(component);
+  return sections.length > 0 && sections
     .flatMap((section) => section.fields)
     .every((field) => String(values[field.key] ?? "").trim().length > 0);
 }
