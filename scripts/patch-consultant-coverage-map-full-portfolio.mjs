@@ -40,12 +40,18 @@ enhancer = replaceOnce(
   `function assignmentStatusLabel(item: InspectionAssignment) {\n  return (item as InspectionAssignment & { mapDisplayStatus?: string }).mapDisplayStatus ?? getAssignmentDisplayStatus(item.status);\n}\nfunction statusColor(assignment: InspectionAssignment) {\n  const status = getAssignmentDisplayStatus(assignment.status);`,
   "map display status helper",
 );
+
 enhancer = replaceOnce(
   enhancer,
   `  const { visibleAssignments: assignments } = useConsultantPortfolio();`,
-  `  const { visibleAssignments: assignments, unallocatedProjects } = useConsultantPortfolio();\n  const mapAssignments = useMemo<Array<InspectionAssignment & { mapDisplayStatus?: string }>>(() => {\n    const allocated = unallocatedProjects\n      .map((project) => ({\n        id: project.id || \`allocated-\${project.name}\`,\n        projectName: project.name,\n        programme: project.programme,\n        component: project.component,\n        contractor: project.contractor,\n        consultantFirm: \"\",\n        state: project.state,\n        lga: project.lga || \"\",\n        community: project.community || \"\",\n        latitude: Number(project.latitude),\n        longitude: Number(project.longitude),\n        geofenceRadiusMetres: 250,\n        officer: \"Awaiting field officer\",\n        dueDate: \"\",\n        status: \"Assigned\" as const,\n        mapDisplayStatus: \"Awaiting field officer\",\n        audit: [],\n      }));\n    return [...allocated, ...assignments];\n  }, [assignments, unallocatedProjects]);`,
-  "coverage map portfolio source",
+  `  const { ownedAssignments, unallocatedProjects } = useConsultantPortfolio();\n  const assignments = useMemo(\n    () => ownedAssignments.filter((item) => item.status !== "Draft"),\n    [ownedAssignments],\n  );\n  const mapAssignments = useMemo<Array<InspectionAssignment & { mapDisplayStatus?: string }>>(() => {\n    const allocated = unallocatedProjects\n      .map((project) => ({\n        id: project.id || \`allocated-\${project.name}\`,\n        projectName: project.name,\n        programme: project.programme,\n        component: project.component,\n        contractor: project.contractor,\n        consultantFirm: \"\",\n        state: project.state,\n        lga: project.lga || \"\",\n        community: project.community || \"\",\n        latitude: Number(project.latitude),\n        longitude: Number(project.longitude),\n        geofenceRadiusMetres: 250,\n        officer: \"Awaiting field officer\",\n        dueDate: \"\",\n        status: \"Assigned\" as const,\n        mapDisplayStatus: \"Awaiting field officer\",\n        audit: [],\n      }));\n    return [...allocated, ...assignments];\n  }, [assignments, unallocatedProjects]);`,
+  "coverage map full non-draft portfolio source",
 );
+
+const oldVisiblePortfolio = `  const { visibleAssignments: assignments, unallocatedProjects } = useConsultantPortfolio();\n  const mapAssignments = useMemo<Array<InspectionAssignment & { mapDisplayStatus?: string }>>(() => {`;
+const ownedPortfolio = `  const { ownedAssignments, unallocatedProjects } = useConsultantPortfolio();\n  const assignments = useMemo(\n    () => ownedAssignments.filter((item) => item.status !== "Draft"),\n    [ownedAssignments],\n  );\n  const mapAssignments = useMemo<Array<InspectionAssignment & { mapDisplayStatus?: string }>>(() => {`;
+if (enhancer.includes(oldVisiblePortfolio)) enhancer = enhancer.replace(oldVisiblePortfolio, ownedPortfolio);
+
 const oldGpsFilteredAllocated = `    const allocated = unallocatedProjects\n      .filter((project) => Number.isFinite(project.latitude) && Number.isFinite(project.longitude))\n      .map((project) => ({`;
 const gpsIndependentAllocated = `    const allocated = unallocatedProjects\n      .map((project) => ({`;
 if (enhancer.includes(oldGpsFilteredAllocated)) {
@@ -65,4 +71,4 @@ enhancer = replaceOnce(
 );
 fs.writeFileSync(enhancerPath, enhancer);
 
-console.log("Consultant coverage map keeps REA-allocated projects visible while suppressing only pins without valid GPS.");
+console.log("Consultant coverage map shows the full owned portfolio except Drafts and keeps awaiting projects visible without GPS.");
