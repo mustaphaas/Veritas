@@ -13,3 +13,10 @@ test("satellite map mirrors Project Map filters and layer toggles", () => {
   assert.match(source, /layers\.Status/);
   assert.match(source, /MutationObserver/);
 });
+
+test("satellite map dims everything outside Nigeria", () => {
+  assert.match(source, /nigeria-adm1\.geojson/);
+  assert.match(source, /fillRule:\s*["']evenodd["']/);
+  assert.match(source, /fillOpacity:\s*0\.[45-8]/);
+  assert.match(source, /setMaxBounds|maxBounds/);
+});
