@@ -56,3 +56,10 @@ test("satellite mode offers Esri and Google while preserving one D1 project feed
   assert.doesNotMatch(source, /VITE_MAPBOX_ACCESS_TOKEN/);
   assert.doesNotMatch(source, /api\.mapbox\.com/);
 });
+
+test("project marker click zoom works on Esri and Google", () => {
+  assert.match(source, /\.on\(["']click["']\s*,\s*\(\)\s*=>\s*map\.setView\(\[latitude, longitude\], PROJECT_FOCUS_ZOOM\)\)/);
+  assert.match(source, /marker\.addListener\(["']click["']/);
+  assert.match(source, /map\.setCenter\(\{\s*lat:\s*latitude,\s*lng:\s*longitude\s*\}\)/);
+  assert.match(source, /map\.setZoom\(PROJECT_FOCUS_ZOOM\)/);
+});
