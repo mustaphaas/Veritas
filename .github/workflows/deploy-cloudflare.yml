@@ -72,7 +72,7 @@ jobs:
           node --check worker/field-api.js
 
       - name: Validate Claims contracts
-        run: node --test tests/claims-api-contract.test.mjs tests/claims-immutable-assignment.test.mjs tests/claims-migration.test.mjs
+        run: node --test tests/claims-api-contract.test.mjs tests/claims-immutable-assignment.test.mjs tests/claims-migration.test.mjs tests/claims-dares-template-import.test.mjs
 
       - name: Build client
         run: npm run build:client
