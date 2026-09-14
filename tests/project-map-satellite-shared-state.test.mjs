@@ -44,3 +44,13 @@ test("layer toggles update overlays without recreating the satellite basemap", (
   assert.match(source, /layerGroup\(\)/);
   assert.doesNotMatch(source, /\[mappable, sharedState\.layers\.Contractors, sharedState\.layers\.Inspections, sharedState\.layers\.Projects, sharedState\.layers\.Status\]/);
 });
+
+test("satellite mode offers Esri and Mapbox while preserving one D1 project feed", () => {
+  assert.match(source, /Esri/);
+  assert.match(source, /Mapbox/);
+  assert.match(source, /VITE_MAPBOX_ACCESS_TOKEN/);
+  assert.match(source, /api\.mapbox\.com/);
+  assert.match(source, /fetchReaMapProjects\(session\.apiToken\)/);
+  assert.match(source, /imageryProvider/);
+  assert.match(source, /tileLayerRef/);
+});
