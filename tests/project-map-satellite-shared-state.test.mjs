@@ -20,3 +20,17 @@ test("satellite map dims everything outside Nigeria", () => {
   assert.match(source, /fillOpacity:\s*0\.[45-8]/);
   assert.match(source, /setMaxBounds|maxBounds/);
 });
+
+test("satellite map does not render portfolio summary badges", () => {
+  assert.doesNotMatch(source, /\{filteredProjects\.length\.toLocaleString\(\)\} Projects/);
+  assert.doesNotMatch(source, /\{verifiedCount\.toLocaleString\(\)\} Verified/);
+  assert.doesNotMatch(source, /\{\(capacityKw \/ 1000\)\.toFixed\(1\)\} MW/);
+  assert.doesNotMatch(source, /\{households\.toLocaleString\(\)\} Households/);
+});
+
+test("layer toggles update overlays without recreating the satellite basemap", () => {
+  assert.match(source, /markerLayerRef/);
+  assert.match(source, /clearLayers\(\)/);
+  assert.match(source, /layerGroup\(\)/);
+  assert.doesNotMatch(source, /\[mappable, sharedState\.layers\.Contractors, sharedState\.layers\.Inspections, sharedState\.layers\.Projects, sharedState\.layers\.Status\]/);
+});
