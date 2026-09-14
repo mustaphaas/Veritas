@@ -5,6 +5,8 @@ import fs from "node:fs";
 const source = fs.readFileSync("client/components/ProjectMapSatelliteEnhancer.tsx", "utf8");
 const programmeSource = fs.readFileSync("client/components/ReaProjectMapProgramme.tsx", "utf8");
 
+// Regression coverage for the production satellite view: badges must stay removed
+// and layer switches must update overlays without tearing down the basemap.
 test("satellite map mirrors Project Map filters and layer toggles", () => {
   assert.match(source, /Search project ID or name/);
   assert.match(source, /All Programmes/);
