@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const source = fs.readFileSync("client/components/ProjectMapSatelliteEnhancer.tsx", "utf8");
+const programmeSource = fs.readFileSync("client/components/ReaProjectMapProgramme.tsx", "utf8");
 
 test("satellite map mirrors Project Map filters and layer toggles", () => {
   assert.match(source, /Search project ID or name/);
@@ -26,6 +27,13 @@ test("satellite map does not render portfolio summary badges", () => {
   assert.doesNotMatch(source, /\{verifiedCount\.toLocaleString\(\)\} Verified/);
   assert.doesNotMatch(source, /\{\(capacityKw \/ 1000\)\.toFixed\(1\)\} MW/);
   assert.doesNotMatch(source, /\{households\.toLocaleString\(\)\} Households/);
+});
+
+test("underlying project map does not render grey portfolio summary badges", () => {
+  assert.doesNotMatch(programmeSource, /\{displayMetrics\.projects\.toLocaleString\(\)\} Projects/);
+  assert.doesNotMatch(programmeSource, /\{displayMetrics\.verified\.toLocaleString\(\)\} Verified/);
+  assert.doesNotMatch(programmeSource, /\{formatMw\(displayMetrics\.kw\)\}/);
+  assert.doesNotMatch(programmeSource, /\{displayMetrics\.households\.toLocaleString\(\)\} Households/);
 });
 
 test("layer toggles update overlays without recreating the satellite basemap", () => {
