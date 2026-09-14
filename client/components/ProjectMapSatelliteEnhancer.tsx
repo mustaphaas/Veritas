@@ -13,6 +13,8 @@ export const projectMapSatelliteInitialView = {
 };
 
 export const PROJECT_FOCUS_ZOOM = 18;
+export const NIGERIA_MAX_BOUNDS = [[3.2, 2.0], [14.9, 15.2]] as [[number, number], [number, number]];
+export const NIGERIA_MASK_OPACITY = 0.58;
 
 const LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
 const LEAFLET_JS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
@@ -22,6 +24,11 @@ type LeafletMap = {
   remove: () => void;
   invalidateSize: () => void;
   fitBounds: (bounds: unknown, options?: Record<string, unknown>) => void;
+  setMaxBounds: (bounds: unknown) => void;
+};
+
+type LeafletLayer = {
+  addTo: (map: LeafletMap) => LeafletLayer;
 };
 
 type LeafletMarker = {
@@ -38,6 +45,7 @@ type LeafletApi = {
     addTo: (map: LeafletMap) => unknown;
   };
   circleMarker: (latlng: [number, number], options?: Record<string, unknown>) => LeafletMarker;
+  polygon: (latlngs: unknown, options?: Record<string, unknown>) => LeafletLayer;
   latLngBounds: (latlngs: Array<[number, number]>) => unknown;
 };
 
@@ -100,6 +108,22 @@ function escapeHtml(value: unknown) {
     .replaceAll("'", "&#039;");
 }
 
+function extractNigeriaRings(data: any) {
+  const features = Array.isArray(data?.features) ? data.features : [];
+  return features.flatMap((feature: any) => {
+    const geometry = feature?.geometry;
+    if (!geometry || !Array.isArray(geometry.coordinates)) return [];
+    const rings = geometry.type === "Polygon"
+      ? [geometry.coordinates[0]]
+      : geometry.type === "MultiPolygon"
+        ? geometry.coordinates.map((polygon: any) => polygon[0])
+        : [];
+    return rings
+      .filter(Array.isArray)
+      .map((ring: any[]) => ring.map(([longitude, latitude]) => [latitude, longitude]));
+  });
+}
+
 function SatelliteCanvas({ projects }: { projects: ReaMapProjectRecord[] }) {
   const elementRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
@@ -120,12 +144,35 @@ function SatelliteCanvas({ projects }: { projects: ReaMapProjectRecord[] }) {
           minZoom: 5,
           maxZoom: 19,
           attributionControl: true,
+          maxBounds: NIGERIA_MAX_BOUNDS,
+          maxBoundsViscosity: 0.92,
         }).setView(projectMapSatelliteInitialView.center, projectMapSatelliteInitialView.zoom);
+        map.setMaxBounds(NIGERIA_MAX_BOUNDS);
 
         L.tileLayer(SATELLITE_TILE_URL, {
           maxZoom: 19,
           attribution: "Tiles © Esri",
         }).addTo(map);
+
+        fetch("/nigeria-adm1.geojson")
+          .then((response) => {
+            if (!response.ok) throw new Error("Nigeria boundary request failed");
+            return response.json();
+          })
+          .then((data) => {
+            if (cancelled) return;
+            const nigeriaRings = extractNigeriaRings(data);
+            if (!nigeriaRings.length) return;
+            const worldRing = [[-85, -180], [-85, 180], [85, 180], [85, -180], [-85, -180]];
+            L.polygon([worldRing, ...nigeriaRings], {
+              stroke: false,
+              fillColor: "#06130d",
+              fillOpacity: NIGERIA_MASK_OPACITY,
+              fillRule: "evenodd",
+              interactive: false,
+            }).addTo(map);
+          })
+          .catch(() => undefined);
 
         const points: Array<[number, number]> = [];
         mappable.forEach((project) => {
