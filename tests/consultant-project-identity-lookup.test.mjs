@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { spawnSync } from 'node:child_process';
 
+const patch = spawnSync(process.execPath, ['scripts/patch-consultant-project-identity.mjs'], { encoding: 'utf8' });
+assert.equal(patch.status, 0, patch.stderr || patch.stdout || 'consultant project identity patch failed');
 const source = fs.readFileSync('worker/claims-api.js', 'utf8');
 
 test('consultant project lookup derives a stable consultant id for the signed-in consultant', () => {
