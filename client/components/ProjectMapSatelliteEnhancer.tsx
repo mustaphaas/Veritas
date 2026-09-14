@@ -12,6 +12,8 @@ export const projectMapSatelliteInitialView = {
   zoom: 6,
 };
 
+export const PROJECT_FOCUS_ZOOM = 18;
+
 const LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
 const LEAFLET_JS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
 const MAP_SHELL_SELECTOR = ".veritas-map-canvas";
@@ -25,6 +27,7 @@ type LeafletMap = {
 type LeafletMarker = {
   bindPopup: (html: string) => LeafletMarker;
   addTo: (map: LeafletMap) => LeafletMarker;
+  on: (event: string, handler: () => void) => LeafletMarker;
 };
 
 type LeafletApi = {
@@ -139,6 +142,7 @@ function SatelliteCanvas({ projects }: { projects: ReaMapProjectRecord[] }) {
             .bindPopup(
               `<div style="min-width:180px;font-family:system-ui,sans-serif"><strong>${escapeHtml(project.name)}</strong><br/><span style="font-size:11px;color:#64748b">${escapeHtml(project.community || project.lga || project.state)}</span><br/><span style="font-size:11px;color:#08733f;font-weight:700">${escapeHtml(project.programme)} · ${escapeHtml(project.status)}</span></div>`,
             )
+            .on("click", () => map.setView([latitude, longitude], PROJECT_FOCUS_ZOOM))
             .addTo(map);
         });
 
