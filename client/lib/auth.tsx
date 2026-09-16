@@ -54,20 +54,22 @@ function hasUsableCloudSession(session:AuthSession){
 
 function hydrateSession(session:AuthSession):AuthSession|null{
  if(!hasUsableCloudSession(session))return null;
+ // The D1-backed cloud session is authoritative. Browser-local records are
+ // optional display enrichments only and must never invalidate a live login.
  if(session.role==="rea"){
   const staff=readReaStaff().find(account=>account.email.toLowerCase()===session.email.toLowerCase());
-  if(!staff||staff.status!=="Active")return null;
-  return {...session,roleLabel:staff.role,name:staff.name,initials:initials(staff.name),email:staff.email,access:[...staff.access]};
+  if(staff?.status==="Active")return {...session,roleLabel:staff.role,name:staff.name,initials:initials(staff.name),email:staff.email,access:[...staff.access]};
+  return session;
  }
  if(session.role==="consultant"){
   const consultant=readConsultants().find(account=>account.adminEmail.toLowerCase()===session.email.toLowerCase());
-  if(!consultant||consultant.status!=="Active")return session.email==="consultant.admin@demo.ng"?session:null;
-  return {...session,name:consultant.adminName,initials:initials(consultant.adminName),consultantId:consultant.id};
+  if(consultant?.status==="Active")return {...session,name:consultant.adminName,initials:initials(consultant.adminName),consultantId:consultant.id};
+  return session;
  }
  if(session.role==="field"){
   const officer=managedFieldOfficers().find(account=>account.email.toLowerCase()===session.email.toLowerCase());
-  if(!officer||officer.status!=="Active")return null;
-  return {...session,name:officer.name,initials:initials(officer.name),consultantId:getOfficerConsultant(officer.email)??session.consultantId};
+  if(officer?.status==="Active")return {...session,name:officer.name,initials:initials(officer.name),consultantId:getOfficerConsultant(officer.email)??session.consultantId};
+  return session;
  }
  return session;
 }
@@ -101,16 +103,27 @@ export function AuthProvider({children}:{children:ReactNode}){
   return()=>{window.removeEventListener("veritas-rea-staff-updated",refresh);window.removeEventListener("veritas-consultant-ownership-updated",refresh);window.removeEventListener("storage",refresh);};
  },[]);
  const login=async(email:string,password:string)=>{
-  let cloud;try{cloud=await authenticateFieldApi(email,password)}catch{return null}
+  const cloud=await authenticateFieldApi(email,password);
   const cloudRole=({rea_admin:"rea",field_officer:"field",consultant_admin:"consultant"} as const)[cloud.user.role as "rea_admin"|"field_officer"|"consultant_admin"];
   if(!cloudRole)return null;
   let consultantId:string|undefined;
   if(cloudRole==="consultant"){
-   try{const profile=await fetchConsultantProfileWithToken(cloud.token);const record=profile?.consultant;if(record?.id){consultantId=record.id;const current=readConsultants();writeConsultants([record,...current.filter(item=>item.id!==record.id&&item.adminEmail.toLowerCase()!==String(record.adminEmail||"").toLowerCase())]);}}catch{return null}
+   try{
+    const profile=await fetchConsultantProfileWithToken(cloud.token);
+    const record=profile?.consultant;
+    if(record?.id){
+     consultantId=record.id;
+     const current=readConsultants();
+     writeConsultants([record,...current.filter(item=>item.id!==record.id&&item.adminEmail.toLowerCase()!==String(record.adminEmail||"").toLowerCase())]);
+    }
+   }catch{
+    // The account has already authenticated against D1. Profile enrichment is
+    // secondary and must not turn a valid login into a failure.
+   }
   }
   const local=authenticateDemoAccount(email,password);
-  if(local&&local.role!==cloudRole)return null;
-  const account:LoginAccount=local??{role:cloudRole,roleLabel:cloudRole==="rea"?"REA Dashboard":cloudRole==="consultant"?"Consultant Admin":"Field Officer",name:cloud.user.name||email,initials:initials(cloud.user.name||email),email:cloud.user.email||email,password,path:cloudRole==="rea"?"/":cloudRole==="consultant"?"/consultant-admin":"/field-officer",consultantId};
+  const compatibleLocal=local?.role===cloudRole?local:null;
+  const account:LoginAccount=compatibleLocal??{role:cloudRole,roleLabel:cloudRole==="rea"?"REA Dashboard":cloudRole==="consultant"?"Consultant Admin":"Field Officer",name:cloud.user.name||email,initials:initials(cloud.user.name||email),email:cloud.user.email||email,password,path:cloudRole==="rea"?"/":cloudRole==="consultant"?"/consultant-admin":"/field-officer",consultantId};
   if(cloudRole==="consultant"&&consultantId)account.consultantId=consultantId;
   if(account.role==="rea")appendAuditEvent({actor:account.name,action:"Signed in",category:"Authentication",target:"REA Dashboard",details:`Successful login for ${account.email}`,severity:"Success"});
   const{password:_password,...baseSession}=account;const nextSession={...baseSession,apiToken:cloud.token,apiExpiresAt:cloud.expiresAt};setSession(nextSession);window.sessionStorage.setItem(SESSION_KEY,JSON.stringify(nextSession));window.dispatchEvent(new Event("veritas-cloud-session"));return nextSession;
