@@ -10,6 +10,8 @@ test("session lifecycle is recorded durably", () => {
   assert.match(patch, /manual_logout/);
   assert.match(patch, /duration_seconds/);
   assert.match(patch, /last_seen_at/);
+  assert.match(patch, /authenticatedDatabaseUser[\s\S]*historyId/);
+  assert.match(patch, /UPDATE user_session_history SET last_seen_at/);
 });
 
 test("session activity endpoint is tenant safe", () => {

@@ -80,6 +80,28 @@ fs.writeFileSync(fieldPath, field);
 
 let worker = fs.readFileSync(workerPath, "utf8");
 
+worker = worker.replace(/async function authenticatedDatabaseUser\(request, env\) \{[\s\S]*?\n\}\n\nasync function consultantFieldOfficerResponse/, `async function authenticatedDatabaseUser(request, env) {
+  const bearer = request.headers.get("Authorization")?.match(/^Bearer\\s+(.+)$/i)?.[1];
+  if (!bearer || !env.DB) return null;
+  const tokenHash = await digest(bearer);
+  const activityAt = new Date().toISOString();
+  const user = await env.DB.prepare(\`SELECT u.id,u.name,u.role,u.consultant_firm AS consultantFirm,
+    s.history_id AS historyId,s.created_at AS sessionCreatedAt
+    FROM sessions s JOIN users u ON u.id=s.user_id
+    WHERE s.token_hash=? AND s.expires_at>? AND u.status='active'\`)
+    .bind(tokenHash, activityAt)
+    .first();
+  if (user?.historyId) {
+    await env.DB.prepare("UPDATE sessions SET last_seen_at=? WHERE token_hash=?").bind(activityAt, tokenHash).run();
+    const durationSeconds = Math.max(0, Math.floor((Date.parse(activityAt) - Date.parse(user.sessionCreatedAt)) / 1000));
+    await env.DB.prepare("UPDATE user_session_history SET last_seen_at=?,duration_seconds=?,updated_at=? WHERE id=? AND status='active'")
+      .bind(activityAt, durationSeconds, activityAt, user.historyId).run();
+  }
+  return user;
+}
+
+async function consultantFieldOfficerResponse`);
+
 if (!worker.includes("async function sessionActivityResponse")) {
   const sessionHandler = `async function sessionActivityResponse(request, env) {
   const user = await authenticatedDatabaseUser(request, env);
@@ -169,11 +191,12 @@ if (!worker.includes('url.pathname === "/api/session-activity"')) {
 
 worker = worker.replace(
   "const [projectResult, userResult, assignmentResult, consultantResult, evidenceResult, auditResult] = await Promise.all([",
-  "const [projectResult, userResult, assignmentResult, consultantResult, evidenceResult, auditResult, sessionResult] = await Promise.all([",
+  "const [projectResult, userResult, assignmentResult, consultantResult, evidenceResult, auditResult, sessionResult, userActivityResult] = await Promise.all([",
 );
 const auditQuery = '    env.DB.prepare(`SELECT action,COUNT(*) AS count FROM audit_events GROUP BY action ORDER BY count DESC`).all(),\n  ]);';
 const sessionQuery = '    env.DB.prepare(`SELECT h.id,h.user_id AS userId,u.name,u.role,u.consultant_firm AS consultantFirm,h.login_at AS loginAt,h.last_seen_at AS lastSeenAt,h.ended_at AS endedAt,h.duration_seconds AS durationSeconds,h.status,h.end_reason AS endReason,h.ip_address AS ipAddress,h.device_family AS deviceFamily,h.browser,h.os FROM user_session_history h JOIN users u ON u.id=h.user_id ORDER BY h.login_at DESC LIMIT 250`).all(),\n  ]);';
-if (!worker.includes("sessionResult.results")) worker = replaceOnce(worker, auditQuery, auditQuery.replace("\n  ]);", "\n") + sessionQuery, "AI session query");
+const userActivityQuery = '    env.DB.prepare(`SELECT u.id AS userId,u.name,u.role,u.consultant_firm AS consultantFirm,u.status AS accountStatus,u.created_at AS accountCreatedAt,MAX(CASE WHEN a.action=\'login\' THEN a.created_at END) AS auditLatestLogin,MAX(a.created_at) AS latestAuditActivity,SUM(CASE WHEN a.action=\'login\' THEN 1 ELSE 0 END) AS auditLoginCount FROM users u LEFT JOIN audit_events a ON a.actor_id=u.id GROUP BY u.id,u.name,u.role,u.consultant_firm,u.status,u.created_at ORDER BY u.role,u.name`).all(),\n  ]);';
+if (!worker.includes("sessionResult.results")) worker = replaceOnce(worker, auditQuery, auditQuery.replace("\n  ]);", "\n") + sessionQuery.replace("\n  ]);", "\n") + userActivityQuery, "AI session query");
 
 if (!worker.includes("const sessionRows = sessionResult.results || []")) {
   const anchor = '  const reaStaff = users.filter((user) => String(user.role || "").startsWith("rea_"));';
@@ -181,23 +204,70 @@ if (!worker.includes("const sessionRows = sessionResult.results || []")) {
   const sessionRows = sessionResult.results || [];
   const totalSessionDurationSeconds = sessionRows.reduce((sum, row) => sum + Number(row.durationSeconds || 0), 0);
   const sessionByRole = Object.fromEntries([...new Set(sessionRows.map((row) => row.role))].map((role) => [role, sessionRows.filter((row) => row.role === role).length]));
-  const sessionByConsultant = Object.fromEntries([...new Set(sessionRows.map((row) => row.consultantFirm).filter(Boolean))].map((firm) => [firm, sessionRows.filter((row) => row.consultantFirm === firm).length]));`;
+  const sessionByConsultant = Object.fromEntries([...new Set(sessionRows.map((row) => row.consultantFirm).filter(Boolean))].map((firm) => [firm, sessionRows.filter((row) => row.consultantFirm === firm).length]));
+  const latestTimestamp = (...values) => values.filter(Boolean).sort().at(-1) || null;
+  const perUserSessionActivity = (userActivityResult.results || []).map((row) => {
+    const userSessions = sessionRows.filter((session) => session.userId === row.userId);
+    const latestSession = userSessions[0] || null;
+    const latestLogin = latestTimestamp(latestSession?.loginAt, row.auditLatestLogin);
+    const lastActivity = latestTimestamp(latestSession?.lastSeenAt, row.latestAuditActivity);
+    const inactivityDays = lastActivity ? Math.max(0, Math.floor((Date.now() - Date.parse(lastActivity)) / 86400000)) : null;
+    const hasActiveSession = userSessions.some((session) => session.status === "active");
+    const inactivityClassification = hasActiveSession
+      ? "Active session"
+      : inactivityDays === null
+        ? "Never recorded"
+        : inactivityDays <= 7
+          ? "Recent (0-7 days)"
+          : inactivityDays <= 30
+            ? "Inactive (8-30 days)"
+            : "Dormant (over 30 days)";
+    return {
+      userId: row.userId,
+      name: row.name,
+      role: row.role,
+      consultantFirm: row.consultantFirm || "",
+      accountStatus: row.accountStatus,
+      accountCreatedAt: row.accountCreatedAt,
+      loginCount: Math.max(Number(row.auditLoginCount || 0), userSessions.length),
+      trackedSessionCount: userSessions.length,
+      latestLogin,
+      lastAuthenticatedActivity: lastActivity,
+      inactivityDays,
+      inactivityClassification,
+      latestDevice: latestSession?.deviceFamily || null,
+      latestBrowser: latestSession?.browser || null,
+      latestOs: latestSession?.os || null,
+      latestObservedDurationSeconds: latestSession ? Number(latestSession.durationSeconds || 0) : null,
+      totalObservedDurationSeconds: userSessions.length ? userSessions.reduce((sum, session) => sum + Number(session.durationSeconds || 0), 0) : null,
+      latestLoginSource: latestSession?.loginAt && latestSession.loginAt >= String(row.auditLatestLogin || "") ? "session_history" : row.auditLatestLogin ? "audit_trail" : null,
+      activitySource: latestSession?.lastSeenAt && latestSession.lastSeenAt >= String(row.latestAuditActivity || "") ? "session_history" : row.latestAuditActivity ? "audit_trail" : null,
+    };
+  });`;
   worker = replaceOnce(worker, anchor, addition, "AI session metrics");
 }
 
 if (!worker.includes("sessionActivity: {")) {
   const anchor = "    auditSummary: auditResult.results || [],";
   const block = `    sessionActivity: {
+      schemaAvailable: true,
+      trackingStatus: sessionRows.length ? "recording_sessions" : "ready_no_session_history_rows",
       sessionCount: sessionRows.length,
+      historicalAuditLoginCount: perUserSessionActivity.reduce((sum, row) => sum + row.loginCount, 0),
       uniqueUsers: new Set(sessionRows.map((row) => row.userId)).size,
+      usersWithRecordedLogin: perUserSessionActivity.filter((row) => row.latestLogin).length,
+      usersWithoutRecordedLogin: perUserSessionActivity.filter((row) => !row.latestLogin).length,
       openSessions: sessionRows.filter((row) => row.status === "active").length,
       totalObservedDurationSeconds: totalSessionDurationSeconds,
       averageObservedDurationSeconds: sessionRows.length ? Math.round(totalSessionDurationSeconds / sessionRows.length) : 0,
-      latestLogin: sessionRows[0]?.loginAt || null,
+      latestLogin: latestTimestamp(...perUserSessionActivity.map((row) => row.latestLogin)),
       byRole: sessionByRole,
       byConsultant: sessionByConsultant,
+      perUser: perUserSessionActivity,
       recentSessions: sessionRows.slice(0, 80),
       durationMeaning: "Observed session span from login to latest recorded activity or session end; it does not prove continuous work.",
+      historicalCoverage: "Audit events provide historical login timestamps and latest audited actions. Duration and device metadata are available only for logins captured in user_session_history after session tracking was deployed.",
+      inactivityPolicy: "Active session; Recent = 0-7 days; Inactive = 8-30 days; Dormant = over 30 days; Never recorded = no login or audited activity timestamp.",
     },
 ${anchor}`;
   worker = replaceOnce(worker, anchor, block, "AI session context");
@@ -205,6 +275,10 @@ ${anchor}`;
 
 if (!worker.includes("SESSION ACTIVITY INTERPRETATION RULES:")) {
   worker = worker.replace("EVIDENCE AND CAUSALITY RULES:", `SESSION ACTIVITY INTERPRETATION RULES:
+- sessionActivity.schemaAvailable=true confirms that the production session schema exists. You must not say the schema, fields, or database support are absent.
+- If trackingStatus is ready_no_session_history_rows, say that session tracking is available but no rich session rows have yet been recorded. Do not describe an empty result as a missing schema.
+- Use sessionActivity.perUser for per-user latest login, last authenticated activity, inactivity classification, observed duration, and device details. Historical audit events can supply login and activity timestamps even when rich session metadata is unavailable.
+- Device, browser, operating system, and observed duration can be null for historical audit-only records; describe those values as not captured for those earlier records, not as absent from the current schema.
 - Session duration is an observed session span from login to the latest recorded authenticated activity or explicit session end. It does not prove the user worked continuously for that entire span.
 - A long session, unusual login hour, concurrent session, multiple IP addresses, or a change in device may warrant review, but does not prove misconduct, non-performance, absence, account compromise, credential sharing, or fraud.
 - When analysing logins, distinguish exact recorded facts (timestamps, counts, durations, roles, consultant firms) from interpretation. State uncertainty directly and recommend review when appropriate.
