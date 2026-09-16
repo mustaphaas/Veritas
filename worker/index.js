@@ -501,7 +501,7 @@ function aggregateBy(rows, key, mapper) {
 async function liveDatabaseContext(env) {
   if (!env.DB) throw new Error("D1 database binding is unavailable.");
 
-  const [projectResult, userResult, assignmentResult, consultantResult, evidenceResult, auditResult, performanceConsultants, performanceReaStaff] = await Promise.all([
+  const [projectResult, userResult, assignmentResult, consultantResult, evidenceResult, auditResult] = await Promise.all([
     env.DB.prepare(`SELECT id,name,programme,component,contractor,consultant_firm AS consultantFirm,state,lga,community,
       reporting_month AS reportingMonth,portfolio_status AS status,installed_capacity_kw AS installedCapacityKw,
       households,verified,data_source AS dataSource,updated_at AS updatedAt
@@ -518,9 +518,15 @@ async function liveDatabaseContext(env) {
       FROM consultants ORDER BY firm_name`).all(),
     env.DB.prepare(`SELECT assignment_id AS assignmentId,COUNT(*) AS count FROM evidence GROUP BY assignment_id`).all(),
     env.DB.prepare(`SELECT action,COUNT(*) AS count FROM audit_events GROUP BY action ORDER BY count DESC`).all(),
+  ]);
+  // Fetched as a separate statement, deliberately not folded into the
+  // Promise.all above, so that array's exact text stays matchable by other
+  // deploy-time patch scripts (scripts/patch-*.mjs) that anchor on it.
+  const [performanceConsultants, performanceReaStaff] = await Promise.all([
     consultantPerformance(env, { sinceDays: 90 }).catch(() => []),
     reaStaffPerformance(env, { sinceDays: 90 }).catch(() => []),
   ]);
+
 
   const projects = projectResult.results || [];
   const users = userResult.results || [];
@@ -1026,11 +1032,18 @@ async function veritasResponse(request, env) {
     }
   }
   let analyticsResult = null;
-  let plan = isPerformanceRatingQuestion(question) ? null : deterministicAnalyticsPlan(question);
-  if (!plan && isLikelyAnalyticsQuestion(question) && !isReportRequest(question) && !isPerformanceRatingQuestion(question)) {
-    const plannerText = await analyticsPlannerResponse(question, env);
-    const rawPlan = parsePlannerJson(plannerText);
-    plan = validateAnalyticsPlan(rawPlan);
+  let plan = deterministicAnalyticsPlan(question);
+  if (!plan && isLikelyAnalyticsQuestion(question) && !isReportRequest(question)) {
+    // Efficiency/rating questions are answered from the Performance & Ratings
+    // domain in liveDatabaseContext, never from the analytics catalog (which
+    // only knows projects/assignments). Checked inside this block, rather
+    // than folded into the condition above, so the condition's exact text
+    // stays matchable by other deploy-time patch scripts that anchor on it.
+    if (!isPerformanceRatingQuestion(question)) {
+      const plannerText = await analyticsPlannerResponse(question, env);
+      const rawPlan = parsePlannerJson(plannerText);
+      plan = validateAnalyticsPlan(rawPlan);
+    }
   }
   if (plan) {
     try {
