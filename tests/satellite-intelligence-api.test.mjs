@@ -34,10 +34,11 @@ test("satellite api persists auditable findings without changing verification st
 
 test("satellite api exposes role-safe routes and multimodal analysis", () => {
   const source = fs.readFileSync(apiPath, "utf8");
-  assert.match(source, /\/api\/projects\/.*satellite-analysis/);
+  assert.equal(source.includes('url.pathname.match(/^\\/api\\/projects\\/([^/]+)\\/satellite-analysis'), true);
+  assert.equal(source.includes('url.pathname.match(/^\\/api\\/satellite-analysis\\/([^/]+)'), true);
   assert.match(source, /historical_compare/);
   assert.match(source, /consultant_admin/);
-  assert.match(source, /rea_admin/);
+  assert.match(source, /startsWith\("rea_"\)/);
   assert.match(source, /field_officer/);
   assert.match(source, /GEMINI_API_KEY/);
   assert.match(source, /OPENROUTER_API_KEY/);
