@@ -20,7 +20,10 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Run Node regression tests
-        run: node --test tests/*.test.mjs
+        # Several legacy contract tests intentionally run repository patch scripts
+        # that mutate the same generated source files. Run them serially so those
+        # mutations cannot race and produce false failures in unrelated features.
+        run: node --test --test-concurrency=1 tests/*.test.mjs
       - name: Run client Vitest suite
         run: npx vitest --run client
       - name: Validate worker syntax
