@@ -21,6 +21,8 @@ jobs:
       - run: npm ci
       - name: Prepare generated consultant sources
         run: |
+          node --check scripts/patch-consultant-login-compatibility.mjs
+          node scripts/patch-consultant-login-compatibility.mjs
           node scripts/patch-consultant-d1-tenancy.mjs
           node scripts/patch-consultant-project-identity.mjs
           node scripts/patch-consultant-assignment-normalized-identity.mjs
