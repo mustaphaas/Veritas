@@ -464,6 +464,19 @@ function compactContext(databaseContext = {}, question = "") {
   if (!needsConsultants) delete context.consultants;
   delete context.componentStateProgramme;
 
+  if (context.performance) {
+    if (isPerformanceRatingQuestion(question)) {
+      // Keep the full breakdown - this is exactly what the question is asking about.
+    } else {
+      context.performance = {
+        sinceDays: context.performance.sinceDays,
+        note: "Performance & Ratings detail omitted as not relevant to this question; ask about efficiency, ratings, or scores to see it.",
+        consultantCount: context.performance.consultants.length,
+        reaStaffCount: context.performance.reaStaff.length,
+      };
+    }
+  }
+
   if (context.users && !/\b(users?|portal users?|field officers?|consultant admins?|rea staff|rea admins?)\b/i.test(q)) {
     context.users = {
       fieldOfficerCount: Array.isArray(context.users.fieldOfficers) ? context.users.fieldOfficers.length : 0,
@@ -488,7 +501,7 @@ function aggregateBy(rows, key, mapper) {
 async function liveDatabaseContext(env) {
   if (!env.DB) throw new Error("D1 database binding is unavailable.");
 
-  const [projectResult, userResult, assignmentResult, consultantResult, evidenceResult, auditResult] = await Promise.all([
+  const [projectResult, userResult, assignmentResult, consultantResult, evidenceResult, auditResult, performanceConsultants, performanceReaStaff] = await Promise.all([
     env.DB.prepare(`SELECT id,name,programme,component,contractor,consultant_firm AS consultantFirm,state,lga,community,
       reporting_month AS reportingMonth,portfolio_status AS status,installed_capacity_kw AS installedCapacityKw,
       households,verified,data_source AS dataSource,updated_at AS updatedAt
@@ -505,6 +518,8 @@ async function liveDatabaseContext(env) {
       FROM consultants ORDER BY firm_name`).all(),
     env.DB.prepare(`SELECT assignment_id AS assignmentId,COUNT(*) AS count FROM evidence GROUP BY assignment_id`).all(),
     env.DB.prepare(`SELECT action,COUNT(*) AS count FROM audit_events GROUP BY action ORDER BY count DESC`).all(),
+    consultantPerformance(env, { sinceDays: 90 }).catch(() => []),
+    reaStaffPerformance(env, { sinceDays: 90 }).catch(() => []),
   ]);
 
   const projects = projectResult.results || [];
@@ -590,6 +605,19 @@ async function liveDatabaseContext(env) {
       ]),
     ),
     auditSummary: auditResult.results || [],
+    performance: {
+      sinceDays: 90,
+      note: "Deterministic 0-100 scores computed live from assignment and review timestamps - never hand-entered. A null score means not enough workflow activity yet, not a score of zero.",
+      consultants: performanceConsultants.map(({ firmName, status, fieldOfficerCount, score, avgApprovalTurnaroundHours, firmVerificationRate, fieldOfficers }) => ({
+        firmName, status, fieldOfficerCount, score, avgApprovalTurnaroundHours, firmVerificationRate,
+        fieldOfficers: fieldOfficers.map(({ id, name, score, verificationRate, gpsComplianceRate, revisitRate, avgTurnaroundHours, totalAssigned }) => ({
+          id, name, score, verificationRate, gpsComplianceRate, revisitRate, avgTurnaroundHours, totalAssigned,
+        })),
+      })),
+      reaStaff: performanceReaStaff.map(({ id, name, status, score, verifiedReviews, reinspectionsSent, avgReviewTurnaroundHours }) => ({
+        id, name, status, score, verifiedReviews, reinspectionsSent, avgReviewTurnaroundHours,
+      })),
+    },
     projects: projects.map((project) => ({
       id: project.id,
       name: project.name,
@@ -637,6 +665,13 @@ PUBLIC REA KNOWLEDGE ROUTING:
 For general questions that do not require private Veritas data, answer from your general knowledge. Never expose passwords, password hashes, salts, session tokens, personal phone numbers, email addresses, signatures, device IDs, or precise private evidence coordinates.
 
 The workflow is authoritative: Field Officer submits -> Consultant Admin approves or requests re-inspection -> REA approves and verifies or rejects for re-inspection. A report is final only when its assignment status is Verified.
+
+PERFORMANCE & RATINGS DOMAIN (efficiency, ratings, scores, leaderboards):
+- The performance object in CURRENT VERITAS CONTEXT holds deterministic 0-100 scores for field officers, consultant firms, and individual REA staff, computed live from the same assignment/review timestamps as the rest of the data - never invent, adjust, or estimate a score that is not present there.
+- A null score means there is not yet enough workflow activity to rate that person or firm - say so plainly ("not enough activity yet to rate") rather than treating null as zero, poor, or average.
+- Field officers are scored on verification rate, submission speed, GPS compliance, and revisit rate. Consultants are scored on their own field officers' roster performance plus their own approval turnaround and firm-wide verification rate. REA staff are scored on review turnaround (Approved to Verified) only - their reinspectionsSent figure is contextual, not part of their score, so do not describe a staff member as inefficient purely for sending work back; that reflects the submission they reviewed, not their own speed.
+- When asked "who is most/least efficient" or for a ranking, sort by score and name the actual top/bottom entries with their figures - do not hedge with a generic answer when the ranking is directly computable from the data given.
+- Treat these scores with the same rigor as the NUMERIC POLICY rules below: report them as current observations, not as disciplinary conclusions, and do not invent a pass/fail threshold that isn't in the data.
 
 EVIDENCE AND CAUSALITY RULES:
 - Separate confirmed facts from interpretation. A database status, count, date, or missing record does not by itself prove the cause of that condition.
@@ -765,6 +800,16 @@ function isLikelyAnalyticsQuestion(question) {
 
 function isManagementAnalysisQuestion(question) {
   return /\b(analy[sz]e|analysis|management|risk|pressure|issue|implication|recommend|action|attention|why|what does|interpret|priority|prioritise|prioritize|concern|bottleneck|trend|performance|review next)\b/i.test(String(question || ""));
+}
+
+// Efficiency/rating questions ("who is our most efficient consultant",
+// "how is the REA review team doing", "rank field officers by score") are
+// answered from the Performance & Ratings domain added to
+// liveDatabaseContext, never from the analytics catalog (which only knows
+// projects/assignments) - so these are kept out of the SQL-planner path
+// entirely and always land on the general reasoning prompt in buildInput.
+function isPerformanceRatingQuestion(question) {
+  return /\b(efficien(?:cy|t)|productiv(?:e|ity)|leaderboard|ratings?|rated|scores?|scoring|scored|top[- ]?(?:performing|rated)|under[- ]?perform(?:ing|ance)?)\b/i.test(String(question || ""));
 }
 
 function isReportRequest(question) {
@@ -981,8 +1026,8 @@ async function veritasResponse(request, env) {
     }
   }
   let analyticsResult = null;
-  let plan = deterministicAnalyticsPlan(question);
-  if (!plan && isLikelyAnalyticsQuestion(question) && !isReportRequest(question)) {
+  let plan = isPerformanceRatingQuestion(question) ? null : deterministicAnalyticsPlan(question);
+  if (!plan && isLikelyAnalyticsQuestion(question) && !isReportRequest(question) && !isPerformanceRatingQuestion(question)) {
     const plannerText = await analyticsPlannerResponse(question, env);
     const rawPlan = parsePlannerJson(plannerText);
     plan = validateAnalyticsPlan(rawPlan);
