@@ -1,8 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Layers3, Map as MapIcon, Satellite } from "lucide-react";
+import { AlertTriangle, History, Layers3, Loader2, Map as MapIcon, Satellite, ScanSearch, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchReaMapProjects, type ReaMapProjectRecord } from "../lib/rea-project-map-data";
+import {
+  compareSatelliteImagery,
+  fetchSatelliteAnalyses,
+  runSatelliteAnalysis,
+  type SatelliteAnalysisRecord,
+} from "../lib/satellite-intelligence";
 
 export const SATELLITE_TILE_URL =
   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
@@ -124,7 +130,7 @@ function extractNigeriaRings(data: any) {
   });
 }
 
-function SatelliteCanvas({ projects }: { projects: ReaMapProjectRecord[] }) {
+function SatelliteCanvas({ projects, onSelectProject }: { projects: ReaMapProjectRecord[]; onSelectProject: (project: ReaMapProjectRecord) => void }) {
   const elementRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -187,9 +193,12 @@ function SatelliteCanvas({ projects }: { projects: ReaMapProjectRecord[] }) {
             fillOpacity: 0.96,
           })
             .bindPopup(
-              `<div style="min-width:180px;font-family:system-ui,sans-serif"><strong>${escapeHtml(project.name)}</strong><br/><span style="font-size:11px;color:#64748b">${escapeHtml(project.community || project.lga || project.state)}</span><br/><span style="font-size:11px;color:#08733f;font-weight:700">${escapeHtml(project.programme)} · ${escapeHtml(project.status)}</span></div>`,
+              `<div style="min-width:180px;font-family:system-ui,sans-serif"><strong>${escapeHtml(project.name)}</strong><br/><span style="font-size:11px;color:#64748b">${escapeHtml(project.community || project.lga || project.state)}</span><br/><span style="font-size:11px;color:#08733f;font-weight:700">${escapeHtml(project.programme)} · ${escapeHtml(project.status)}</span><br/><span style="font-size:10px;color:#475569">Click for Satellite Intelligence</span></div>`,
             )
-            .on("click", () => map.setView([latitude, longitude], PROJECT_FOCUS_ZOOM))
+            .on("click", () => {
+              map.setView([latitude, longitude], PROJECT_FOCUS_ZOOM);
+              onSelectProject(project);
+            })
             .addTo(map);
         });
 
@@ -205,7 +214,7 @@ function SatelliteCanvas({ projects }: { projects: ReaMapProjectRecord[] }) {
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [mappable]);
+  }, [mappable, onSelectProject]);
 
   return (
     <div className="absolute inset-0 z-[15] bg-[#101812]" data-veritas-satellite-map="true">
@@ -222,11 +231,122 @@ function SatelliteCanvas({ projects }: { projects: ReaMapProjectRecord[] }) {
   );
 }
 
+function formatDate(value: string | null | undefined) {
+  if (!value) return "Unknown";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
+}
+
+function SatelliteIntelligencePanel({ project, apiToken, canAnalyse, onClose }: {
+  project: ReaMapProjectRecord;
+  apiToken: string;
+  canAnalyse: boolean;
+  onClose: () => void;
+}) {
+  const [analyses, setAnalyses] = useState<SatelliteAnalysisRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [running, setRunning] = useState<"current" | "historical" | null>(null);
+  const [error, setError] = useState("");
+
+  const reload = async () => {
+    setLoading(true);
+    try {
+      setAnalyses(await fetchSatelliteAnalyses(apiToken, project.id));
+      setError("");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to load satellite analysis history.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { void reload(); }, [project.id, apiToken]);
+  const latest = analyses[0];
+
+  const run = async (kind: "current" | "historical") => {
+    setRunning(kind);
+    setError("");
+    try {
+      const record = kind === "current"
+        ? await runSatelliteAnalysis(apiToken, project.id)
+        : await compareSatelliteImagery(apiToken, project.id);
+      setAnalyses((current) => [record, ...current.filter((item) => item.id !== record.id)]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Satellite analysis failed.");
+    } finally {
+      setRunning(null);
+    }
+  };
+
+  return (
+    <aside className="absolute bottom-4 right-4 top-16 z-[520] flex w-[min(390px,calc(100%-2rem))] flex-col overflow-hidden rounded-2xl border border-white/30 bg-white/95 shadow-2xl backdrop-blur">
+      <div className="flex items-start justify-between border-b border-slate-100 p-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-[#08733f]"><ScanSearch className="h-4 w-4"/><span className="text-[10px] font-extrabold uppercase tracking-[0.16em]">Satellite Intelligence</span></div>
+          <h3 className="mt-1 truncate text-sm font-extrabold text-[#173b2a]">{project.name}</h3>
+          <p className="mt-1 text-[10px] text-slate-500">Authoritative D1 coordinates · {Number(project.latitude).toFixed(6)}, {Number(project.longitude).toFixed(6)}</p>
+        </div>
+        <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Close satellite intelligence"><X className="h-4 w-4"/></button>
+      </div>
+
+      <div className="flex-1 space-y-3 overflow-y-auto p-4">
+        {canAnalyse && (
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" disabled={Boolean(running)} onClick={() => void run("current")} className="flex items-center justify-center gap-1.5 rounded-lg bg-[#08733f] px-3 py-2 text-[10px] font-extrabold text-white disabled:opacity-60">
+              {running === "current" ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> : <ScanSearch className="h-3.5 w-3.5"/>} Analyse latest imagery
+            </button>
+            <button type="button" disabled={Boolean(running)} onClick={() => void run("historical")} className="flex items-center justify-center gap-1.5 rounded-lg border border-[#08733f]/20 bg-emerald-50 px-3 py-2 text-[10px] font-extrabold text-[#08733f] disabled:opacity-60">
+              {running === "historical" ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> : <History className="h-3.5 w-3.5"/>} Compare historical imagery
+            </button>
+          </div>
+        )}
+
+        {error && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] font-semibold text-amber-800">{error}</div>}
+        {loading && <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-3 text-[10px] font-semibold text-slate-500"><Loader2 className="h-3.5 w-3.5 animate-spin"/>Loading analysis history…</div>}
+
+        {!loading && !latest && (
+          <div className="rounded-xl border border-dashed border-slate-200 p-4 text-center">
+            <Satellite className="mx-auto h-5 w-5 text-slate-400"/>
+            <p className="mt-2 text-xs font-bold text-slate-700">No satellite analysis yet</p>
+            <p className="mt-1 text-[10px] leading-4 text-slate-500">Map imagery remains available. Run an analysis to create an auditable AI-assisted finding.</p>
+          </div>
+        )}
+
+        {latest && (
+          <>
+            {latest.reviewRequired && (
+              <div className="flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-800"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0"/><div><p className="text-[10px] font-extrabold">Manual review required</p><p className="mt-0.5 text-[9px] leading-4">Satellite findings support REA review and never automatically verify or reject a project.</p></div></div>
+            )}
+            <section className="rounded-xl border border-slate-200 bg-white p-3">
+              <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-[10px]">
+                <div><p className="font-bold uppercase text-slate-400">Provider</p><p className="mt-0.5 font-semibold text-slate-700">{latest.provider}</p></div>
+                <div><p className="font-bold uppercase text-slate-400">Confidence</p><p className="mt-0.5 font-semibold capitalize text-slate-700">{latest.confidenceLevel} · {latest.confidenceScore}%</p></div>
+                <div><p className="font-bold uppercase text-slate-400">Release date</p><p className="mt-0.5 font-semibold text-slate-700">{formatDate(latest.comparisonReleaseDate || latest.baselineReleaseDate)}</p></div>
+                <div><p className="font-bold uppercase text-slate-400">Capture date</p><p className="mt-0.5 font-semibold text-slate-700">{formatDate(latest.comparisonImageDate || latest.baselineImageDate)}</p></div>
+              </div>
+              <p className="mt-3 border-t border-slate-100 pt-3 text-[10px] leading-4 text-slate-600">{latest.observations?.summary || latest.change?.summary || "No narrative summary recorded."}</p>
+              {latest.observations?.limitations?.length ? <div className="mt-2"><p className="text-[9px] font-extrabold uppercase text-slate-400">Limitations</p><ul className="mt-1 space-y-1 text-[9px] leading-4 text-slate-500">{latest.observations.limitations.slice(0, 4).map((item) => <li key={item}>• {item}</li>)}</ul></div> : null}
+            </section>
+          </>
+        )}
+
+        {analyses.length > 1 && (
+          <section>
+            <div className="mb-2 flex items-center gap-1.5"><History className="h-3.5 w-3.5 text-slate-400"/><h4 className="text-[10px] font-extrabold uppercase tracking-wide text-slate-500">Analysis history</h4></div>
+            <div className="space-y-2">{analyses.slice(1, 6).map((record) => <div key={record.id} className="rounded-lg border border-slate-100 bg-slate-50 p-2.5"><div className="flex items-center justify-between gap-2"><span className="text-[9px] font-bold capitalize text-slate-600">{record.analysisType.replace("_", " ")}</span><span className="text-[9px] text-slate-400">{formatDate(record.createdAt)}</span></div><p className="mt-1 line-clamp-2 text-[9px] leading-4 text-slate-500">{record.observations?.summary || record.change?.summary || "Stored satellite finding"}</p></div>)}</div>
+          </section>
+        )}
+      </div>
+    </aside>
+  );
+}
+
 export default function ProjectMapSatelliteEnhancer() {
   const { session } = useAuth();
   const [mapShell, setMapShell] = useState<HTMLElement | null>(null);
   const [satellite, setSatellite] = useState(false);
   const [projects, setProjects] = useState<ReaMapProjectRecord[]>([]);
+  const [selectedSatelliteProject, setSelectedSatelliteProject] = useState<ReaMapProjectRecord | null>(null);
 
   useEffect(() => {
     const locate = () => setMapShell(document.querySelector<HTMLElement>(MAP_SHELL_SELECTOR));
@@ -262,7 +382,8 @@ export default function ProjectMapSatelliteEnhancer() {
 
   useEffect(() => {
     if (!mapShell) setSatellite(false);
-  }, [mapShell]);
+    if (!satellite) setSelectedSatelliteProject(null);
+  }, [mapShell, satellite]);
 
   if (!mapShell) return null;
 
@@ -288,11 +409,19 @@ export default function ProjectMapSatelliteEnhancer() {
           <Satellite className="h-3.5 w-3.5" /> Satellite
         </button>
       </div>
-      {satellite && <SatelliteCanvas projects={projects} />}
+      {satellite && <SatelliteCanvas projects={projects} onSelectProject={setSelectedSatelliteProject} />}
       {satellite && (
         <div className="pointer-events-none absolute left-4 top-16 z-[40] hidden items-center gap-1.5 rounded-md border border-white/20 bg-[#173b2a]/85 px-2.5 py-1.5 text-[9px] font-bold text-white shadow-sm backdrop-blur sm:flex">
-          <Layers3 className="h-3 w-3" /> Scroll or pinch to zoom · drag to pan
+          <Layers3 className="h-3 w-3" /> Scroll or pinch to zoom · drag to pan · select a project for AI analysis
         </div>
+      )}
+      {satellite && selectedSatelliteProject && session?.apiToken && (
+        <SatelliteIntelligencePanel
+          project={selectedSatelliteProject}
+          apiToken={session.apiToken}
+          canAnalyse={session.role === "rea"}
+          onClose={() => setSelectedSatelliteProject(null)}
+        />
       )}
     </>,
     mapShell,
