@@ -51,10 +51,6 @@ export const deleteFieldOfficerApi = (id: string) => call(`/users/field-officers
 export const fetchConsultantFieldOfficers = () => consultantCall("/field-officers");
 export const fetchConsultantProjects = () => consultantCall("/projects");
 export const fetchConsultantProfile = () => consultantCall("/profile");
-export const fetchReaPerformance = (sinceDays = 90) => reaCall(`/performance?sinceDays=${sinceDays}`);
-export const fetchConsultantPerformance = (sinceDays = 90) => consultantCall(`/performance?sinceDays=${sinceDays}`);
-export const fetchPerformanceInsight = (entityType: "field_officer" | "consultant" | "rea_staff", entityId: string, refresh = false) =>
-  reaCall(`/performance/insights${refresh ? "?refresh=1" : ""}`, { method: "POST", body: JSON.stringify({ entityType, entityId }) });
 export async function fetchConsultantProfileWithToken(apiToken: string) {
   const response = await fetch("/api/consultant/profile", { headers: { Accept: "application/json", Authorization: `Bearer ${apiToken}` } });
   const payload = await response.json().catch(() => ({}));

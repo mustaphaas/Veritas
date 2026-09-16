@@ -1,6 +1,5 @@
 import { handleFieldApi } from "./field-api.js";
 import { analyticsCatalog, analyticsAnswerPrompt, deterministicAnalyticsPlan, executeAnalyticsPlan, parsePlannerJson, plannerPrompt, validateAnalyticsPlan } from "./analytics.js";
-import { fieldOfficerPerformance, consultantPerformance, reaStaffPerformance } from "./performance.js";
 
 const BUILD_ID = "veritas-2026-09-11-public-rea-team-r4";
 const encoder = new TextEncoder();
@@ -243,141 +242,6 @@ async function consultantProfileResponse(request, env) {
   } });
 }
 
-function parseSinceDays(url) {
-  const raw = Number(url.searchParams.get("sinceDays"));
-  return Number.isFinite(raw) && raw > 0 && raw <= 365 ? raw : 90;
-}
-
-async function reaPerformanceResponse(request, env) {
-  const user = await authenticatedDatabaseUser(request, env);
-  if (!user) return json({ error: "Authentication required." }, 401);
-  if (user.role !== "rea_admin") return json({ error: "REA access required." }, 403);
-
-  const sinceDays = parseSinceDays(new URL(request.url));
-  const [reaStaff, consultants] = await Promise.all([
-    reaStaffPerformance(env, { sinceDays }),
-    consultantPerformance(env, { sinceDays }),
-  ]);
-
-  return json({ sinceDays, reaStaff, consultants, serverTime: new Date().toISOString() });
-}
-
-async function consultantPerformanceResponse(request, env) {
-  const user = await authenticatedDatabaseUser(request, env);
-  if (!user) return json({ error: "Authentication required." }, 401);
-  if (user.role !== "consultant_admin" && user.role !== "rea_admin") {
-    return json({ error: "Consultant or REA access required." }, 403);
-  }
-
-  let consultantFirm = user.consultantFirm;
-  if (user.role === "rea_admin") {
-    consultantFirm = new URL(request.url).searchParams.get("consultantFirm") || consultantFirm;
-  }
-  if (!consultantFirm) return json({ error: "Consultant firm is required." }, 400);
-
-  const sinceDays = parseSinceDays(new URL(request.url));
-  const allConsultants = await consultantPerformance(env, { sinceDays });
-  const mine = allConsultants.find((entry) => entry.firmName === consultantFirm);
-  if (!mine) return json({ error: "No performance data found for this consultant firm." }, 404);
-
-  // A consultant only ever sees their own firm's roll-up and their own
-  // field officers' numeric metrics - never other firms or REA staff data.
-  return json({ consultantFirm, sinceDays, consultant: mine, serverTime: new Date().toISOString() });
-}
-
-async function performanceInsightResponse(request, env) {
-  const user = await authenticatedDatabaseUser(request, env);
-  if (!user) return json({ error: "Authentication required." }, 401);
-  if (user.role !== "rea_admin") return json({ error: "REA access required." }, 403);
-  if (!env.DB) return json({ error: "Veritas database is not configured." }, 503);
-
-  const body = await request.json().catch(() => null);
-  const entityType = body?.entityType;
-  const entityId = String(body?.entityId || "").trim();
-  if (!["field_officer", "consultant", "rea_staff"].includes(entityType) || !entityId) {
-    return json({ error: "A valid entityType (field_officer, consultant or rea_staff) and entityId are required." }, 400);
-  }
-
-  const sinceDays = parseSinceDays(new URL(request.url));
-  let subject = null;
-  let contextLabel = "";
-  if (entityType === "rea_staff") {
-    subject = (await reaStaffPerformance(env, { sinceDays })).find((row) => row.id === entityId);
-    contextLabel = "an REA administrator reviewing field verification submissions";
-  } else if (entityType === "consultant") {
-    subject = (await consultantPerformance(env, { sinceDays })).find((row) => row.firmName === entityId);
-    contextLabel = "a consultant firm managing a roster of field officers under an REA verification contract";
-  } else {
-    subject = (await fieldOfficerPerformance(env, { sinceDays })).find((row) => row.id === entityId);
-    contextLabel = "a field officer conducting GPS-verified site inspections";
-  }
-  if (!subject || subject.score === null) {
-    return json({ error: "Not enough workflow data yet to generate an insight for this entity." }, 404);
-  }
-
-  if (!env.GEMINI_API_KEY) {
-    return json({ error: "Veritas AI is not configured yet. Add GEMINI_API_KEY as a server-side secret." }, 503);
-  }
-
-  const cached = await env.DB.prepare(
-    `SELECT summary, flags_json AS flagsJson, model, generated_at AS generatedAt, score
-     FROM performance_ai_insights WHERE entity_type=? AND entity_id=? ORDER BY generated_at DESC LIMIT 1`,
-  )
-    .bind(entityType, entityId)
-    .first();
-  const wantsRefresh = new URL(request.url).searchParams.get("refresh") === "1";
-  const cacheIsFresh = cached && !wantsRefresh && Date.now() - Date.parse(cached.generatedAt) < 24 * 3_600_000 && Number(cached.score) === subject.score;
-  if (cacheIsFresh) {
-    return json({
-      entityType,
-      entityId,
-      score: subject.score,
-      summary: cached.summary,
-      flags: JSON.parse(cached.flagsJson || "[]"),
-      cached: true,
-      generatedAt: cached.generatedAt,
-    });
-  }
-
-  const prompt = `You are writing a short, factual performance note for an internal REA (Rural Electrification Agency, Nigeria) dashboard.
-The subject is ${contextLabel}. Their computed performance data for the last ${sinceDays} days (already calculated deterministically - do not invent or contradict any figure):
-${JSON.stringify(subject, null, 2)}
-
-Write:
-1. A 2-3 sentence plain-language summary of this performance (no invented numbers beyond what is given above).
-2. Up to 3 short flags as a JSON array of strings under a line starting with "FLAGS:" - each flag should name a concrete pattern worth a manager's attention (e.g. slow turnaround, low verification rate). If nothing stands out, return "FLAGS: []".
-Respond in plain text, summary first, then the FLAGS line. Do not use markdown formatting.`;
-
-  const result = await callGeminiWithFallback(env, {
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-    generationConfig: { maxOutputTokens: 400 },
-  });
-  if (!result.ok) return json({ error: "Veritas AI could not generate an insight right now. Please try again." }, 503);
-
-  const text = extractGeminiText(result.payload) || "";
-  const flagsMatch = text.match(/FLAGS:\s*(\[[\s\S]*\])/i);
-  let flags = [];
-  if (flagsMatch) {
-    try {
-      flags = JSON.parse(flagsMatch[1]);
-    } catch {
-      flags = [];
-    }
-  }
-  const summary = (flagsMatch ? text.slice(0, flagsMatch.index) : text).trim();
-  if (!summary) return json({ error: "Veritas AI returned an empty insight. Please try again." }, 502);
-
-  const timestamp = new Date().toISOString();
-  await env.DB.prepare(
-    `INSERT INTO performance_ai_insights(id,entity_type,entity_id,score,summary,flags_json,model,generated_by,generated_at)
-     VALUES(?,?,?,?,?,?,?,?,?)`,
-  )
-    .bind(crypto.randomUUID(), entityType, entityId, subject.score, summary, JSON.stringify(flags), result.model, user.id, timestamp)
-    .run();
-
-  return json({ entityType, entityId, score: subject.score, summary, flags, cached: false, generatedAt: timestamp });
-}
-
 async function fieldOfficerLifecycleResponse(request, env, officerId, action) {
   const user = await authenticatedDatabaseUser(request, env);
   if (!user) return json({ error: "Authentication required." }, 401);
@@ -464,19 +328,6 @@ function compactContext(databaseContext = {}, question = "") {
   if (!needsConsultants) delete context.consultants;
   delete context.componentStateProgramme;
 
-  if (context.performance) {
-    if (isPerformanceRatingQuestion(question)) {
-      // Keep the full breakdown - this is exactly what the question is asking about.
-    } else {
-      context.performance = {
-        sinceDays: context.performance.sinceDays,
-        note: "Performance & Ratings detail omitted as not relevant to this question; ask about efficiency, ratings, or scores to see it.",
-        consultantCount: context.performance.consultants.length,
-        reaStaffCount: context.performance.reaStaff.length,
-      };
-    }
-  }
-
   if (context.users && !/\b(users?|portal users?|field officers?|consultant admins?|rea staff|rea admins?)\b/i.test(q)) {
     context.users = {
       fieldOfficerCount: Array.isArray(context.users.fieldOfficers) ? context.users.fieldOfficers.length : 0,
@@ -519,14 +370,6 @@ async function liveDatabaseContext(env) {
     env.DB.prepare(`SELECT assignment_id AS assignmentId,COUNT(*) AS count FROM evidence GROUP BY assignment_id`).all(),
     env.DB.prepare(`SELECT action,COUNT(*) AS count FROM audit_events GROUP BY action ORDER BY count DESC`).all(),
   ]);
-  // Fetched as a separate statement, deliberately not folded into the
-  // Promise.all above, so that array's exact text stays matchable by other
-  // deploy-time patch scripts (scripts/patch-*.mjs) that anchor on it.
-  const [performanceConsultants, performanceReaStaff] = await Promise.all([
-    consultantPerformance(env, { sinceDays: 90 }).catch(() => []),
-    reaStaffPerformance(env, { sinceDays: 90 }).catch(() => []),
-  ]);
-
 
   const projects = projectResult.results || [];
   const users = userResult.results || [];
@@ -611,19 +454,6 @@ async function liveDatabaseContext(env) {
       ]),
     ),
     auditSummary: auditResult.results || [],
-    performance: {
-      sinceDays: 90,
-      note: "Deterministic 0-100 scores computed live from assignment and review timestamps - never hand-entered. A null score means not enough workflow activity yet, not a score of zero.",
-      consultants: performanceConsultants.map(({ firmName, status, fieldOfficerCount, score, avgApprovalTurnaroundHours, firmVerificationRate, fieldOfficers }) => ({
-        firmName, status, fieldOfficerCount, score, avgApprovalTurnaroundHours, firmVerificationRate,
-        fieldOfficers: fieldOfficers.map(({ id, name, score, verificationRate, gpsComplianceRate, revisitRate, avgTurnaroundHours, totalAssigned }) => ({
-          id, name, score, verificationRate, gpsComplianceRate, revisitRate, avgTurnaroundHours, totalAssigned,
-        })),
-      })),
-      reaStaff: performanceReaStaff.map(({ id, name, status, score, verifiedReviews, reinspectionsSent, avgReviewTurnaroundHours }) => ({
-        id, name, status, score, verifiedReviews, reinspectionsSent, avgReviewTurnaroundHours,
-      })),
-    },
     projects: projects.map((project) => ({
       id: project.id,
       name: project.name,
@@ -671,13 +501,6 @@ PUBLIC REA KNOWLEDGE ROUTING:
 For general questions that do not require private Veritas data, answer from your general knowledge. Never expose passwords, password hashes, salts, session tokens, personal phone numbers, email addresses, signatures, device IDs, or precise private evidence coordinates.
 
 The workflow is authoritative: Field Officer submits -> Consultant Admin approves or requests re-inspection -> REA approves and verifies or rejects for re-inspection. A report is final only when its assignment status is Verified.
-
-PERFORMANCE & RATINGS DOMAIN (efficiency, ratings, scores, leaderboards):
-- The performance object in CURRENT VERITAS CONTEXT holds deterministic 0-100 scores for field officers, consultant firms, and individual REA staff, computed live from the same assignment/review timestamps as the rest of the data - never invent, adjust, or estimate a score that is not present there.
-- A null score means there is not yet enough workflow activity to rate that person or firm - say so plainly ("not enough activity yet to rate") rather than treating null as zero, poor, or average.
-- Field officers are scored on verification rate, submission speed, GPS compliance, and revisit rate. Consultants are scored on their own field officers' roster performance plus their own approval turnaround and firm-wide verification rate. REA staff are scored on review turnaround (Approved to Verified) only - their reinspectionsSent figure is contextual, not part of their score, so do not describe a staff member as inefficient purely for sending work back; that reflects the submission they reviewed, not their own speed.
-- When asked "who is most/least efficient" or for a ranking, sort by score and name the actual top/bottom entries with their figures - do not hedge with a generic answer when the ranking is directly computable from the data given.
-- Treat these scores with the same rigor as the NUMERIC POLICY rules below: report them as current observations, not as disciplinary conclusions, and do not invent a pass/fail threshold that isn't in the data.
 
 EVIDENCE AND CAUSALITY RULES:
 - Separate confirmed facts from interpretation. A database status, count, date, or missing record does not by itself prove the cause of that condition.
@@ -806,16 +629,6 @@ function isLikelyAnalyticsQuestion(question) {
 
 function isManagementAnalysisQuestion(question) {
   return /\b(analy[sz]e|analysis|management|risk|pressure|issue|implication|recommend|action|attention|why|what does|interpret|priority|prioritise|prioritize|concern|bottleneck|trend|performance|review next)\b/i.test(String(question || ""));
-}
-
-// Efficiency/rating questions ("who is our most efficient consultant",
-// "how is the REA review team doing", "rank field officers by score") are
-// answered from the Performance & Ratings domain added to
-// liveDatabaseContext, never from the analytics catalog (which only knows
-// projects/assignments) - so these are kept out of the SQL-planner path
-// entirely and always land on the general reasoning prompt in buildInput.
-function isPerformanceRatingQuestion(question) {
-  return /\b(efficien(?:cy|t)|productiv(?:e|ity)|leaderboard|ratings?|rated|scores?|scoring|scored|top[- ]?(?:performing|rated)|under[- ]?perform(?:ing|ance)?)\b/i.test(String(question || ""));
 }
 
 function isReportRequest(question) {
@@ -1034,16 +847,9 @@ async function veritasResponse(request, env) {
   let analyticsResult = null;
   let plan = deterministicAnalyticsPlan(question);
   if (!plan && isLikelyAnalyticsQuestion(question) && !isReportRequest(question)) {
-    // Efficiency/rating questions are answered from the Performance & Ratings
-    // domain in liveDatabaseContext, never from the analytics catalog (which
-    // only knows projects/assignments). Checked inside this block, rather
-    // than folded into the condition above, so the condition's exact text
-    // stays matchable by other deploy-time patch scripts that anchor on it.
-    if (!isPerformanceRatingQuestion(question)) {
-      const plannerText = await analyticsPlannerResponse(question, env);
-      const rawPlan = parsePlannerJson(plannerText);
-      plan = validateAnalyticsPlan(rawPlan);
-    }
+    const plannerText = await analyticsPlannerResponse(question, env);
+    const rawPlan = parsePlannerJson(plannerText);
+    plan = validateAnalyticsPlan(rawPlan);
   }
   if (plan) {
     try {
@@ -1370,36 +1176,6 @@ export default {
     if (url.pathname === "/api/rea/consultants") {
       if (request.method !== "POST") return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
       return reaConsultantCreateResponse(request, env);
-    }
-
-    if (url.pathname === "/api/rea/performance") {
-      if (request.method !== "GET") return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
-      try {
-        return await reaPerformanceResponse(request, env);
-      } catch (error) {
-        console.error(JSON.stringify({ event: "rea_performance_failure", message: error instanceof Error ? error.message : "Unknown error", build: BUILD_ID }));
-        return json({ error: "Unable to load performance ratings." }, 503);
-      }
-    }
-
-    if (url.pathname === "/api/rea/performance/insights") {
-      if (request.method !== "POST") return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
-      try {
-        return await performanceInsightResponse(request, env);
-      } catch (error) {
-        console.error(JSON.stringify({ event: "rea_performance_insight_failure", message: error instanceof Error ? error.message : "Unknown error", build: BUILD_ID }));
-        return json({ error: "Unable to generate a performance insight right now." }, 503);
-      }
-    }
-
-    if (url.pathname === "/api/consultant/performance") {
-      if (request.method !== "GET") return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
-      try {
-        return await consultantPerformanceResponse(request, env);
-      } catch (error) {
-        console.error(JSON.stringify({ event: "consultant_performance_failure", message: error instanceof Error ? error.message : "Unknown error", build: BUILD_ID }));
-        return json({ error: "Unable to load consultant performance." }, 503);
-      }
     }
 
     const officerLifecycleMatch = url.pathname.match(/^\/api\/field\/users\/field-officers\/([^/]+)(?:\/(status))?$/);

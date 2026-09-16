@@ -5,8 +5,6 @@ import { getAssignmentConsultant, getOfficerConsultant } from "../lib/consultant
 import { useInspectionWorkflow } from "../lib/inspection-workflow";
 import { appendAuditEvent } from "../lib/rea-admin";
 import { createConsultantApi } from "../lib/field-api";
-import ReaPerformanceRatings from "./ReaPerformanceRatings";
-import { BarChart3 } from "lucide-react";
 
 const nigeriaStates=["Abia","Adamawa","Akwa Ibom","Anambra","Bauchi","Bayelsa","Benue","Borno","Cross River","Delta","Ebonyi","Edo","Ekiti","Enugu","FCT","Gombe","Imo","Jigawa","Kaduna","Kano","Katsina","Kebbi","Kogi","Kwara","Lagos","Nasarawa","Niger","Ogun","Ondo","Osun","Oyo","Plateau","Rivers","Sokoto","Taraba","Yobe","Zamfara"];
 const regions=["North West","North East","North Central","South West","South East","South South"];
@@ -17,7 +15,6 @@ const blank=():Form=>({firmName:"",adminName:"",adminEmail:"",adminPhone:"",regi
 function statusClass(s:ConsultantStatus){return s==="Active"?"bg-emerald-100 text-emerald-700":s==="Pending Activation"?"bg-amber-100 text-amber-700":"bg-slate-100 text-slate-600"}
 
 export default function ReaConsultantsManagement(){
- const [view,setView]=useState<"directory"|"performance">("directory");
  const workflow=useInspectionWorkflow();
  const [records,setRecords]=useState<ConsultantRecord[]>(readConsultants);
  const [selectedId,setSelectedId]=useState<string|null>(null);
@@ -30,8 +27,6 @@ export default function ReaConsultantsManagement(){
  const filtered=useMemo(()=>records.filter(r=>`${r.firmName} ${r.adminName} ${r.adminEmail} ${r.states.join(" ")}`.toLowerCase().includes(query.toLowerCase())),[records,query]);
  const actualOfficers=(consultantId:string)=>workflow.fieldOfficers.filter(o=>{const owner=getOfficerConsultant(o.email);return owner===consultantId||(!owner&&consultantId==="con-001")});
  const actualAssignments=(consultantId:string)=>{const names=new Set(actualOfficers(consultantId).map(o=>o.name));return workflow.assignments.filter(a=>{const owner=getAssignmentConsultant(a.id);return owner===consultantId||(!owner&&names.has(a.officer))})};
- const viewToggle=<div className="flex gap-2 rounded-xl bg-slate-100 p-1 text-xs font-bold"><button onClick={()=>setView("directory")} className={`flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 ${view==="directory"?"bg-white text-[#08733f] shadow-sm":"text-slate-500"}`}><Building2 className="h-3.5 w-3.5"/>Directory</button><button onClick={()=>setView("performance")} className={`flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 ${view==="performance"?"bg-white text-[#08733f] shadow-sm":"text-slate-500"}`}><BarChart3 className="h-3.5 w-3.5"/>Performance & Ratings</button></div>;
- if(view==="performance") return <div className="space-y-4 py-4">{viewToggle}<ReaPerformanceRatings/></div>;
  const upsert=async(form:Form)=>{
   if(modal?.record){const next={...form,id:modal.record.id};save(records.map(r=>r.id===next.id?next:r));log(next,"Consultant updated",`${next.firmName} profile and access settings updated.`);setModal(null);return;}
   const next={...form,id:`con-${Date.now()}`};
@@ -51,7 +46,6 @@ export default function ReaConsultantsManagement(){
   </div>
  }
  return <div className="space-y-4 py-4">
-  {viewToggle}
   <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-bold text-[#173b2a]">Consultants</h2><p className="text-xs text-slate-500">REA-created consultant accounts receive their own scoped operational dashboard.</p></div><button onClick={()=>setModal({mode:"create"})} className="flex items-center gap-2 rounded-lg bg-[#08733f] px-4 py-2.5 text-xs font-bold text-white"><Plus className="h-4 w-4"/>Create Consultant</button></div>
   {notice&&<div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-bold text-emerald-700">{notice}</div>}
   <div className="relative max-w-md"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-400"/><input value={query} onChange={e=>setQuery(e.target.value)} className={`${input} pl-9`} placeholder="Search consultants, admins or states"/></div>

@@ -13,12 +13,6 @@ export type VeritasSource = {
   url: string;
 };
 
-export type VeritasTable = {
-  caption: string;
-  columns: string[];
-  rows: string[][];
-};
-
 type VeritasEnvironment = {
   GEMINI_API_KEY?: string;
   GEMINI_MODEL?: string;
@@ -189,3 +183,4 @@ export async function answerVeritasQuestion(
 
   return jsonResponse(200, result);
 }
+
