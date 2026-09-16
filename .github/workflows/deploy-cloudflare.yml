@@ -71,6 +71,14 @@ jobs:
           node --test --test-concurrency=1 tests/session-activity-migration.test.mjs tests/session-activity-contract.test.mjs tests/session-activity-ai-context.test.mjs tests/session-activity-ui.test.mjs tests/session-activity-table-answer.test.mjs
           npx vitest run client/components/VeritasAssistant.session-table.spec.tsx
 
+      - name: Apply satellite intelligence AI context
+        run: |
+          node --check scripts/patch-satellite-intelligence-ai.mjs
+          node scripts/patch-satellite-intelligence-ai.mjs
+
+      - name: Validate satellite intelligence
+        run: node --test --test-concurrency=1 tests/satellite-intelligence-migration.test.mjs tests/satellite-intelligence-api.test.mjs tests/satellite-intelligence-ui.test.mjs tests/satellite-intelligence-ai.test.mjs
+
       - name: Remove Project Map summary badges
         run: node scripts/patch-project-map-summary-badges.mjs
 
@@ -83,6 +91,7 @@ jobs:
           node --check worker/entry.js
           node --check worker/claims-api.js
           node --check worker/field-api.js
+          node --check worker/satellite-api.js
 
       - name: Validate Claims contracts
         run: node --test tests/claims-api-contract.test.mjs tests/claims-immutable-assignment.test.mjs tests/claims-migration.test.mjs tests/claims-dares-template-import.test.mjs
