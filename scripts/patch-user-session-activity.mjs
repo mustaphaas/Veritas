@@ -80,6 +80,13 @@ fs.writeFileSync(fieldPath, field);
 
 let worker = fs.readFileSync(workerPath, "utf8");
 
+if (!worker.includes('from "./session-activity-answer.js"')) {
+  worker = worker.replace(
+    'import { analyticsCatalog,',
+    'import { buildSessionActivityAnswer, isSessionActivityTableQuestion } from "./session-activity-answer.js";\nimport { analyticsCatalog,',
+  );
+}
+
 worker = worker.replace(/async function authenticatedDatabaseUser\(request, env\) \{[\s\S]*?\n\}\n\nasync function consultantFieldOfficerResponse/, `async function authenticatedDatabaseUser(request, env) {
   const bearer = request.headers.get("Authorization")?.match(/^Bearer\\s+(.+)$/i)?.[1];
   if (!bearer || !env.DB) return null;
@@ -285,6 +292,24 @@ if (!worker.includes("SESSION ACTIVITY INTERPRETATION RULES:")) {
 - Never expose session tokens or hashes. Avoid repeating raw IP addresses unless the user explicitly requests a security investigation and is authorised to view them.
 
 EVIDENCE AND CAUSALITY RULES:`);
+}
+
+worker = worker.replace(
+  "  let plan = deterministicAnalyticsPlan(question);",
+  "  let plan = isSessionActivityTableQuestion(question) ? null : deterministicAnalyticsPlan(question);",
+);
+worker = worker.replace(
+  "  if (!plan && isLikelyAnalyticsQuestion(question) && !isReportRequest(question)) {",
+  "  if (!plan && !isSessionActivityTableQuestion(question) && isLikelyAnalyticsQuestion(question) && !isReportRequest(question)) {",
+);
+if (!worker.includes("veritas-live-d1-session-table")) {
+  const sessionAnswerAnchor = '    const exactCrossTabAnswer = typeof exactComponentStateProgrammeAnswer === "function" ? exactComponentStateProgrammeAnswer(question, databaseContext) : "";';
+  const sessionAnswerBlock = `    const exactSessionActivityAnswer = buildSessionActivityAnswer(question, databaseContext);
+    if (exactSessionActivityAnswer) {
+      return json({ ...exactSessionActivityAnswer, sources: [], mode: "veritas-live-d1-session-table", build: BUILD_ID });
+    }
+${sessionAnswerAnchor}`;
+  worker = replaceOnce(worker, sessionAnswerAnchor, sessionAnswerBlock, "deterministic session activity answer");
 }
 fs.writeFileSync(workerPath, worker);
 

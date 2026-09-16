@@ -67,7 +67,9 @@ jobs:
           node scripts/patch-user-session-activity.mjs
 
       - name: Validate user session intelligence
-        run: node --test --test-concurrency=1 tests/session-activity-migration.test.mjs tests/session-activity-contract.test.mjs tests/session-activity-ai-context.test.mjs tests/session-activity-ui.test.mjs
+        run: |
+          node --test --test-concurrency=1 tests/session-activity-migration.test.mjs tests/session-activity-contract.test.mjs tests/session-activity-ai-context.test.mjs tests/session-activity-ui.test.mjs tests/session-activity-table-answer.test.mjs
+          npx vitest run client/components/VeritasAssistant.session-table.spec.tsx
 
       - name: Remove Project Map summary badges
         run: node scripts/patch-project-map-summary-badges.mjs

@@ -39,11 +39,13 @@ import {
   useInspectionWorkflow,
   type FieldOfficerAccount,
 } from "../lib/inspection-workflow";
-import type { VeritasMessage, VeritasSource } from "../../shared/veritas-ai";
+import type { VeritasMessage, VeritasSource, VeritasTable } from "../../shared/veritas-ai";
 
 type DisplayMessage = VeritasMessage & {
   id: string;
   sources?: VeritasSource[];
+  table?: VeritasTable;
+  note?: string;
 };
 
 const welcome: DisplayMessage = {
@@ -107,6 +109,41 @@ function VeritasMark({ compact = false }: { compact?: boolean }) {
           strokeWidth={1.8}
         />
       </div>
+    </div>
+  );
+}
+
+function VeritasDataTable({ table, note }: { table: VeritasTable; note?: string }) {
+  return (
+    <div className="mt-3 overflow-hidden rounded-xl border border-[#d9e8de] bg-white shadow-sm">
+      <div className="overflow-x-auto">
+        <table aria-label={table.caption} className="min-w-[860px] w-full border-collapse text-left text-[9px] leading-4">
+          <caption className="border-b border-[#dfeae2] bg-[#f3faf5] px-3 py-2.5 text-left text-[10px] font-bold text-[#173b2a]">
+            {table.caption}
+          </caption>
+          <thead className="bg-[#08733f] text-white">
+            <tr>
+              {table.columns.map((column, index) => (
+                <th key={column} scope="col" className={`${index === 0 ? "sticky left-0 z-10 bg-[#08733f]" : ""} whitespace-nowrap px-3 py-2.5 font-bold`}>
+                  {column}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {table.rows.map((row, rowIndex) => (
+              <tr key={`${row[0]}-${rowIndex}`} className="border-t border-slate-100 odd:bg-white even:bg-[#f8fbf9]">
+                {row.map((cell, cellIndex) => (
+                  <td key={`${cellIndex}-${cell}`} className={`${cellIndex === 0 ? "sticky left-0 z-[1] bg-inherit font-bold text-[#173b2a]" : "text-slate-600"} whitespace-nowrap px-3 py-2.5 align-top`}>
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {note ? <p className="border-t border-[#e3ece6] bg-amber-50/70 px-3 py-2 text-[8px] leading-4 text-amber-900">{note}</p> : null}
     </div>
   );
 }
@@ -393,6 +430,8 @@ export default function VeritasAssistant() {
       const payload = (await response.json().catch(() => ({}))) as {
         answer?: string;
         sources?: VeritasSource[];
+        table?: VeritasTable;
+        note?: string;
         error?: string;
       };
 
@@ -407,6 +446,8 @@ export default function VeritasAssistant() {
           role: "assistant",
           content: payload.answer!,
           sources: payload.sources,
+          table: payload.table,
+          note: payload.note,
         },
       ]);
     } catch (error) {
@@ -489,7 +530,7 @@ export default function VeritasAssistant() {
                   className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`max-w-[92%] rounded-2xl px-3.5 py-3 text-[11px] leading-5 ${
+                    className={`${message.table ? "w-full max-w-full" : "max-w-[92%]"} rounded-2xl px-3.5 py-3 text-[11px] leading-5 ${
                       message.role === "user"
                         ? "rounded-br-md bg-[#075f35] text-white shadow-[0_6px_18px_rgba(7,95,53,0.16)]"
                         : "rounded-bl-md border border-[#e0e9e3] bg-white text-slate-700 shadow-[0_3px_12px_rgba(18,66,39,0.045)]"
@@ -504,6 +545,7 @@ export default function VeritasAssistant() {
                       </div>
                     )}
                     <p className="whitespace-pre-wrap">{message.content}</p>
+                    {message.table ? <VeritasDataTable table={message.table} note={message.note} /> : null}
                     {message.sources?.length ? (
                       <div className="mt-3 border-t border-slate-100 pt-2">
                         <p className="text-[8px] font-bold uppercase tracking-wide text-slate-400">
