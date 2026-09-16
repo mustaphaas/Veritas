@@ -1,5 +1,6 @@
 import { handleFieldApi } from "./field-api.js";
 import { analyticsCatalog, analyticsAnswerPrompt, deterministicAnalyticsPlan, executeAnalyticsPlan, parsePlannerJson, plannerPrompt, validateAnalyticsPlan } from "./analytics.js";
+import { fieldOfficerPerformance, consultantPerformance, reaStaffPerformance } from "./performance.js";
 
 const BUILD_ID = "veritas-2026-09-11-public-rea-team-r4";
 const encoder = new TextEncoder();
@@ -240,6 +241,141 @@ async function consultantProfileResponse(request, env) {
     status: record.status, engagementRef: record.engagementRef || "", scopeNote: record.scopeNote || "",
     engagementStart: record.engagementStart || "", engagementEnd: record.engagementEnd || "", temporaryPassword: "Managed in D1",
   } });
+}
+
+function parseSinceDays(url) {
+  const raw = Number(url.searchParams.get("sinceDays"));
+  return Number.isFinite(raw) && raw > 0 && raw <= 365 ? raw : 90;
+}
+
+async function reaPerformanceResponse(request, env) {
+  const user = await authenticatedDatabaseUser(request, env);
+  if (!user) return json({ error: "Authentication required." }, 401);
+  if (user.role !== "rea_admin") return json({ error: "REA access required." }, 403);
+
+  const sinceDays = parseSinceDays(new URL(request.url));
+  const [reaStaff, consultants] = await Promise.all([
+    reaStaffPerformance(env, { sinceDays }),
+    consultantPerformance(env, { sinceDays }),
+  ]);
+
+  return json({ sinceDays, reaStaff, consultants, serverTime: new Date().toISOString() });
+}
+
+async function consultantPerformanceResponse(request, env) {
+  const user = await authenticatedDatabaseUser(request, env);
+  if (!user) return json({ error: "Authentication required." }, 401);
+  if (user.role !== "consultant_admin" && user.role !== "rea_admin") {
+    return json({ error: "Consultant or REA access required." }, 403);
+  }
+
+  let consultantFirm = user.consultantFirm;
+  if (user.role === "rea_admin") {
+    consultantFirm = new URL(request.url).searchParams.get("consultantFirm") || consultantFirm;
+  }
+  if (!consultantFirm) return json({ error: "Consultant firm is required." }, 400);
+
+  const sinceDays = parseSinceDays(new URL(request.url));
+  const allConsultants = await consultantPerformance(env, { sinceDays });
+  const mine = allConsultants.find((entry) => entry.firmName === consultantFirm);
+  if (!mine) return json({ error: "No performance data found for this consultant firm." }, 404);
+
+  // A consultant only ever sees their own firm's roll-up and their own
+  // field officers' numeric metrics - never other firms or REA staff data.
+  return json({ consultantFirm, sinceDays, consultant: mine, serverTime: new Date().toISOString() });
+}
+
+async function performanceInsightResponse(request, env) {
+  const user = await authenticatedDatabaseUser(request, env);
+  if (!user) return json({ error: "Authentication required." }, 401);
+  if (user.role !== "rea_admin") return json({ error: "REA access required." }, 403);
+  if (!env.DB) return json({ error: "Veritas database is not configured." }, 503);
+
+  const body = await request.json().catch(() => null);
+  const entityType = body?.entityType;
+  const entityId = String(body?.entityId || "").trim();
+  if (!["field_officer", "consultant", "rea_staff"].includes(entityType) || !entityId) {
+    return json({ error: "A valid entityType (field_officer, consultant or rea_staff) and entityId are required." }, 400);
+  }
+
+  const sinceDays = parseSinceDays(new URL(request.url));
+  let subject = null;
+  let contextLabel = "";
+  if (entityType === "rea_staff") {
+    subject = (await reaStaffPerformance(env, { sinceDays })).find((row) => row.id === entityId);
+    contextLabel = "an REA administrator reviewing field verification submissions";
+  } else if (entityType === "consultant") {
+    subject = (await consultantPerformance(env, { sinceDays })).find((row) => row.firmName === entityId);
+    contextLabel = "a consultant firm managing a roster of field officers under an REA verification contract";
+  } else {
+    subject = (await fieldOfficerPerformance(env, { sinceDays })).find((row) => row.id === entityId);
+    contextLabel = "a field officer conducting GPS-verified site inspections";
+  }
+  if (!subject || subject.score === null) {
+    return json({ error: "Not enough workflow data yet to generate an insight for this entity." }, 404);
+  }
+
+  if (!env.GEMINI_API_KEY) {
+    return json({ error: "Veritas AI is not configured yet. Add GEMINI_API_KEY as a server-side secret." }, 503);
+  }
+
+  const cached = await env.DB.prepare(
+    `SELECT summary, flags_json AS flagsJson, model, generated_at AS generatedAt, score
+     FROM performance_ai_insights WHERE entity_type=? AND entity_id=? ORDER BY generated_at DESC LIMIT 1`,
+  )
+    .bind(entityType, entityId)
+    .first();
+  const wantsRefresh = new URL(request.url).searchParams.get("refresh") === "1";
+  const cacheIsFresh = cached && !wantsRefresh && Date.now() - Date.parse(cached.generatedAt) < 24 * 3_600_000 && Number(cached.score) === subject.score;
+  if (cacheIsFresh) {
+    return json({
+      entityType,
+      entityId,
+      score: subject.score,
+      summary: cached.summary,
+      flags: JSON.parse(cached.flagsJson || "[]"),
+      cached: true,
+      generatedAt: cached.generatedAt,
+    });
+  }
+
+  const prompt = `You are writing a short, factual performance note for an internal REA (Rural Electrification Agency, Nigeria) dashboard.
+The subject is ${contextLabel}. Their computed performance data for the last ${sinceDays} days (already calculated deterministically - do not invent or contradict any figure):
+${JSON.stringify(subject, null, 2)}
+
+Write:
+1. A 2-3 sentence plain-language summary of this performance (no invented numbers beyond what is given above).
+2. Up to 3 short flags as a JSON array of strings under a line starting with "FLAGS:" - each flag should name a concrete pattern worth a manager's attention (e.g. slow turnaround, low verification rate). If nothing stands out, return "FLAGS: []".
+Respond in plain text, summary first, then the FLAGS line. Do not use markdown formatting.`;
+
+  const result = await callGeminiWithFallback(env, {
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    generationConfig: { maxOutputTokens: 400 },
+  });
+  if (!result.ok) return json({ error: "Veritas AI could not generate an insight right now. Please try again." }, 503);
+
+  const text = extractGeminiText(result.payload) || "";
+  const flagsMatch = text.match(/FLAGS:\s*(\[[\s\S]*\])/i);
+  let flags = [];
+  if (flagsMatch) {
+    try {
+      flags = JSON.parse(flagsMatch[1]);
+    } catch {
+      flags = [];
+    }
+  }
+  const summary = (flagsMatch ? text.slice(0, flagsMatch.index) : text).trim();
+  if (!summary) return json({ error: "Veritas AI returned an empty insight. Please try again." }, 502);
+
+  const timestamp = new Date().toISOString();
+  await env.DB.prepare(
+    `INSERT INTO performance_ai_insights(id,entity_type,entity_id,score,summary,flags_json,model,generated_by,generated_at)
+     VALUES(?,?,?,?,?,?,?,?,?)`,
+  )
+    .bind(crypto.randomUUID(), entityType, entityId, subject.score, summary, JSON.stringify(flags), result.model, user.id, timestamp)
+    .run();
+
+  return json({ entityType, entityId, score: subject.score, summary, flags, cached: false, generatedAt: timestamp });
 }
 
 async function fieldOfficerLifecycleResponse(request, env, officerId, action) {
@@ -1176,6 +1312,36 @@ export default {
     if (url.pathname === "/api/rea/consultants") {
       if (request.method !== "POST") return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
       return reaConsultantCreateResponse(request, env);
+    }
+
+    if (url.pathname === "/api/rea/performance") {
+      if (request.method !== "GET") return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
+      try {
+        return await reaPerformanceResponse(request, env);
+      } catch (error) {
+        console.error(JSON.stringify({ event: "rea_performance_failure", message: error instanceof Error ? error.message : "Unknown error", build: BUILD_ID }));
+        return json({ error: "Unable to load performance ratings." }, 503);
+      }
+    }
+
+    if (url.pathname === "/api/rea/performance/insights") {
+      if (request.method !== "POST") return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
+      try {
+        return await performanceInsightResponse(request, env);
+      } catch (error) {
+        console.error(JSON.stringify({ event: "rea_performance_insight_failure", message: error instanceof Error ? error.message : "Unknown error", build: BUILD_ID }));
+        return json({ error: "Unable to generate a performance insight right now." }, 503);
+      }
+    }
+
+    if (url.pathname === "/api/consultant/performance") {
+      if (request.method !== "GET") return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
+      try {
+        return await consultantPerformanceResponse(request, env);
+      } catch (error) {
+        console.error(JSON.stringify({ event: "consultant_performance_failure", message: error instanceof Error ? error.message : "Unknown error", build: BUILD_ID }));
+        return json({ error: "Unable to load consultant performance." }, 503);
+      }
     }
 
     const officerLifecycleMatch = url.pathname.match(/^\/api\/field\/users\/field-officers\/([^/]+)(?:\/(status))?$/);

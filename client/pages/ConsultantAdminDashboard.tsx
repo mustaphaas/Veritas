@@ -24,6 +24,7 @@ import type { Project } from "../lib/dashboard-data";
 import { setAssignmentConsultant, setOfficerConsultant } from "../lib/consultant-tenancy";
 import { useConsultantPortfolio } from "../lib/use-consultant-portfolio";
 import { deleteFieldOfficerApi, updateFieldOfficerStatusApi } from "../lib/field-api";
+import ConsultantPerformanceSummary from "../components/ConsultantPerformanceSummary";
 import {
   COMPONENT_FORM_SECTIONS,
   isSupportedAssignmentComponent,
@@ -1082,6 +1083,9 @@ export default function ConsultantAdminDashboard() {
             icon={ShieldCheck}
           />
         </section>
+        <div className="mt-3">
+          <ConsultantPerformanceSummary />
+        </div>
         <div className="mt-3">
           <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
             <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
