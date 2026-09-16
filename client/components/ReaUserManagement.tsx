@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import { BadgeCheck, Search, ShieldCheck, UserRoundCog, UserRoundX } from "lucide-react";
-import { fetchReaPortalUsers } from "../lib/field-api";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { BadgeCheck, KeyRound, PauseCircle, Search, ShieldCheck, Trash2, UserRoundCheck, UserRoundCog, UserRoundX } from "lucide-react";
+import { deleteReaPortalUser, fetchReaPortalUsers, resetReaPortalUserPassword, updateReaPortalUserStatus } from "../lib/field-api";
 
 type PortalUser = {
   id: string;
@@ -28,24 +28,68 @@ export default function ReaUserManagement() {
   const [classificationFilter, setClassificationFilter] = useState("All users");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [actionUserId, setActionUserId] = useState("");
+
+  const loadUsers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const payload = await fetchReaPortalUsers();
+      setUsers(Array.isArray(payload.users) ? payload.users : []);
+      setError("");
+    } catch (reason) {
+      setUsers([]);
+      setError(reason instanceof Error ? reason.message : "Unable to load portal users from the database.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let active = true;
-    setLoading(true);
-    fetchReaPortalUsers()
-      .then((payload) => {
-        if (!active) return;
-        setUsers(Array.isArray(payload.users) ? payload.users : []);
-        setError("");
-      })
-      .catch((reason) => {
-        if (!active) return;
-        setUsers([]);
-        setError(reason instanceof Error ? reason.message : "Unable to load portal users from the database.");
-      })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, []);
+    void loadUsers();
+  }, [loadUsers]);
+
+  async function changeStatus(user: PortalUser) {
+    const nextStatus = user.status === "Active" ? "Suspended" : "Active";
+    const verb = nextStatus === "Suspended" ? "suspend" : "reactivate";
+    if (!window.confirm(`Are you sure you want to ${verb} ${user.name}?`)) return;
+    setActionUserId(user.id);
+    try {
+      await updateReaPortalUserStatus(user.id, nextStatus);
+      await loadUsers();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : `Unable to ${verb} this account.`);
+    } finally {
+      setActionUserId("");
+    }
+  }
+
+  async function resetPassword(user: PortalUser) {
+    const temporaryPassword = window.prompt(`Enter a temporary password for ${user.name}. It must contain at least 8 characters.`);
+    if (!temporaryPassword) return;
+    if (!window.confirm(`Reset password for ${user.name}? Existing sessions will be signed out.`)) return;
+    setActionUserId(user.id);
+    try {
+      await resetReaPortalUserPassword(user.id, temporaryPassword);
+      setError("");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to reset password.");
+    } finally {
+      setActionUserId("");
+    }
+  }
+
+  async function deleteUser(user: PortalUser) {
+    if (!window.confirm(`Delete ${user.name}? Accounts with historical assignments cannot be deleted and should be suspended instead.`)) return;
+    setActionUserId(user.id);
+    try {
+      await deleteReaPortalUser(user.id);
+      await loadUsers();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to delete this account.");
+    } finally {
+      setActionUserId("");
+    }
+  }
 
   const visible = useMemo(() => users.filter((user) => {
     const matchesQuery = `${user.name} ${user.email} ${user.role} ${user.classification} ${user.consultantFirm || ""}`.toLowerCase().includes(query.toLowerCase());
@@ -67,8 +111,8 @@ export default function ReaUserManagement() {
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center"><div className="relative flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/><input value={query} onChange={(event)=>setQuery(event.target.value)} placeholder="Search portal users" className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-xs outline-none focus:border-[#08733f]"/></div><select value={classificationFilter} onChange={(event)=>setClassificationFilter(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600"><option>All users</option><option>REA Staff</option><option>Consultant Admin</option><option>Field Officer</option><option>Other</option></select></div>
       {loading && <div className="p-8 text-center text-xs font-medium text-slate-500">Loading users from the Veritas database…</div>}
-      {!loading && error && <div className="m-4 rounded-lg border border-rose-200 bg-rose-50 p-4 text-xs font-semibold text-rose-700">{error} No demo or browser-stored users are being shown.</div>}
-      {!loading && !error && <div className="overflow-x-auto"><table className="w-full min-w-[940px] table-fixed text-left"><colgroup><col className="w-[22%]"/><col className="w-[23%]"/><col className="w-[18%]"/><col className="w-[20%]"/><col className="w-[9%]"/><col className="w-[8%]"/></colgroup><thead className="bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-500"><tr><th className="px-5 py-3">User Name</th><th className="px-4 py-3">Email Address</th><th className="px-4 py-3">Classification</th><th className="px-4 py-3">Role / Organisation</th><th className="px-4 py-3 text-center">Status</th><th className="px-4 py-3 text-center">Source</th></tr></thead><tbody>{visible.map((user)=><tr key={user.id} className="border-t border-slate-100 transition hover:bg-[#f8fcf9]"><td className="px-5 py-4"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 text-xs font-bold text-emerald-700">{user.name.split(/\s+/).slice(0,2).map((part)=>part[0]).join("")}</span><p className="text-xs font-bold text-slate-800">{user.name}</p></div></td><td className="px-4 py-4 text-xs font-medium text-slate-600">{user.email || "—"}</td><td className="px-4 py-4"><span className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700">{user.classification}</span></td><td className="px-4 py-4"><p className="text-xs font-semibold text-slate-700">{roleLabel(user.role)}</p><p className="mt-0.5 text-[10px] text-slate-500">{user.consultantFirm || (user.classification === "REA Staff" ? "Rural Electrification Agency" : "—")}</p></td><td className="px-4 py-4 text-center"><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${user.status === "Active" ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>{user.status}</span></td><td className="px-4 py-4 text-center text-[10px] font-bold text-slate-500">D1</td></tr>)}</tbody></table>{visible.length === 0 && <div className="border-t border-slate-100 p-8 text-center text-xs text-slate-500">No database users match this view.</div>}</div>}
+      {!loading && error && <div className="m-4 rounded-lg border border-rose-200 bg-rose-50 p-4 text-xs font-semibold text-rose-700">{error}</div>}
+      {!loading && <div className="overflow-x-auto"><table className="w-full min-w-[1040px] table-fixed text-left"><colgroup><col className="w-[20%]"/><col className="w-[21%]"/><col className="w-[16%]"/><col className="w-[18%]"/><col className="w-[9%]"/><col className="w-[7%]"/><col className="w-[9%]"/></colgroup><thead className="bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-500"><tr><th className="px-5 py-3">User Name</th><th className="px-4 py-3">Email Address</th><th className="px-4 py-3">Classification</th><th className="px-4 py-3">Role / Organisation</th><th className="px-4 py-3 text-center">Status</th><th className="px-4 py-3 text-center">Source</th><th className="px-4 py-3 text-center">Actions</th></tr></thead><tbody>{visible.map((user)=><tr key={user.id} className="border-t border-slate-100 transition hover:bg-[#f8fcf9]"><td className="px-5 py-4"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 text-xs font-bold text-emerald-700">{user.name.split(/\s+/).slice(0,2).map((part)=>part[0]).join("")}</span><p className="text-xs font-bold text-slate-800">{user.name}</p></div></td><td className="px-4 py-4 text-xs font-medium text-slate-600">{user.email || "—"}</td><td className="px-4 py-4"><span className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700">{user.classification}</span></td><td className="px-4 py-4"><p className="text-xs font-semibold text-slate-700">{roleLabel(user.role)}</p><p className="mt-0.5 text-[10px] text-slate-500">{user.consultantFirm || (user.classification === "REA Staff" ? "Rural Electrification Agency" : "—")}</p></td><td className="px-4 py-4 text-center"><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${user.status === "Active" ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>{user.status}</span></td><td className="px-4 py-4 text-center text-[10px] font-bold text-slate-500">D1</td><td className="px-4 py-4"><div className="flex items-center justify-center gap-1"><button disabled={actionUserId === user.id} onClick={()=>void changeStatus(user)} title={user.status === "Active" ? "Suspend user" : "Reactivate user"} aria-label={user.status === "Active" ? "Suspend user" : "Reactivate user"} className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-40">{user.status === "Active" ? <PauseCircle className="h-4 w-4"/> : <UserRoundCheck className="h-4 w-4"/>}</button><button disabled={actionUserId === user.id} onClick={()=>void resetPassword(user)} title="Reset password" aria-label="Reset password" className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-40"><KeyRound className="h-4 w-4"/></button><button disabled={actionUserId === user.id} onClick={()=>void deleteUser(user)} title="Delete user" aria-label="Delete user" className="rounded-md p-1.5 text-rose-500 hover:bg-rose-50 disabled:opacity-40"><Trash2 className="h-4 w-4"/></button></div></td></tr>)}</tbody></table>{visible.length === 0 && <div className="border-t border-slate-100 p-8 text-center text-xs text-slate-500">No database users match this view.</div>}</div>}
     </section>
   </div>;
 }
