@@ -66,6 +66,11 @@ jobs:
           node --check scripts/patch-user-session-activity.mjs
           node scripts/patch-user-session-activity.mjs
 
+      - name: Harden production login
+        run: |
+          node --check scripts/patch-login-resilience.mjs
+          node scripts/patch-login-resilience.mjs
+
       - name: Validate user session intelligence
         run: |
           node --test --test-concurrency=1 tests/session-activity-migration.test.mjs tests/session-activity-contract.test.mjs tests/session-activity-ai-context.test.mjs tests/session-activity-ui.test.mjs tests/session-activity-table-answer.test.mjs
