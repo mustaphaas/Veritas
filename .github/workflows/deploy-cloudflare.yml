@@ -61,6 +61,14 @@ jobs:
       - name: Validate REA users database regression
         run: node --test tests/rea-users-database.test.mjs
 
+      - name: Apply durable user session intelligence
+        run: |
+          node --check scripts/patch-user-session-activity.mjs
+          node scripts/patch-user-session-activity.mjs
+
+      - name: Validate user session intelligence
+        run: node --test --test-concurrency=1 tests/session-activity-migration.test.mjs tests/session-activity-contract.test.mjs tests/session-activity-ai-context.test.mjs tests/session-activity-ui.test.mjs
+
       - name: Remove Project Map summary badges
         run: node scripts/patch-project-map-summary-badges.mjs
 
