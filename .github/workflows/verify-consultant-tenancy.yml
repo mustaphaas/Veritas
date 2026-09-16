@@ -19,10 +19,16 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Prepare generated consultant sources
+        run: |
+          node scripts/patch-consultant-d1-tenancy.mjs
+          node scripts/patch-consultant-project-identity.mjs
+          node scripts/patch-consultant-assignment-normalized-identity.mjs
+          node scripts/patch-consultant-coverage-map-full-portfolio.mjs
       - name: Run Node regression tests
-        # Several legacy contract tests intentionally run repository patch scripts
-        # that mutate the same generated source files. Run them serially so those
-        # mutations cannot race and produce false failures in unrelated features.
+        # Legacy contract tests can mutate generated patch targets. Prepare the
+        # deployment-equivalent consultant source first, then serialize the suite
+        # so later patch checks cannot race each other.
         run: node --test --test-concurrency=1 tests/*.test.mjs
       - name: Run client Vitest suite
         run: npx vitest --run client
