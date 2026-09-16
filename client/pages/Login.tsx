@@ -35,13 +35,19 @@ export default function Login() {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setSigningIn(true);
-    const nextSession = await login(email, password);
-    setSigningIn(false);
-    if (!nextSession) {
-      setError("The email or password does not match a demo account.");
-      return;
+    setError("");
+    try {
+      const nextSession = await login(email, password);
+      if (!nextSession) {
+        setError("This account could not be signed in. Confirm that it is active and try again.");
+        return;
+      }
+      navigate(nextSession.path, { replace: true });
+    } catch (loginError) {
+      setError(loginError instanceof Error ? loginError.message : "Unable to sign in to Veritas.");
+    } finally {
+      setSigningIn(false);
     }
-    navigate(nextSession.path, { replace: true });
   };
 
   return (
@@ -109,7 +115,7 @@ export default function Login() {
               Welcome back
             </h2>
             <p className="mt-2 text-sm text-slate-500">
-              Select a demo account or enter its credentials.
+              Enter your Veritas account credentials. Demo shortcuts remain available for testing.
             </p>
 
             <div className="mt-6 grid gap-2 sm:grid-cols-3">
@@ -199,7 +205,7 @@ export default function Login() {
 
             <div className="mt-6 rounded-lg border border-[#d6e9da] bg-[#f7fcf8] p-3">
               <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#08733f]">
-                Selected demo credentials
+                Selected credentials
               </p>
               <p className="mt-2 break-all font-mono text-[10px] text-slate-600">
                 {email}
@@ -209,7 +215,7 @@ export default function Login() {
               </p>
             </div>
             <p className="mt-5 text-center text-[10px] text-slate-400">
-              Demo access only · No production authentication
+              Production authentication · Secure D1-backed sessions
             </p>
           </div>
         </section>
