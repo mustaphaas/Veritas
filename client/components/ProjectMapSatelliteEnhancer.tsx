@@ -25,6 +25,7 @@ type LeafletMap = {
   invalidateSize: () => void;
   fitBounds: (bounds: unknown, options?: Record<string, unknown>) => void;
   setMaxBounds: (bounds: unknown) => void;
+  setView: (center: [number, number], zoom: number) => LeafletMap;
 };
 
 type LeafletLayer = {
@@ -38,9 +39,7 @@ type LeafletMarker = {
 };
 
 type LeafletApi = {
-  map: (element: HTMLElement, options?: Record<string, unknown>) => LeafletMap & {
-    setView: (center: [number, number], zoom: number) => LeafletMap;
-  };
+  map: (element: HTMLElement, options?: Record<string, unknown>) => LeafletMap;
   tileLayer: (url: string, options?: Record<string, unknown>) => {
     addTo: (map: LeafletMap) => unknown;
   };
@@ -101,11 +100,11 @@ function markerColor(record: ReaMapProjectRecord) {
 
 function escapeHtml(value: unknown) {
   return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function extractNigeriaRings(data: any) {
