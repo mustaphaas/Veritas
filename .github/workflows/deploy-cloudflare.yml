@@ -40,6 +40,11 @@ jobs:
       - name: Apply official REA public knowledge and team snapshot
         run: node scripts/patch-veritas-public-rea-knowledge.mjs
 
+      - name: Keep consultant tenancy compatible with hardened login
+        run: |
+          node --check scripts/patch-consultant-login-compatibility.mjs
+          node scripts/patch-consultant-login-compatibility.mjs
+
       - name: Apply consultant D1 tenancy and field-officer lifecycle
         run: node scripts/patch-consultant-d1-tenancy.mjs
 
