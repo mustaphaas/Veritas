@@ -307,7 +307,7 @@ export default function Index() {
   const visibleNavigation = useMemo(() => {
     if (session?.role !== "rea") return navigation;
     const allowed = new Set(session.access ?? []);
-    return navigation.filter((item) => allowed.has(item.label));
+    return navigation.filter((item) => item.label === "Field Inspections" || allowed.has(item.label));
   }, [session?.role, accessKey]);
   const resolvedActiveNav = visibleNavigation.some((item) => item.label === activeNav)
     ? activeNav
