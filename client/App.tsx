@@ -19,6 +19,7 @@ import FieldOfficerDashboard from "./pages/FieldOfficerDashboard";
 import ConsultantAdminDashboard from "./pages/ConsultantAdminDashboard";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
+import ReaFieldInspections from "./pages/ReaFieldInspections";
 import VeritasAssistant from "./components/VeritasAssistant";
 import VeritasFooter from "./components/VeritasFooter";
 import ReaProjectMapHost from "./components/ReaProjectMapProgramme";
