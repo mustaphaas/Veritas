@@ -370,7 +370,9 @@ async function handleCollaborativeInspections(request, env, user) {
   if (path === "/api/field/auth/login" && request.method === "POST") return login(request, env);
   const user = await currentUser(request, env);
   if (!user) return response({ error: "Authentication required." }, 401);
-  const collaborativeResponse = await handleCollaborativeInspections(request, env, user);\n  if (collaborativeResponse) return collaborativeResponse;\n  if (path === "/api/field/auth/logout" && request.method === "POST") {
+  const collaborativeResponse = await handleCollaborativeInspections(request, env, user);
+  if (collaborativeResponse) return collaborativeResponse;
+  if (path === "/api/field/auth/logout" && request.method === "POST") {
     const bearer = request.headers.get("Authorization").replace(/^Bearer\s+/i, "");
     await env.DB.prepare("DELETE FROM sessions WHERE token_hash=?").bind(await digest(bearer)).run();
     return response({ ok: true });
