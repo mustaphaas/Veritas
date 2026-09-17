@@ -2,7 +2,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Layers3, Map as MapIcon, Satellite } from "lucide-react";
 import { useAuth } from "../lib/auth";
-import { fetchReaMapProjects, type ReaMapProjectRecord } from "../lib/rea-project-map-data";
+import {
+  fetchReaMapProjects,
+  verifyProjectSatelliteImagery,
+  type ReaMapProjectRecord,
+  type SatelliteVerificationVerdict,
+} from "../lib/rea-project-map-data";
 
 export const SATELLITE_TILE_URL =
   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
@@ -25,6 +30,7 @@ type LeafletMap = {
   invalidateSize: () => void;
   fitBounds: (bounds: unknown, options?: Record<string, unknown>) => void;
   setMaxBounds: (bounds: unknown) => void;
+  on: (event: string, handler: (event: { popup?: { getElement: () => HTMLElement | null } }) => void) => void;
 };
 
 type LeafletLayer = {
@@ -124,7 +130,53 @@ function extractNigeriaRings(data: any) {
   });
 }
 
-function SatelliteCanvas({ projects }: { projects: ReaMapProjectRecord[] }) {
+const VERDICT_LABEL: Record<SatelliteVerificationVerdict["status"], string> = {
+  present: "Infrastructure detected",
+  absent: "Not detected",
+  inconclusive: "Inconclusive",
+};
+
+const VERDICT_COLOR: Record<SatelliteVerificationVerdict["status"], string> = {
+  present: "#159254",
+  absent: "#c0392b",
+  inconclusive: "#b8860b",
+};
+
+// The project id lives on the enclosing slot (data-satellite-verify-slot),
+// not on the button itself, so swapping the slot's innerHTML between the
+// "verify" button, a loading state, and the verdict never loses track of
+// which project a click belongs to - a single delegated listener on the
+// popup element (wired in map.on("popupopen") below) reads it from there.
+function verifyButtonHtml() {
+  return `<button type="button" data-satellite-verify-btn style="font-size:10px;font-weight:700;color:#fff;background:#173b2a;border:none;border-radius:4px;padding:4px 8px;cursor:pointer">
+    Verify via satellite
+  </button>`;
+}
+
+function verdictHtml(verdict: SatelliteVerificationVerdict) {
+  const confidence = typeof verdict.confidence === "number" ? `${Math.round(verdict.confidence * 100)}%` : "n/a";
+  const houses = typeof verdict.estimatedNearbyHouses === "number" ? verdict.estimatedNearbyHouses : "n/a";
+  const color = VERDICT_COLOR[verdict.status] ?? "#64748b";
+  const qualityNote =
+    verdict.imageQuality !== "clear"
+      ? `<div style="margin-top:3px;color:#b8860b">Imagery quality: ${escapeHtml(verdict.imageQuality)} — treat this read with extra caution.</div>`
+      : "";
+  return `<div style="font-size:10px;line-height:1.5">
+    <span style="display:inline-block;padding:1px 6px;border-radius:3px;color:#fff;font-weight:700;background:${color}">${escapeHtml(VERDICT_LABEL[verdict.status] ?? verdict.status)}</span>
+    <span style="color:#64748b"> · confidence ${confidence} · ~${escapeHtml(String(houses))} houses nearby</span>
+    ${verdict.notes ? `<div style="margin-top:3px;color:#475569">${escapeHtml(verdict.notes)}</div>` : ""}
+    ${qualityNote}
+    <button type="button" data-satellite-verify-btn style="margin-top:4px;font-size:9px;font-weight:700;color:#173b2a;background:none;border:1px solid #173b2a;border-radius:4px;padding:2px 6px;cursor:pointer">Re-check</button>
+  </div>`;
+}
+
+function errorHtml(message: string) {
+  return `<div style="font-size:10px;color:#c0392b">${escapeHtml(message)}
+    <button type="button" data-satellite-verify-btn style="margin-left:4px;font-size:9px;font-weight:700;color:#173b2a;background:none;border:1px solid #173b2a;border-radius:4px;padding:2px 6px;cursor:pointer">Retry</button>
+  </div>`;
+}
+
+function SatelliteCanvas({ projects, apiToken }: { projects: ReaMapProjectRecord[]; apiToken?: string }) {
   const elementRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -153,6 +205,37 @@ function SatelliteCanvas({ projects }: { projects: ReaMapProjectRecord[] }) {
           maxZoom: 19,
           attribution: "Tiles © Esri",
         }).addTo(map);
+
+        // Delegated rather than bound per-button: the slot's innerHTML is
+        // replaced wholesale between the "verify" button, the loading
+        // state, and the verdict (including its own "Re-check" button), so
+        // a listener on the popup container (which persists across those
+        // swaps) is what keeps clicks working after the first check.
+        map.on("popupopen", (event) => {
+          const container = event.popup?.getElement();
+          if (!container || container.dataset.veritasVerifyBound === "true") return;
+          container.dataset.veritasVerifyBound = "true";
+
+          container.addEventListener("click", async (clickEvent) => {
+            const target = clickEvent.target as HTMLElement | null;
+            const button = target?.closest<HTMLElement>("[data-satellite-verify-btn]");
+            const slot = button?.closest<HTMLElement>("[data-satellite-verify-slot]");
+            const projectId = slot?.getAttribute("data-satellite-verify-slot");
+            if (!button || !slot || !projectId) return;
+
+            if (!apiToken) {
+              slot.innerHTML = errorHtml("Sign in again to run a satellite check.");
+              return;
+            }
+            slot.innerHTML = `<span style="font-size:10px;color:#64748b">Checking satellite imagery…</span>`;
+            try {
+              const result = await verifyProjectSatelliteImagery(projectId, apiToken);
+              slot.innerHTML = verdictHtml(result.verdict);
+            } catch (error) {
+              slot.innerHTML = errorHtml(error instanceof Error ? error.message : "Satellite check failed.");
+            }
+          });
+        });
 
         fetch("/nigeria-adm1.geojson")
           .then((response) => {
@@ -187,7 +270,7 @@ function SatelliteCanvas({ projects }: { projects: ReaMapProjectRecord[] }) {
             fillOpacity: 0.96,
           })
             .bindPopup(
-              `<div style="min-width:180px;font-family:system-ui,sans-serif"><strong>${escapeHtml(project.name)}</strong><br/><span style="font-size:11px;color:#64748b">${escapeHtml(project.community || project.lga || project.state)}</span><br/><span style="font-size:11px;color:#08733f;font-weight:700">${escapeHtml(project.programme)} · ${escapeHtml(project.status)}</span></div>`,
+              `<div style="min-width:200px;font-family:system-ui,sans-serif"><strong>${escapeHtml(project.name)}</strong><br/><span style="font-size:11px;color:#64748b">${escapeHtml(project.community || project.lga || project.state)}</span><br/><span style="font-size:11px;color:#08733f;font-weight:700">${escapeHtml(project.programme)} · ${escapeHtml(project.status)}</span><div data-satellite-verify-slot="${escapeHtml(project.id)}" style="margin-top:6px">${verifyButtonHtml()}</div></div>`,
             )
             .on("click", () => map.setView([latitude, longitude], PROJECT_FOCUS_ZOOM))
             .addTo(map);
@@ -205,7 +288,7 @@ function SatelliteCanvas({ projects }: { projects: ReaMapProjectRecord[] }) {
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [mappable]);
+  }, [mappable, apiToken]);
 
   return (
     <div className="absolute inset-0 z-[15] bg-[#101812]" data-veritas-satellite-map="true">
@@ -288,7 +371,7 @@ export default function ProjectMapSatelliteEnhancer() {
           <Satellite className="h-3.5 w-3.5" /> Satellite
         </button>
       </div>
-      {satellite && <SatelliteCanvas projects={projects} />}
+      {satellite && <SatelliteCanvas projects={projects} apiToken={session?.apiToken} />}
       {satellite && (
         <div className="pointer-events-none absolute left-4 top-16 z-[40] hidden items-center gap-1.5 rounded-md border border-white/20 bg-[#173b2a]/85 px-2.5 py-1.5 text-[9px] font-bold text-white shadow-sm backdrop-blur sm:flex">
           <Layers3 className="h-3 w-3" /> Scroll or pinch to zoom · drag to pan

@@ -34,8 +34,11 @@ export function resolveProjectCoordinate(project: Pick<ReaMapProjectRecord, "lat
 export function reaRecordToDashboardProject(record: ReaMapProjectRecord): Project {
   const coordinate = resolveProjectCoordinate(record);
   return {
+    id: record.id,
     name: record.name,
     state: record.state,
+    lga: record.lga,
+    community: record.community,
     programme: record.programme,
     component: record.component,
     contractor: record.contractor,
@@ -58,4 +61,39 @@ export async function fetchReaMapProjects(apiToken: string): Promise<ReaMapProje
   if (!response.ok) throw new Error("Unable to load REA project locations.");
   const payload = (await response.json()) as { projects?: ReaMapProjectRecord[] };
   return Array.isArray(payload.projects) ? payload.projects : [];
+}
+
+export type SatelliteVerificationVerdict = {
+  status: "present" | "absent" | "inconclusive";
+  imageQuality: "clear" | "degraded" | "unusable";
+  confidence: number | null;
+  estimatedNearbyHouses: number | null;
+  notes: string;
+};
+
+export type SatelliteVerificationResult = {
+  projectId: string;
+  imageUrl: string;
+  checkedAt: string;
+  verdict: SatelliteVerificationVerdict;
+};
+
+// Fetches Esri satellite imagery for the project's stored GPS coordinates
+// and asks Veritas AI (Gemini) to judge whether infrastructure consistent
+// with the claimed project type is visible. Result is cached server-side,
+// so this only re-spends imagery/model calls when the caller explicitly
+// triggers a (re-)check.
+export async function verifyProjectSatelliteImagery(
+  projectId: string,
+  apiToken: string,
+): Promise<SatelliteVerificationResult> {
+  const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/satellite-verify`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiToken}` },
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload?.error || "Unable to complete the satellite verification check.");
+  }
+  return payload as SatelliteVerificationResult;
 }

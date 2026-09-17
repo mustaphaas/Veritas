@@ -1,5 +1,6 @@
 import { handleFieldApi } from "./field-api.js";
 import { analyticsCatalog, analyticsAnswerPrompt, deterministicAnalyticsPlan, executeAnalyticsPlan, parsePlannerJson, plannerPrompt, validateAnalyticsPlan } from "./analytics.js";
+import { handleSatelliteVerify } from "./satellite-verify.js";
 
 const BUILD_ID = "veritas-2026-09-11-public-rea-team-r4";
 const encoder = new TextEncoder();
@@ -1183,6 +1184,20 @@ export default {
       const action = officerLifecycleMatch[2] === "status" && request.method === "PATCH" ? "status" : request.method === "DELETE" && !officerLifecycleMatch[2] ? "delete" : null;
       if (!action) return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
       return fieldOfficerLifecycleResponse(request, env, decodeURIComponent(officerLifecycleMatch[1]), action);
+    }
+
+    if (/^\/api\/projects\/[^/]+\/satellite-verify$/.test(url.pathname)) {
+      try {
+        const satelliteResponse = await handleSatelliteVerify(request, env);
+        if (satelliteResponse) return satelliteResponse;
+      } catch (error) {
+        console.error(JSON.stringify({
+          event: "satellite_verify_failure",
+          message: error instanceof Error ? error.message : "Unknown error",
+          build: BUILD_ID,
+        }));
+        return json({ error: "Satellite verification failed. Please try again shortly." }, 503);
+      }
     }
 
     const fieldResponse = await handleFieldApi(request, env);
