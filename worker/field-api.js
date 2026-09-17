@@ -363,7 +363,8 @@ async function handleCollaborativeInspections(request, env, user) {
 
   return response({ error: "Method not allowed." }, 405);
 }
-\nexport async function handleFieldApi(request, env) {
+
+export async function handleFieldApi(request, env) {
   const url = new URL(request.url), path = url.pathname;
   if (!path.startsWith("/api/field/")) return null;
   if (!env.DB) return response({ error: "Veritas field database is not configured." }, 503);
