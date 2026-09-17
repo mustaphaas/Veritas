@@ -64,6 +64,7 @@ import ReaConsultantsManagement from "../components/ReaConsultantsManagement";
 import ReaVerificationManagement from "../components/ReaVerificationManagement";
 import ReaClaimsManagement from "../components/ReaClaimsManagement";
 import ReaReportsManagement from "../components/ReaReportsManagement";
+import ReaFieldInspections from "./ReaFieldInspections";
 
 class TabErrorBoundary extends Component<{ children: ReactNode; tab: string }, { failed: boolean }> {
   state = { failed: false };
@@ -80,6 +81,7 @@ class TabErrorBoundary extends Component<{ children: ReactNode; tab: string }, {
 const navigation = [
   { label: "Overview", icon: LayoutDashboard },
   { label: "Claims", icon: ClipboardCheck },
+  { label: "Field Inspections", icon: ClipboardCheck },
   { label: "Verification", icon: FileCheck2 },
   { label: "Consultants", icon: Building2 },
   { label: "Analytics", icon: BarChart3 },
@@ -449,7 +451,7 @@ export default function Index() {
             <TabErrorBoundary key="Consultants" tab="Consultants"><ReaConsultantsManagement /></TabErrorBoundary>
           ) : resolvedActiveNav === "Claims" ? (
             <TabErrorBoundary key="Claims" tab="Claims"><ReaClaimsManagement /></TabErrorBoundary>
-          ) : resolvedActiveNav === "Verification" ? (
+          ) : resolvedActiveNav === "Field Inspections" ? (\n            <TabErrorBoundary key="Field Inspections" tab="Field Inspections"><ReaFieldInspections /></TabErrorBoundary>\n          ) : resolvedActiveNav === "Verification" ? (
             <ReaVerificationManagement />
           ) : resolvedActiveNav === "Reports" ? (
             <TabErrorBoundary key="Reports" tab="Reports"><ReaReportsManagement projects={portfolioProjects} /></TabErrorBoundary>
