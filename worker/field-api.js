@@ -219,14 +219,158 @@ async function review(request, env, user, assignment) {
   return response({ ok: true, status, serverTime: timestamp });
 }
 
-export async function handleFieldApi(request, env) {
+
+
+async function collaborativeStaff(env) {
+  const result = await env.DB.prepare("SELECT id,name,email FROM users WHERE role='rea_admin' AND status='active' ORDER BY name").all();
+  return result.results;
+}
+
+async function collaborativeTeams(env) {
+  const result = await env.DB.prepare(`
+    SELECT t.id,t.name,t.team_lead_id,t.status,
+      lead.name AS team_lead_name
+    FROM inspection_teams t
+    JOIN users lead ON lead.id=t.team_lead_id
+    ORDER BY t.updated_at DESC
+  `).all();
+  const teams = [];
+  for (const row of result.results) {
+    const members = await env.DB.prepare(`
+      SELECT u.id,u.name,u.email
+      FROM inspection_team_members m JOIN users u ON u.id=m.user_id
+      WHERE m.team_id=? ORDER BY u.name
+    `).bind(row.id).all();
+    teams.push({ id: row.id, name: row.name, teamLeadId: row.team_lead_id, teamLeadName: row.team_lead_name, status: row.status, members: members.results });
+  }
+  return teams;
+}
+
+async function collaborativeInspections(env) {
+  const result = await env.DB.prepare(`
+    SELECT i.id,i.team_id,i.project_id,i.status,i.due_date,i.form_json,i.section_assignments_json,
+      i.version,i.last_saved_by,i.created_at,i.updated_at,i.submitted_at,
+      p.name AS project_name,p.programme,p.component,p.contractor,p.state,p.lga,p.community,
+      t.name AS team_name
+    FROM collaborative_inspections i
+    JOIN projects p ON p.id=i.project_id
+    JOIN inspection_teams t ON t.id=i.team_id
+    ORDER BY i.updated_at DESC
+  `).all();
+  return result.results.map((row) => ({
+    id: row.id, teamId: row.team_id, projectId: row.project_id, status: row.status,
+    dueDate: row.due_date, form: JSON.parse(row.form_json || "{}"),
+    sectionAssignments: JSON.parse(row.section_assignments_json || "{}"),
+    version: row.version, updatedAt: row.updated_at, lastSavedBy: row.last_saved_by,
+    submittedAt: row.submitted_at, projectName: row.project_name, teamName: row.team_name,
+    programme: row.programme, component: row.component, contractor: row.contractor,
+    state: row.state, lga: row.lga, community: row.community,
+  }));
+}
+
+async function handleCollaborativeInspections(request, env, user) {
+  const url = new URL(request.url), path = url.pathname;
+  if (!path.startsWith("/api/field/rea-inspections")) return null;
+  if (user.role !== "rea_admin") return response({ error: "REA access required." }, 403);
+
+  if (path === "/api/field/rea-inspections" && request.method === "GET") {
+    return response({
+      staff: await collaborativeStaff(env),
+      teams: await collaborativeTeams(env),
+      projects: (await env.DB.prepare("SELECT id,name,programme,component,contractor,state,lga,community FROM projects ORDER BY name").all()).results,
+      inspections: await collaborativeInspections(env),
+      serverTime: now(),
+    });
+  }
+
+  if (path === "/api/field/rea-inspections/teams" && request.method === "POST") {
+    const body = await request.json().catch(() => null);
+    const memberIds = [...new Set([body?.teamLeadId, ...(Array.isArray(body?.memberIds) ? body.memberIds : [])].filter(Boolean))];
+    if (!body?.name || !body?.teamLeadId || !memberIds.length) return response({ error: "Team name, Team Lead and at least one staff member are required." }, 400);
+    const lead = await env.DB.prepare("SELECT id FROM users WHERE id=? AND role='rea_admin' AND status='active'").bind(body.teamLeadId).first();
+    if (!lead) return response({ error: "Team Lead must be an active REA staff member." }, 422);
+    const placeholders = memberIds.map(() => "?").join(",");
+    const valid = await env.DB.prepare(`SELECT id FROM users WHERE role='rea_admin' AND status='active' AND id IN (${placeholders})`).bind(...memberIds).all();
+    if (valid.results.length !== memberIds.length) return response({ error: "All team members must be active REA staff." }, 422);
+    const id = `team-${crypto.randomUUID()}`, timestamp = now();
+    await env.DB.prepare("INSERT INTO inspection_teams(id,name,team_lead_id,status,created_at,updated_at) VALUES(?,?,?,?,?,?)")
+      .bind(id, String(body.name).trim(), body.teamLeadId, "Active", timestamp, timestamp).run();
+    for (const memberId of memberIds) {
+      await env.DB.prepare("INSERT INTO inspection_team_members(team_id,user_id,created_at) VALUES(?,?,?)").bind(id, memberId, timestamp).run();
+    }
+    await audit(env, request, user, null, "inspection-team-created", { teamId: id, teamLeadId: body.teamLeadId, memberIds });
+    return response({ ok: true, teamId: id }, 201);
+  }
+
+  if (path === "/api/field/rea-inspections/assign" && request.method === "POST") {
+    const body = await request.json().catch(() => null);
+    const team = await env.DB.prepare("SELECT id FROM inspection_teams WHERE id=? AND status='Active'").bind(body?.teamId).first();
+    const project = await env.DB.prepare("SELECT id FROM projects WHERE id=?").bind(body?.projectId).first();
+    if (!team || !project) return response({ error: "Active team and valid project are required." }, 422);
+    const existing = await env.DB.prepare("SELECT id FROM collaborative_inspections WHERE team_id=? AND project_id=?").bind(body.teamId, body.projectId).first();
+    if (existing) return response({ error: "This project is already assigned to this team.", inspectionId: existing.id }, 409);
+    const id = `insp-${crypto.randomUUID()}`, timestamp = now();
+    await env.DB.prepare(`INSERT INTO collaborative_inspections(id,team_id,project_id,status,due_date,form_json,section_assignments_json,version,last_saved_by,created_at,updated_at)
+      VALUES(?,?,?,?,?,'{}','{}',1,?,?,?)`)
+      .bind(id, body.teamId, body.projectId, "In Progress", body.dueDate || null, user.id, timestamp, timestamp).run();
+    await audit(env, request, user, null, "collaborative-inspection-assigned", { inspectionId: id, teamId: body.teamId, projectId: body.projectId });
+    return response({ ok: true, inspectionId: id }, 201);
+  }
+
+  const match = path.match(/^\/api\/field\/rea-inspections\/([^/]+)(?:\/(submit))?$/);
+  if (!match) return response({ error: "Endpoint not found." }, 404);
+  const inspectionId = decodeURIComponent(match[1]);
+  const inspection = await env.DB.prepare("SELECT * FROM collaborative_inspections WHERE id=?").bind(inspectionId).first();
+  if (!inspection) return response({ error: "Inspection not found." }, 404);
+  const team = await env.DB.prepare("SELECT * FROM inspection_teams WHERE id=?").bind(inspection.team_id).first();
+  if (!team) return response({ error: "Inspection team not found." }, 404);
+  const member = await env.DB.prepare("SELECT 1 FROM inspection_team_members WHERE team_id=? AND user_id=?").bind(team.id, user.id).first();
+  if (!member) return response({ error: "You are not a member of this inspection team." }, 403);
+
+  if (match[2] === "submit" && request.method === "POST") {
+    if (team.team_lead_id !== user.id) return response({ error: "Only the Team Lead can submit the inspection." }, 403);
+    if (["Submitted","Approved","Verified"].includes(inspection.status)) return response({ error: "Inspection is already locked." }, 423);
+    const form = JSON.parse(inspection.form_json || "{}");
+    const requiredFields = [
+      "Project reference confirmed","Programme and component","Contractor details","Site condition","GPS/location notes",
+      "Access and surroundings","Equipment installed","Capacity / specification","Condition and operation","Beneficiary count",
+      "Community served","Service availability","Photo references","Supporting documents","Evidence notes","HSE observations",
+      "Environmental observations","Corrective actions","Overall observation","Outstanding issues","Recommendation"
+    ];
+    const missing = requiredFields.filter((field) => !String(form[field] || "").trim());
+    if (missing.length) return response({ error: "Complete all required inspection fields before submission.", missing }, 422);
+    const timestamp = now();
+    await env.DB.prepare("UPDATE collaborative_inspections SET status='Submitted',submitted_at=?,locked_at=?,updated_at=?,version=version+1,last_saved_by=? WHERE id=?")
+      .bind(timestamp, timestamp, timestamp, user.id, inspection.id).run();
+    await audit(env, request, user, null, "collaborative-inspection-submitted", { inspectionId: inspection.id, teamId: team.id });
+    return response({ ok: true, status: "Submitted", submittedAt: timestamp });
+  }
+
+  if (request.method === "PATCH") {
+    if (["Submitted","Approved","Verified"].includes(inspection.status)) return response({ error: "Inspection is locked." }, 423);
+    const body = await request.json().catch(() => null);
+    const currentForm = JSON.parse(inspection.form_json || "{}");
+    const currentAssignments = JSON.parse(inspection.section_assignments_json || "{}");
+    const nextForm = body?.formPatch && typeof body.formPatch === "object" ? { ...currentForm, ...body.formPatch } : currentForm;
+    const nextAssignments = body?.sectionAssignments && typeof body.sectionAssignments === "object" ? body.sectionAssignments : currentAssignments;
+    if (body?.sectionAssignments && team.team_lead_id !== user.id) return response({ error: "Only the Team Lead can assign sections." }, 403);
+    const timestamp = now();
+    await env.DB.prepare("UPDATE collaborative_inspections SET form_json=?,section_assignments_json=?,status='In Progress',version=version+1,last_saved_by=?,updated_at=? WHERE id=?")
+      .bind(JSON.stringify(nextForm), JSON.stringify(nextAssignments), user.id, timestamp, inspection.id).run();
+    await audit(env, request, user, null, "collaborative-inspection-saved", { inspectionId: inspection.id, changedFields: Object.keys(body?.formPatch || {}), sectionAssignmentsChanged: Boolean(body?.sectionAssignments) });
+    return response({ ok: true, version: inspection.version + 1, updatedAt: timestamp, savedBy: user.name });
+  }
+
+  return response({ error: "Method not allowed." }, 405);
+}
+\nexport async function handleFieldApi(request, env) {
   const url = new URL(request.url), path = url.pathname;
   if (!path.startsWith("/api/field/")) return null;
   if (!env.DB) return response({ error: "Veritas field database is not configured." }, 503);
   if (path === "/api/field/auth/login" && request.method === "POST") return login(request, env);
   const user = await currentUser(request, env);
   if (!user) return response({ error: "Authentication required." }, 401);
-  if (path === "/api/field/auth/logout" && request.method === "POST") {
+  const collaborativeResponse = await handleCollaborativeInspections(request, env, user);\n  if (collaborativeResponse) return collaborativeResponse;\n  if (path === "/api/field/auth/logout" && request.method === "POST") {
     const bearer = request.headers.get("Authorization").replace(/^Bearer\s+/i, "");
     await env.DB.prepare("DELETE FROM sessions WHERE token_hash=?").bind(await digest(bearer)).run();
     return response({ ok: true });
