@@ -216,11 +216,11 @@ async function sendPasswordResetForUser(request, env, targetId, actor = null) {
   if (!env.GMAIL_RELAY_URL || !env.GMAIL_RELAY_SECRET) return { ok: false, status: 503, error: "Password reset email is not configured. Configure the Gmail relay first." };
   const { rawToken, expiresAt } = await createPasswordReset(env, target.id, actor?.id || null);
   const baseUrl = String(env.APP_BASE_URL || new URL(request.url).origin).replace(/\/$/, "");
-  const resetUrl = \`\${baseUrl}/reset-password?token=\${encodeURIComponent(rawToken)}\`;
+  const resetUrl = `\${baseUrl}/reset-password?token=\${encodeURIComponent(rawToken)}`;
   await sendGmailRelayEmail(env, {
     to: target.email,
     subject: "Reset your Veritas password",
-    html: \`<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#173b2a"><div style="padding:24px 0;border-bottom:1px solid #d6e9da"><strong style="font-size:24px;color:#08733f">Veritas</strong><div style="font-size:11px;color:#64748b;margin-top:4px">REA Monitoring Platform</div></div><div style="padding:28px 0"><h2 style="margin:0 0 12px">Reset your password</h2><p style="line-height:1.6;color:#475569">Hello \${String(target.name || "there").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'\"':"&quot;" }[c]))}, a password reset was requested for your Veritas account.</p><p style="line-height:1.6;color:#475569">Use the button below to create a new password. This link expires in 30 minutes and can only be used once.</p><p style="margin:28px 0"><a href="\${resetUrl}" style="display:inline-block;background:#08733f;color:#fff;text-decoration:none;padding:12px 20px;border-radius:6px;font-weight:700">Reset Password</a></p><p style="font-size:12px;color:#64748b;line-height:1.6">If you did not request this, you can ignore this email. Your current password will remain unchanged.</p><p style="font-size:11px;color:#94a3b8;word-break:break-all">\${resetUrl}</p></div></div>\`,
+    html: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#173b2a"><div style="padding:24px 0;border-bottom:1px solid #d6e9da"><strong style="font-size:24px;color:#08733f">Veritas</strong><div style="font-size:11px;color:#64748b;margin-top:4px">REA Monitoring Platform</div></div><div style="padding:28px 0"><h2 style="margin:0 0 12px">Reset your password</h2><p style="line-height:1.6;color:#475569">Hello \${String(target.name || "there").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'\"':"&quot;" }[c]))}, a password reset was requested for your Veritas account.</p><p style="line-height:1.6;color:#475569">Use the button below to create a new password. This link expires in 30 minutes and can only be used once.</p><p style="margin:28px 0"><a href="\${resetUrl}" style="display:inline-block;background:#08733f;color:#fff;text-decoration:none;padding:12px 20px;border-radius:6px;font-weight:700">Reset Password</a></p><p style="font-size:12px;color:#64748b;line-height:1.6">If you did not request this, you can ignore this email. Your current password will remain unchanged.</p><p style="font-size:11px;color:#94a3b8;word-break:break-all">\${resetUrl}</p></div></div>`,
   });
   return { ok: true, target, expiresAt };
 }
@@ -264,7 +264,7 @@ async function reaUserPasswordResetEmailResponse(request, env, targetId) {
     const result = await sendPasswordResetForUser(request, env, targetId, actor);
     if (!result.ok) return json({ error: result.error }, result.status);
     await reaUserAudit(env, request, actor, "rea-user-password-reset-email-sent", { targetUserId: targetId, expiresAt: result.expiresAt });
-    return json({ ok: true, message: \`Password reset email sent to \${result.target.email}.\` });
+    return json({ ok: true, message: `Password reset email sent to \${result.target.email}.` });
   } catch (error) {
     console.error(JSON.stringify({ event: "rea-password-reset-email-failed", message: error instanceof Error ? error.message : "Unknown error", build: BUILD_ID }));
     return json({ error: "Unable to send the password reset email. Check the email service configuration." }, 502);
