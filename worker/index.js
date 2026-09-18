@@ -169,6 +169,12 @@ async function reaStaffCreateResponse(request, env) {
   return json({ ok: true, user: { id, name, email, phone, role: "rea_staff", staffRole, department, access, status: "Active", createdAt: timestamp } }, 201);
 }
 
+async function reaUserAudit(env, request, user, action, details) {
+  await env.DB.prepare("INSERT INTO audit_events(id,assignment_id,actor_id,action,details_json,ip_address,created_at) VALUES(?,?,?,?,?,?,?)")
+    .bind(crypto.randomUUID(), null, user.id, action, JSON.stringify(details || {}), request.headers.get("CF-Connecting-IP"), now())
+    .run();
+}
+
 async function reaUserLifecycleResponse(request, env, targetId, action) {
   const user = await authenticatedDatabaseUser(request, env);
   if (!user) return json({ error: "Authentication required." }, 401);
@@ -182,7 +188,7 @@ async function reaUserLifecycleResponse(request, env, targetId, action) {
     const status = body?.status === "Suspended" ? "suspended" : body?.status === "Active" ? "active" : "";
     if (!status) return json({ error: "Status must be Active or Suspended." }, 400);
     await env.DB.prepare("UPDATE users SET status=? WHERE id=?").bind(status, target.id).run();
-    await auditEvent(env, request, user, "rea-user-status-changed", { targetUserId: target.id, status });
+    await reaUserAudit(env, request, user, "rea-user-status-changed", { targetUserId: target.id, status });
     return json({ ok: true, status: status === "active" ? "Active" : "Suspended" });
   }
 
@@ -193,7 +199,7 @@ async function reaUserLifecycleResponse(request, env, targetId, action) {
     const access = [...new Set(body.access.map((item) => String(item).trim()).filter(Boolean))];
     await env.DB.prepare("INSERT INTO rea_staff_accounts(user_id,staff_role,department,access_json,created_at) VALUES(?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET access_json=excluded.access_json")
       .bind(target.id, target.staff_role || "Viewer", target.department || "", JSON.stringify(access), target.created_at || now()).run();
-    await auditEvent(env, request, user, "rea-user-access-updated", { targetUserId: target.id, access });
+    await reaUserAudit(env, request, user, "rea-user-access-updated", { targetUserId: target.id, access });
     return json({ ok: true, access });
   }
 
@@ -203,7 +209,7 @@ async function reaUserLifecycleResponse(request, env, targetId, action) {
     if (password.length < 8) return json({ error: "Password must be at least 8 characters." }, 400);
     const record = await managementPasswordRecord(password);
     await env.DB.prepare("UPDATE users SET password_salt=?,password_hash=?,status='active' WHERE id=?").bind(record.salt, record.hash, target.id).run();
-    await auditEvent(env, request, user, "rea-user-password-reset", { targetUserId: target.id });
+    await reaUserAudit(env, request, user, "rea-user-password-reset", { targetUserId: target.id });
     return json({ ok: true, status: "Active" });
   }
 
@@ -212,7 +218,7 @@ async function reaUserLifecycleResponse(request, env, targetId, action) {
       env.DB.prepare("DELETE FROM rea_staff_accounts WHERE user_id=?").bind(target.id),
       env.DB.prepare("DELETE FROM users WHERE id=?").bind(target.id)
     ]);
-    await auditEvent(env, request, user, "rea-user-deleted", { targetUserId: target.id });
+    await reaUserAudit(env, request, user, "rea-user-deleted", { targetUserId: target.id });
     return json({ ok: true });
   }
 
