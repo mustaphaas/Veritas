@@ -1223,10 +1223,6 @@ export default {
       return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
     }
 
-    if (url.pathname === "/api/rea/users" && request.method === "POST") {
-      return reaStaffCreateResponse(request, env);
-    }
-
     if (url.pathname === "/api/rea/consultants") {
       if (request.method !== "POST") return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
       return reaConsultantCreateResponse(request, env);
