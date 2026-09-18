@@ -102,7 +102,7 @@ export function AuthProvider({children}:{children:ReactNode}){
  },[]);
  const login=async(email:string,password:string)=>{
   let cloud;try{cloud=await authenticateFieldApi(email,password)}catch{return null}
-  const cloudRole=({rea_admin:"rea",field_officer:"field",consultant_admin:"consultant"} as const)[cloud.user.role as "rea_admin"|"field_officer"|"consultant_admin"];
+  const cloudRole=({rea_admin:"rea",rea_staff:"rea",field_officer:"field",consultant_admin:"consultant"} as const)[cloud.user.role as "rea_admin"|"rea_staff"|"field_officer"|"consultant_admin"];
   if(!cloudRole)return null;
   let consultantId:string|undefined;
   if(cloudRole==="consultant"){
