@@ -38,6 +38,7 @@ export default function ReaFieldInspections() {
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [selectedInspection, setSelectedInspection] = useState<string>("");
   const [selectedTeamId, setSelectedTeamId] = useState<string>("");
+  const [showSectionList, setShowSectionList] = useState(true);
   const [selectedSection, setSelectedSection] = useState("project");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("Saved");
@@ -154,6 +155,7 @@ export default function ReaFieldInspections() {
     const teamInspection = inspections.find((item) => item.teamId === team.id);
     setSelectedInspection(teamInspection?.id || "");
     setSelectedSection("project");
+    setShowSectionList(true);
   };
 
   const deleteTeam = async (team: Team) => {
@@ -200,14 +202,14 @@ export default function ReaFieldInspections() {
                 <div className="grid gap-4 border-b border-slate-100 bg-[#fbfefb] p-4 md:grid-cols-4"><div><p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">Project</p><p className="mt-1 text-sm font-bold text-[#173b2a]">{projects.find((project) => project.id === selected.projectId)?.name || selected.projectId}</p></div><div><p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">Team</p><p className="mt-1 text-sm font-bold text-[#173b2a]">{selectedTeam?.name}</p></div><div><p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">Progress</p><p className="mt-1 text-sm font-bold text-[#08733f]">{completion}%</p></div><div><p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">Status</p><p className="mt-1 text-sm font-bold text-[#173b2a]">{selected.status}</p></div></div>
 
                 <div className="grid md:grid-cols-[280px_minmax(0,1fr)]">
-                  <div className="border-b border-slate-100 p-3 md:border-b-0 md:border-r">
+                  <div className={`border-b border-slate-100 p-3 md:block md:border-b-0 md:border-r ${showSectionList ? "block" : "hidden"}`}>
                     {isTeamLead && <button onClick={openSectionAssignModal} className="mb-3 w-full rounded-lg border border-[#b9dfc5] bg-white px-3 py-2 text-xs font-bold text-[#08733f]">Assign Sections</button>}
                     {sections.map((section) => {
                       const done = section.fields.some((field) => selected.form?.[field]?.trim());
                       const assigned = assignedSections[section.id];
                       const assignee = selectedTeam?.members.find((member) => member.id === assigned);
                       const status = done ? "Completed" : assigned ? "Not Started" : "Unassigned";
-                      return <button key={section.id} onClick={() => setSelectedSection(section.id)} className={`mb-2 w-full rounded-lg border p-3 text-left ${selectedSection === section.id ? "border-[#9ed1ae] bg-[#edf9f0]" : "border-slate-100 hover:bg-slate-50"}`}>
+                      return <button key={section.id} onClick={() => { setSelectedSection(section.id); setShowSectionList(false); }} className={`mb-2 w-full rounded-lg border p-3 text-left ${selectedSection === section.id ? "border-[#9ed1ae] bg-[#edf9f0]" : "border-slate-100 hover:bg-slate-50"}`}>
                         <div className="flex items-center gap-2">
                           <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${done ? "bg-[#08733f] text-white" : assigned ? "bg-[#eaf8ef] text-[#08733f]" : "bg-slate-100 text-slate-400"}`}>{done ? <Check className="h-3.5 w-3.5" /> : <span className="text-[10px] font-bold">{sections.indexOf(section)+1}</span>}</span>
                           <span className="min-w-0 flex-1 truncate text-xs font-bold text-[#173b2a]">{section.title}</span>
@@ -219,7 +221,8 @@ export default function ReaFieldInspections() {
                     })}
                   </div>
 
-                  <div className="p-5">
+                  <div className={`p-5 ${showSectionList ? "hidden md:block" : "block"}`}>
+                    <button type="button" onClick={() => setShowSectionList(true)} className="mb-4 flex items-center gap-2 text-xs font-bold text-[#08733f] md:hidden"><ChevronLeft className="h-4 w-4" /> Back to Sections</button>
                     {(() => { const section = sections.find((item) => item.id === selectedSection) || sections[0]; const assigned = assignedSections[section.id]; const assignee = selectedTeam?.members.find((member) => member.id === assigned); const canEdit = !selected.status || !["Submitted","Approved","Verified"].includes(selected.status); return <div>
                       <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between"><div><h4 className="text-base font-bold text-[#173b2a]">{section.title}</h4><p className="mt-1 text-xs text-slate-500">{section.description}</p></div><span className="rounded-full bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-500">{assignee ? `Assigned to ${assignee.name}` : "Not assigned"}</span></div>
                       <div className="mt-5 space-y-4">{section.fields.map((field) => <label key={field} className="block"><span className="text-xs font-semibold text-slate-600">{field}</span><textarea disabled={!canEdit} value={selected.form?.[field] || ""} onChange={(event) => saveField(field, event.target.value)} rows={field.includes("observation") || field.includes("notes") ? 4 : 2} className="mt-1.5 w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-[#173b2a] outline-none focus:border-[#08733f] focus:ring-2 focus:ring-[#08733f]/10 disabled:bg-slate-50" placeholder="Enter inspection information…" /></label>)}</div>
