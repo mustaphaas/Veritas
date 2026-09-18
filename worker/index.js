@@ -171,7 +171,7 @@ async function reaStaffCreateResponse(request, env) {
 
 async function reaUserAudit(env, request, user, action, details) {
   await env.DB.prepare("INSERT INTO audit_events(id,assignment_id,actor_id,action,details_json,ip_address,created_at) VALUES(?,?,?,?,?,?,?)")
-    .bind(crypto.randomUUID(), null, user.id, action, JSON.stringify(details || {}), request.headers.get("CF-Connecting-IP"), now())
+    .bind(crypto.randomUUID(), null, user.id, action, JSON.stringify(details || {}), request.headers.get("CF-Connecting-IP"), new Date().toISOString())
     .run();
 }
 
