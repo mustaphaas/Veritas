@@ -183,72 +183,64 @@ export default function ReaFieldInspections() {
     setTeamModal(true);
   };
 
+  const getProgress = (inspection: Inspection) => {
+    const completed = sections.filter((section) => section.fields.some((field) => inspection.form?.[field]?.trim())).length;
+    return Math.round((completed / sections.length) * 100);
+  };
+
+  const getStatus = (inspection: Inspection) => {
+    const progress = getProgress(inspection);
+    if (inspection.status === "Verified") return "Verified";
+    if (inspection.status === "Approved") return "Approved";
+    if (inspection.status === "Submitted") return "Submitted";
+    if (progress === 100) return "Completed";
+    if (progress > 0) return "In Progress";
+    return "Not Started";
+  };
+
+  const assignmentRows = inspections.map((inspection) => {
+    const team = teams.find((item) => item.id === inspection.teamId);
+    const project = projects.find((item) => item.id === inspection.projectId);
+    return { inspection, team, project, progress: getProgress(inspection), status: getStatus(inspection) };
+  });
+
   if (!token) return <div className="p-8 text-sm text-slate-500">Sign in to use Field Inspections.</div>;
 
   return (
     <div className="py-5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#08733f]">REA Operations</p><h2 className="mt-1 text-2xl font-bold tracking-tight text-[#173b2a]">Field Inspections</h2><p className="mt-1 text-sm text-slate-500">Assign REA inspection teams and work together on one shared inspection form.</p></div>
-        <div className="flex gap-2"><button onClick={openTeamModal} className="inline-flex items-center gap-2 rounded-lg border border-[#b9dfc5] bg-white px-4 py-2.5 text-xs font-bold text-[#08733f]"><UserPlus className="h-4 w-4" /> Create Team</button><button onClick={() => setAssignModal(true)} className="inline-flex items-center gap-2 rounded-lg bg-[#08733f] px-4 py-2.5 text-xs font-bold text-white"><Plus className="h-4 w-4" /> Assign Project</button></div>
-      </div>
-
-      <div className="mt-5 grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
-        <aside className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3"><div><h3 className="text-sm font-bold text-[#173b2a]">Inspection Teams</h3><p className="text-[11px] text-slate-500">{teams.length} active teams</p></div><button onClick={() => void load()} className="rounded-md p-2 text-slate-500 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /></button></div>
-          <div className="max-h-[620px] overflow-auto p-2">{teams.map((team, index) => <div key={team.id} className="mb-2"><button type="button" onClick={() => selectTeam(team)} className={`w-full rounded-lg border p-3 text-left ${selectedTeam?.id === team.id ? "border-[#9ed1ae] bg-[#f4fbf6]" : "border-slate-100 hover:bg-slate-50"}`}><div className="flex items-start gap-2"><div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white ${colors[index % colors.length]}`}><Users className="h-4 w-4" /></div><div className="min-w-0 flex-1"><p className="truncate text-xs font-bold text-[#173b2a]">{team.name}</p><p className="mt-0.5 text-[10px] text-slate-500">Lead: {team.teamLeadName}</p></div><button type="button" onClick={(event) => { event.stopPropagation(); void deleteTeam(team); }} className="rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Delete team"><Trash2 className="h-4 w-4" /></button></div><p className="mt-2 text-[10px] text-slate-500">{team.members.length} REA staff</p></button></div>)}</div>
-        </aside>
-
-        <main className="min-w-0">
-          <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"><div><div className="flex items-center gap-2"><h3 className="text-sm font-bold text-[#173b2a]">Collaborative Inspections</h3><span className="rounded-full bg-[#eaf8ef] px-2.5 py-1 text-[10px] font-bold text-[#08733f]">{inspections.length} assigned</span></div><p className="mt-1 text-xs text-slate-500">Everyone works in the same inspection. Changes are saved continuously.</p></div><div className="flex items-center gap-2 text-[10px] font-semibold text-slate-500"><Cloud className="h-4 w-4 text-[#08733f]" />{saving ? "Saving…" : message}</div></div>
-
-            {!selected ? <div className="p-12 text-center"><ShieldCheck className="mx-auto h-9 w-9 text-slate-300" /><p className="mt-3 text-sm font-bold text-slate-600">No inspection assigned yet</p><p className="mt-1 text-xs text-slate-400">Create a team and assign an REA project.</p></div> : (
-              <>
-                <div className="grid gap-4 border-b border-slate-100 bg-[#fbfefb] p-4 md:grid-cols-4"><div><p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">Project</p><p className="mt-1 text-sm font-bold text-[#173b2a]">{projects.find((project) => project.id === selected.projectId)?.name || selected.projectId}</p></div><div><p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">Team</p><p className="mt-1 text-sm font-bold text-[#173b2a]">{selectedTeam?.name}</p></div><div><p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">Progress</p><p className="mt-1 text-sm font-bold text-[#08733f]">{completion}%</p></div><div><p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">Status</p><p className="mt-1 text-sm font-bold text-[#173b2a]">{selected.status}</p></div></div>
-
-                <div className="grid md:grid-cols-[280px_minmax(0,1fr)]">
-                  <div className={`border-b border-slate-100 p-3 md:block md:border-b-0 md:border-r ${showSectionList ? "block" : "hidden"}`}>
-                    {canAssignSections && <button onClick={openSectionAssignModal} className="mb-3 w-full rounded-lg border border-[#b9dfc5] bg-white px-3 py-2 text-xs font-bold text-[#08733f]">Assign Sections</button>}
-                    <p className="mb-2 px-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">{canAssignSections ? "Section Assignments" : "Inspection Sections"}</p>
-                    {sections.map((section) => {
-                      const filled = section.fields.filter((field) => selected.form?.[field]?.trim()).length;
-                      const done = filled === section.fields.length && section.fields.length > 0;
-                      const assigned = assignedSections[section.id];
-                      const assignee = selectedTeam?.members.find((member) => member.id === assigned);
-                      const status = done ? "Completed" : filled > 0 ? "In Progress" : assigned ? "Not Started" : "Unassigned";
-                      const openSection = () => { setSelectedSection(section.id); setShowSectionList(false); };
-                      const editAssignment = () => {
-                        setDraftSectionAssignments({ ...(selected.sectionAssignments || {}) });
-                        setSectionAssignModal(true);
-                      };
-                      return <div key={section.id} onClick={canAssignSections ? editAssignment : openSection} className={`mb-2 w-full cursor-pointer rounded-lg border p-3 text-left ${selectedSection === section.id ? "border-[#9ed1ae] bg-[#edf9f0]" : "border-slate-100 hover:bg-slate-50"}`}>
-                        <div className="flex items-center gap-2">
-                          <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${done ? "bg-[#08733f] text-white" : assigned ? "bg-[#eaf8ef] text-[#08733f]" : "bg-slate-100 text-slate-400"}`}>{done ? <Check className="h-3.5 w-3.5" /> : <span className="text-[10px] font-bold">{sections.indexOf(section)+1}</span>}</span>
-                          <span className="min-w-0 flex-1 truncate text-xs font-bold text-[#173b2a]">{section.title}</span>
-                          <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-                        </div>
-                        <div className="mt-1 pl-9 text-[9px] text-slate-500">{assignee ? assignee.name : "Not assigned"}</div>
-                        <div className="mt-1 pl-9 text-[9px] font-semibold text-slate-400">{status}</div>
-                        {canAssignSections && <div className="mt-2 pl-9 text-[9px] font-semibold text-[#08733f]">Click to change assignment</div>}
-                        {!isTeamLead && <div className="mt-2 pl-9 text-[9px] font-semibold text-slate-400">Tap to open section</div>}
-                      </div>;
-                    })}
-                  </div>
-
-                  <div className={`p-5 ${showSectionList ? "hidden md:block" : "block"}`}>
-                    <button type="button" onClick={() => setShowSectionList(true)} className="mb-4 flex items-center gap-2 text-xs font-bold text-[#08733f] md:hidden"><ChevronLeft className="h-4 w-4" /> Back to Sections</button>
-                    {(() => { const section = sections.find((item) => item.id === selectedSection) || sections[0]; const assigned = assignedSections[section.id]; const assignee = selectedTeam?.members.find((member) => member.id === assigned); const canEdit = !selected.status || !["Submitted","Approved","Verified"].includes(selected.status); return <div>
-                      <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between"><div><h4 className="text-base font-bold text-[#173b2a]">{section.title}</h4><p className="mt-1 text-xs text-slate-500">{section.description}</p></div><span className="rounded-full bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-500">{assignee ? `Assigned to ${assignee.name}` : "Not assigned"}</span></div>
-                      <div className="mt-5 space-y-4">{section.fields.map((field) => <label key={field} className="block"><span className="text-xs font-semibold text-slate-600">{field}</span><textarea disabled={!canEdit} value={selected.form?.[field] || ""} onChange={(event) => saveField(field, event.target.value)} rows={field.includes("observation") || field.includes("notes") ? 4 : 2} className="mt-1.5 w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-[#173b2a] outline-none focus:border-[#08733f] focus:ring-2 focus:ring-[#08733f]/10 disabled:bg-slate-50" placeholder="Enter inspection information…" /></label>)}</div>
-                      <div className="mt-5 flex flex-col gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-[10px] text-slate-400">All team members see changes after the next sync. Last saved {selected.updatedAt ? new Date(selected.updatedAt).toLocaleTimeString() : "—"}.</p>{canAssignSections && <button disabled={selected.status==="Submitted" || selected.status==="Approved" || selected.status==="Verified"} onClick={() => void submitInspection()} className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#08733f] px-4 py-2.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300"><Send className="h-4 w-4" /> Submit Inspection</button>}</div>
-                    </div>; })()}
-                  </div>
-                </div>
-              </>
-            )}
+      <div className="mt-5 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-100 px-5 py-4">
+          <h3 className="text-sm font-bold text-[#173b2a]">Inspection Assignments</h3>
+          <p className="mt-1 text-xs text-slate-500">Select an assignment to open the inspection.</p>
+        </div>
+        {assignmentRows.length === 0 ? (
+          <div className="p-10 text-center text-sm text-slate-400">No inspection assignments yet.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <div className="min-w-[760px]">
+              <div className="grid grid-cols-[1.1fr_2fr_0.8fr_1.2fr_1fr] gap-4 border-b border-slate-100 bg-[#fbfefb] px-5 py-3 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                <span>Group</span><span>Assignment</span><span>Progress</span><span>Team Lead</span><span>Status</span>
+              </div>
+              {assignmentRows.map(({ inspection, team, project, progress, status }) => (
+                <button key={inspection.id} type="button" onClick={() => {
+                  setSelectedInspection(inspection.id);
+                  setSelectedTeamId(inspection.teamId);
+                  setShowSectionList(true);
+                }} className="grid w-full grid-cols-[1.1fr_2fr_0.8fr_1.2fr_1fr] gap-4 border-b border-slate-100 px-5 py-4 text-left transition hover:bg-[#f7fcf8]">
+                  <span className="truncate text-xs font-bold text-[#173b2a]">{team?.name || "—"}</span>
+                  <span className="truncate text-xs text-slate-600">{project ? `${project.name} · ${project.programme} · ${project.component}` : inspection.projectId}</span>
+                  <span className="flex items-center gap-2 text-xs font-semibold text-[#08733f]"><span className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100"><span className="block h-full rounded-full bg-[#08733f]" style={{ width: `${progress}%` }} /></span>{progress}%</span>
+                  <span className="truncate text-xs text-slate-600">{team?.teamLeadName || "—"}</span>
+                  <span className="text-xs font-semibold text-slate-600">{status}</span>
+                </button>
+              ))}
+            </div>
           </div>
-        </main>
+        )}
       </div>
+
+      {selected && (
+        <div className="mt-5 rounded-xl border border-slate-200 bg-white shadow-sm">
 
       {teamModal && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4"><div className="w-full max-w-lg rounded-xl bg-white shadow-2xl"><div className="flex items-center justify-between border-b p-5"><div><h3 className="font-bold text-[#173b2a]">Create Inspection Team</h3><p className="mt-1 text-xs text-slate-500">Select a Team Lead and REA staff members.</p></div><button onClick={() => setTeamModal(false)}><X className="h-5 w-5 text-slate-400" /></button></div><div className="space-y-4 p-5"><input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="Team name" className="h-10 w-full rounded-lg border px-3 text-sm" /><select value={teamLeadId} onChange={(e) => setTeamLeadId(e.target.value)} className="h-10 w-full rounded-lg border px-3 text-sm"><option value="">Select Team Lead</option>{staff.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}</select><div><p className="mb-2 text-xs font-bold text-slate-600">Team members</p><div className="grid max-h-48 gap-2 overflow-auto">{staff.map((member) => <label key={member.id} className="flex items-center gap-3 rounded-lg border p-3 text-xs"><input type="checkbox" checked={teamMembers.includes(member.id)} onChange={(e) => setTeamMembers((current) => e.target.checked ? [...current, member.id] : current.filter((id) => id !== member.id))} />{member.name}<span className="ml-auto text-slate-400">{member.role || "REA Staff"}</span></label>)}</div></div><button onClick={() => void createTeam()} disabled={!teamName || !teamLeadId || !teamMembers.length} className="w-full rounded-lg bg-[#08733f] py-2.5 text-xs font-bold text-white disabled:bg-slate-300">Create Team</button></div></div></div>}
 
