@@ -80,14 +80,17 @@ async function reaUsersResponse(request, env) {
   if (!user) return json({ error: "Authentication required." }, 401);
   if (!String(user.role || "").startsWith("rea_")) return json({ error: "REA access required." }, 403);
 
-  const result = await env.DB.prepare(`SELECT id,name,email,phone,role,consultant_firm AS consultantFirm,status,created_at AS createdAt
+  const result = await env.DB.prepare(`SELECT id,name,email,phone,role,consultant_firm AS consultantFirm,status,staff_role AS staffRole,department,access_json AS accessJson,created_at AS createdAt
     FROM users ORDER BY role,name`).all();
   const users = (result.results || []).map((record) => ({
     id: record.id,
     name: record.name,
     email: record.email || "",
     phone: record.phone || "",
-    role: record.role,
+    role: record.staffRole || record.role,
+    databaseRole: record.role,
+    access: (() => { try { return JSON.parse(record.accessJson || "[]"); } catch { return []; } })(),
+    department: record.department || "",
     classification: String(record.role || "").startsWith("rea_")
       ? "REA Staff"
       : record.role === "consultant_admin"
@@ -112,6 +115,51 @@ async function reaUsersResponse(request, env) {
     },
     serverTime: new Date().toISOString(),
   });
+}
+
+async function reaStaffCreateResponse(request, env) {
+  const user = await authenticatedDatabaseUser(request, env);
+  if (!user) return json({ error: "Authentication required." }, 401);
+  if (user.role !== "rea_admin") return json({ error: "REA Administrator access required." }, 403);
+
+  const body = await request.json().catch(() => null);
+  const name = String(body?.name || "").trim();
+  const email = String(body?.email || "").trim().toLowerCase();
+  const phone = body?.phone ? String(body.phone).trim() : null;
+  const staffRole = String(body?.staffRole || "Viewer").trim();
+  const department = String(body?.department || "").trim();
+  const access = Array.isArray(body?.access) ? [...new Set(body.access.filter((item) => typeof item === "string"))] : [];
+  const password = String(body?.temporaryPassword || "");
+
+  if (!name || !email || !password) return json({ error: "Name, email and temporary password are required." }, 400);
+  if (!/^\S+@\S+\.\S+$/.test(email)) return json({ error: "A valid REA staff email is required." }, 400);
+  if (password.length < 8) return json({ error: "Temporary password must be at least 8 characters." }, 400);
+  if (!access.length) return json({ error: "Select at least one access module." }, 400);
+
+  const duplicateEmail = await env.DB.prepare("SELECT id FROM users WHERE lower(email)=lower(?)").bind(email).first();
+  if (duplicateEmail) return json({ error: "A Veritas account with this email already exists." }, 409);
+  const duplicatePhone = phone ? await env.DB.prepare("SELECT id FROM users WHERE phone=?").bind(phone).first() : null;
+  if (duplicatePhone) return json({ error: "This phone number already belongs to another Veritas account." }, 409);
+
+  const id = `rea-staff-${crypto.randomUUID()}`;
+  const timestamp = new Date().toISOString();
+  const credentials = await managementPasswordRecord(password);
+
+  try {
+    await env.DB.prepare(`INSERT INTO users(id,name,email,phone,role,consultant_firm,password_salt,password_hash,status,created_at,access_json,staff_role,department)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(id, name, email, phone, "rea_staff", null, credentials.salt, credentials.hash, "active", timestamp, JSON.stringify(access), staffRole, department || null)
+      .run();
+  } catch (error) {
+    console.error(JSON.stringify({ event: "rea-staff-create-failed", message: error instanceof Error ? error.message : "Unknown error" }));
+    return json({ error: "Unable to create the REA staff account in the database." }, 409);
+  }
+
+  await env.DB.prepare("INSERT INTO audit_events(id,assignment_id,actor_id,action,details_json,ip_address,created_at) VALUES(?,?,?,?,?,?,?)")
+    .bind(crypto.randomUUID(), null, user.id, "rea-staff-created", JSON.stringify({ staffId: id, name, email, staffRole, department, access }), request.headers.get("CF-Connecting-IP"), timestamp)
+    .run();
+
+  return json({ ok: true, user: { id, name, email, phone, role: "rea_staff", staffRole, department, access, status: "Active", createdAt: timestamp } }, 201);
 }
 
 async function reaProjectsResponse(request, env) {
@@ -1170,8 +1218,13 @@ export default {
     }
 
     if (url.pathname === "/api/rea/users") {
-      if (request.method !== "GET") return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
-      return reaUsersResponse(request, env);
+      if (request.method === "GET") return reaUsersResponse(request, env);
+      if (request.method === "POST") return reaStaffCreateResponse(request, env);
+      return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
+    }
+
+    if (url.pathname === "/api/rea/users" && request.method === "POST") {
+      return reaStaffCreateResponse(request, env);
     }
 
     if (url.pathname === "/api/rea/consultants") {
