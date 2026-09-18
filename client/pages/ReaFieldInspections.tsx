@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronRight, Cloud, Plus, RefreshCw, Save, Send, ShieldCheck, Users, UserPlus, X } from "lucide-react";
+import { Check, ChevronRight, Cloud, Plus, RefreshCw, Save, Send, ShieldCheck, Trash2, Users, UserPlus, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
 
 type Staff = { id: string; name: string; email?: string; role?: string; };
