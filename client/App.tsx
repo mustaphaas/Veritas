@@ -90,6 +90,14 @@ const App = () => (
                 }
               />
               <Route
+                path="/rea/field-inspections"
+                element={
+                  <RequireRole role="rea">
+                    <ReaFieldInspections />
+                  </RequireRole>
+                }
+              />
+              <Route
                 path="/field-officer/*"
                 element={
                   <RequireRole role="field">
