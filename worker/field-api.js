@@ -281,6 +281,7 @@ async function handleCollaborativeInspections(request, env, user) {
 
   if (path === "/api/field/rea-inspections" && request.method === "GET") {
     return response({
+      currentUserId: user.id,
       staff: await collaborativeStaff(env),
       teams: await collaborativeTeams(env),
       projects: (await env.DB.prepare("SELECT id,name,programme,component,contractor,state,lga,community FROM projects ORDER BY name").all()).results,
