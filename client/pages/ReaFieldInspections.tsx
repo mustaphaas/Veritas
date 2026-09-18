@@ -33,6 +33,7 @@ export default function ReaFieldInspections() {
   const { session } = useAuth();
   const token = session?.apiToken || "";
   const [staff, setStaff] = useState<Staff[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string>("");
   const [projects, setProjects] = useState<Project[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [inspections, setInspections] = useState<Inspection[]>([]);
@@ -58,7 +59,7 @@ export default function ReaFieldInspections() {
   const isLead = selectedTeam?.teamLeadId === session?.email || selectedTeam?.teamLeadId === session?.name || selectedTeam?.teamLeadId === session?.role ? true : selectedTeam?.members.some((member) => member.id === selectedTeam.teamLeadId && member.email === session?.email);
   const currentUser = staff.find((member) => member.email?.toLowerCase() === session?.email?.toLowerCase());
   const lead = selectedTeam?.members.find((member) => member.id === selectedTeam.teamLeadId);
-  const isTeamLead = Boolean(lead && currentUser && lead.id === currentUser.id);
+  const isTeamLead = Boolean((currentUserId && selectedTeam?.teamLeadId === currentUserId) || (lead && currentUser && lead.id === currentUser.id));
   const assignedSections = useMemo(() => selected?.sectionAssignments || {}, [selected]);
   const completion = useMemo(() => {
     const completed = sections.filter((section) => section.fields.some((field) => selected?.form?.[field]?.trim()));
@@ -69,6 +70,7 @@ export default function ReaFieldInspections() {
     if (!token) return;
     const data = await api("/api/field/rea-inspections", token);
     setStaff(data.staff || []);
+      setCurrentUserId(data.currentUserId || "");
     setProjects(data.projects || []);
     setTeams(data.teams || []);
     setInspections(data.inspections || []);
