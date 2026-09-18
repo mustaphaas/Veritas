@@ -142,6 +142,7 @@ export default function ReaFieldInspections() {
         : item
       ));
       setSectionAssignModal(false);
+      setShowSectionList(true);
       setMessage("Section assignments saved");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to save section assignments");
@@ -204,13 +205,19 @@ export default function ReaFieldInspections() {
                 <div className="grid md:grid-cols-[280px_minmax(0,1fr)]">
                   <div className={`border-b border-slate-100 p-3 md:block md:border-b-0 md:border-r ${showSectionList ? "block" : "hidden"}`}>
                     {isTeamLead && <button onClick={openSectionAssignModal} className="mb-3 w-full rounded-lg border border-[#b9dfc5] bg-white px-3 py-2 text-xs font-bold text-[#08733f]">Assign Sections</button>}
+                    <p className="mb-2 px-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">{isTeamLead ? "Section Assignments" : "Inspection Sections"}</p>
                     {sections.map((section) => {
                       const filled = section.fields.filter((field) => selected.form?.[field]?.trim()).length;
                       const done = filled === section.fields.length && section.fields.length > 0;
                       const assigned = assignedSections[section.id];
                       const assignee = selectedTeam?.members.find((member) => member.id === assigned);
                       const status = done ? "Completed" : filled > 0 ? "In Progress" : assigned ? "Not Started" : "Unassigned";
-                      return <button key={section.id} onClick={() => { setSelectedSection(section.id); setShowSectionList(false); }} className={`mb-2 w-full rounded-lg border p-3 text-left ${selectedSection === section.id ? "border-[#9ed1ae] bg-[#edf9f0]" : "border-slate-100 hover:bg-slate-50"}`}>
+                      const openSection = () => { setSelectedSection(section.id); setShowSectionList(false); };
+                      const editAssignment = () => {
+                        setDraftSectionAssignments({ ...(selected.sectionAssignments || {}) });
+                        setSectionAssignModal(true);
+                      };
+                      return <div key={section.id} onClick={isTeamLead ? editAssignment : openSection} className={`mb-2 w-full cursor-pointer rounded-lg border p-3 text-left ${selectedSection === section.id ? "border-[#9ed1ae] bg-[#edf9f0]" : "border-slate-100 hover:bg-slate-50"}`}>
                         <div className="flex items-center gap-2">
                           <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${done ? "bg-[#08733f] text-white" : assigned ? "bg-[#eaf8ef] text-[#08733f]" : "bg-slate-100 text-slate-400"}`}>{done ? <Check className="h-3.5 w-3.5" /> : <span className="text-[10px] font-bold">{sections.indexOf(section)+1}</span>}</span>
                           <span className="min-w-0 flex-1 truncate text-xs font-bold text-[#173b2a]">{section.title}</span>
@@ -218,7 +225,9 @@ export default function ReaFieldInspections() {
                         </div>
                         <div className="mt-1 pl-9 text-[9px] text-slate-500">{assignee ? assignee.name : "Not assigned"}</div>
                         <div className="mt-1 pl-9 text-[9px] font-semibold text-slate-400">{status}</div>
-                      </button>;
+                        {isTeamLead && <div className="mt-2 pl-9 text-[9px] font-semibold text-[#08733f]">Click to change assignment</div>}
+                        {!isTeamLead && <div className="mt-2 pl-9 text-[9px] font-semibold text-slate-400">Tap to open section</div>}
+                      </div>;
                     })}
                   </div>
 
