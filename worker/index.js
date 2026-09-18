@@ -33,8 +33,11 @@ async function authenticatedDatabaseUser(request, env) {
   const bearer = request.headers.get("Authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
   if (!bearer || !env.DB) return null;
   const tokenHash = await digest(bearer);
-  return env.DB.prepare(`SELECT u.id,u.name,u.role,u.consultant_firm AS consultantFirm
+  return env.DB.prepare(`SELECT u.id,u.name,
+    CASE WHEN u.role='rea_admin' AND COALESCE(r.staff_role,'REA Administrator')<>'REA Administrator' THEN 'rea_staff' ELSE u.role END AS role,
+    u.consultant_firm AS consultantFirm
     FROM sessions s JOIN users u ON u.id=s.user_id
+    LEFT JOIN rea_staff_accounts r ON r.user_id=u.id
     WHERE s.token_hash=? AND s.expires_at>? AND u.status='active'`)
     .bind(tokenHash, new Date().toISOString())
     .first();
@@ -80,8 +83,9 @@ async function reaUsersResponse(request, env) {
   if (!user) return json({ error: "Authentication required." }, 401);
   if (!String(user.role || "").startsWith("rea_")) return json({ error: "REA access required." }, 403);
 
-  const result = await env.DB.prepare(`SELECT id,name,email,phone,role,consultant_firm AS consultantFirm,status,staff_role AS staffRole,department,access_json AS accessJson,created_at AS createdAt
-    FROM users ORDER BY role,name`).all();
+  const result = await env.DB.prepare(`SELECT u.id,u.name,u.email,u.phone,u.role,u.consultant_firm AS consultantFirm,u.status,
+    r.staff_role AS staffRole,r.department,r.access_json AS accessJson,u.created_at AS createdAt
+    FROM users u LEFT JOIN rea_staff_accounts r ON r.user_id=u.id ORDER BY u.role,u.name`).all();
   const users = (result.results || []).map((record) => ({
     id: record.id,
     name: record.name,
@@ -148,8 +152,10 @@ async function reaStaffCreateResponse(request, env) {
   try {
     await env.DB.prepare(`INSERT INTO users(id,name,email,phone,role,consultant_firm,password_salt,password_hash,status,created_at,access_json,staff_role,department)
       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-      .bind(id, name, email, phone, "rea_staff", null, credentials.salt, credentials.hash, "active", timestamp, JSON.stringify(access), staffRole, department || null)
+      .bind(id, name, email, phone, "rea_admin", null, credentials.salt, credentials.hash, "active", timestamp)
       .run();
+    await env.DB.prepare("INSERT INTO rea_staff_accounts(user_id,staff_role,department,access_json,created_at) VALUES(?,?,?,?,?)")
+      .bind(id, staffRole, department || null, JSON.stringify(access), timestamp).run();
   } catch (error) {
     console.error(JSON.stringify({ event: "rea-staff-create-failed", message: error instanceof Error ? error.message : "Unknown error" }));
     return json({ error: "Unable to create the REA staff account in the database." }, 409);
