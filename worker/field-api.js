@@ -308,6 +308,20 @@ async function handleCollaborativeInspections(request, env, user) {
     return response({ ok: true, teamId: id }, 201);
   }
 
+  if (path.startsWith("/api/field/rea-inspections/teams/") && request.method === "DELETE") {
+    const teamId = path.split("/").pop();
+    const team = await env.DB.prepare("SELECT id,name FROM inspection_teams WHERE id=?").bind(teamId).first();
+    if (!team) return response({ error: "Team not found." }, 404);
+    const inspection = await env.DB.prepare("SELECT id FROM collaborative_inspections WHERE team_id=? LIMIT 1").bind(teamId).first();
+    if (inspection) return response({ error: "This team has an inspection assigned. Remove or complete the inspection before deleting the team." }, 409);
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM inspection_team_members WHERE team_id=?").bind(teamId),
+      env.DB.prepare("DELETE FROM inspection_teams WHERE id=?").bind(teamId)
+    ]);
+    await audit(env, request, user, null, "inspection-team-deleted", { teamId });
+    return response({ ok: true });
+  }
+
   if (path === "/api/field/rea-inspections/assign" && request.method === "POST") {
     const body = await request.json().catch(() => null);
     const team = await env.DB.prepare("SELECT id FROM inspection_teams WHERE id=? AND status='Active'").bind(body?.teamId).first();
