@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { BadgeCheck, Search, ShieldCheck, UserPlus, UserRoundCog, UserRoundX, X } from "lucide-react";
 import { createReaStaffApi, fetchReaPortalUsers } from "../lib/field-api";
 import { reaAccessModules } from "../lib/rea-admin";
@@ -124,5 +124,5 @@ export default function ReaUserManagement() {
   </div>;
 }
 
-function Field({label,children}:{label:string;children:React.ReactNode}){return <label className="block"><span className="mb-1.5 block text-[11px] font-bold text-slate-600">{label}</span>{children}</label>}
+function Field({label,children}:{label:string;children:ReactNode}){return <label className="block"><span className="mb-1.5 block text-[11px] font-bold text-slate-600">{label}</span>{children}</label>}
 function Stat({icon:Icon,label,value,tone,detail}:{icon:any,label:string,value:number,tone:string,detail:string}){const classes=tone==="emerald"?"bg-emerald-50 text-emerald-700":tone==="blue"?"bg-blue-50 text-blue-700":"bg-amber-50 text-amber-700";return <article className="group min-h-[104px] rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm"><div className="flex h-full items-start gap-3"><div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${classes}`}><Icon className="h-5 w-5"/></div><div className="min-w-0 flex-1"><p className="text-sm font-semibold text-[#263c31]">{label}</p><p className="mt-1 text-[23px] font-bold leading-none text-[#13281e]">{value}</p><p className="mt-2 text-[11px] text-slate-500">{detail}</p></div></div></article>}
