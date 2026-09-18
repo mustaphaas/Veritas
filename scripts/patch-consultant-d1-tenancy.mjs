@@ -281,6 +281,7 @@ const authPath = "client/lib/auth.tsx";
 let auth = fs.readFileSync(authPath, "utf8");
 auth = auth.replace('import { readConsultants } from "./consultants";', 'import { readConsultants, writeConsultants } from "./consultants";');
 auth = auth.replace('import { authenticateFieldApi } from "./field-api";', 'import { authenticateFieldApi, fetchConsultantProfileWithToken } from "./field-api";');
+if (!auth.includes("fetchConsultantProfileWithToken")) {
 const oldLogin = ` const login=async(email:string,password:string)=>{
   const account=authenticateDemoAccount(email,password);if(!account)return null;
   let cloud;try{cloud=await authenticateFieldApi(email,password)}catch{return null}
@@ -304,6 +305,7 @@ const newLogin = ` const login=async(email:string,password:string)=>{
   const{password:_password,...baseSession}=account;const nextSession={...baseSession,apiToken:cloud.token,apiExpiresAt:cloud.expiresAt};setSession(nextSession);window.sessionStorage.setItem(SESSION_KEY,JSON.stringify(nextSession));window.dispatchEvent(new Event("veritas-cloud-session"));return nextSession;
  };`;
 auth = replaceOnce(auth, oldLogin, newLogin, "cloud-first login");
+}
 fs.writeFileSync(authPath, auth);
 
 // ---------------------------------------------------------------------------
