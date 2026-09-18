@@ -296,7 +296,7 @@ async function handleCollaborativeInspections(request, env, user) {
     const lead = await env.DB.prepare("SELECT id FROM users WHERE id=? AND role='rea_admin' AND status='active'").bind(body.teamLeadId).first();
     if (!lead) return response({ error: "Team Lead must be an active REA staff member." }, 422);
     const placeholders = memberIds.map(() => "?").join(",");
-    const valid = await env.DB.prepare(`SELECT u.id FROM users u WHERE u.role='rea_admin' AND u.status='active' AND u.id IN (\${placeholders})`).bind(...memberIds).all();
+    const valid = await env.DB.prepare(`SELECT u.id FROM users u WHERE u.role='rea_admin' AND u.status='active' AND u.id IN (${placeholders})`).bind(...memberIds).all();
     if (valid.results.length !== memberIds.length) return response({ error: "All team members must be active REA staff." }, 422);
     const id = `team-${crypto.randomUUID()}`, timestamp = now();
     await env.DB.prepare("INSERT INTO inspection_teams(id,name,team_lead_id,status,created_at,updated_at) VALUES(?,?,?,?,?,?)")
