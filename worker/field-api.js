@@ -346,7 +346,8 @@ async function handleCollaborativeInspections(request, env, user) {
   const team = await env.DB.prepare("SELECT * FROM inspection_teams WHERE id=?").bind(inspection.team_id).first();
   if (!team) return response({ error: "Inspection team not found." }, 404);
   const member = await env.DB.prepare("SELECT 1 FROM inspection_team_members WHERE team_id=? AND user_id=?").bind(team.id, user.id).first();
-  if (!member) return response({ error: "You are not a member of this inspection team." }, 403);
+  const isReaAdmin = user.role === "rea_admin";
+  if (!member && !isReaAdmin) return response({ error: "You are not a member of this inspection team." }, 403);
 
   if (match[2] === "submit" && request.method === "POST") {
     if (team.team_lead_id !== user.id) return response({ error: "Only the Team Lead can submit the inspection." }, 403);
