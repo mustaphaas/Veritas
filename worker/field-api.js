@@ -93,7 +93,7 @@ async function login(request, env) {
   const sessionToken = token(), createdAt = now(), expiresAt = new Date(Date.now() + SESSION_DAYS * 86400000).toISOString();
   await env.DB.prepare("INSERT INTO sessions(token_hash,user_id,created_at,expires_at,last_seen_at) VALUES(?,?,?,?,?)").bind(await digest(sessionToken), user.id, createdAt, expiresAt, createdAt).run();
   await audit(env, request, user, null, "login", { sessionExpiresAt: expiresAt });
-  return response({ token: sessionToken, expiresAt, user: { id: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role, consultantFirm: user.consultant_firm } });
+  return response({ token: sessionToken, expiresAt, user: { id: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role, consultantFirm: user.consultant_firm, staffRole: user.staff_role || "", department: user.department || "", access: (() => { try { return JSON.parse(user.access_json || "[]"); } catch { return []; } })() } });
 }
 
 async function listAssignments(env, user, url) {
