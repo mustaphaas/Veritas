@@ -47,6 +47,10 @@ export const createFieldOfficerApi = (officer: unknown) => call("/users/field-of
 export const createConsultantApi = (consultant: unknown) => reaCall("/consultants", { method: "POST", body: JSON.stringify(consultant) });
 export const fetchReaPortalUsers = () => reaCall("/users");
 export const createReaStaffApi = (staff: unknown) => reaCall("/users", { method: "POST", body: JSON.stringify(staff) });
+export const updateReaUserStatusApi = (id: string, status: "Active" | "Suspended") => reaCall(`/users/${encodeURIComponent(id)}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
+export const updateReaUserAccessApi = (id: string, access: string[]) => reaCall(`/users/${encodeURIComponent(id)}/access`, { method: "PATCH", body: JSON.stringify({ access }) });
+export const resetReaUserPasswordApi = (id: string, password: string) => reaCall(`/users/${encodeURIComponent(id)}/password`, { method: "PATCH", body: JSON.stringify({ password }) });
+export const deleteReaUserApi = (id: string) => reaCall(`/users/${encodeURIComponent(id)}`, { method: "DELETE" });
 export const updateFieldOfficerStatusApi = (id: string, status: "Active" | "Suspended") => call(`/users/field-officers/${encodeURIComponent(id)}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
 export const deleteFieldOfficerApi = (id: string) => call(`/users/field-officers/${encodeURIComponent(id)}`, { method: "DELETE" });
 export const fetchConsultantFieldOfficers = () => consultantCall("/field-officers");
