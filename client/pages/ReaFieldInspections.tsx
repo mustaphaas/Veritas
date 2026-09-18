@@ -60,6 +60,7 @@ export default function ReaFieldInspections() {
   const currentUser = staff.find((member) => member.email?.toLowerCase() === session?.email?.toLowerCase());
   const lead = selectedTeam?.members.find((member) => member.id === selectedTeam.teamLeadId);
   const isTeamLead = Boolean((currentUserId && selectedTeam?.teamLeadId === currentUserId) || (lead && currentUser && lead.id === currentUser.id));
+  const canAssignSections = isTeamLead || session?.role === "rea";
   const assignedSections = useMemo(() => selected?.sectionAssignments || {}, [selected]);
   const completion = useMemo(() => {
     const completed = sections.filter((section) => section.fields.some((field) => selected?.form?.[field]?.trim()));
@@ -110,7 +111,7 @@ export default function ReaFieldInspections() {
   };
 
   const updateAssignment = async (sectionId: string, userId: string) => {
-    if (!selected || !token || !isTeamLead) return;
+    if (!selected || !token || !canAssignSections) return;
     const next = { ...selected.sectionAssignments, [sectionId]: userId };
     setInspections((current) => current.map((item) => item.id === selected.id ? { ...item, sectionAssignments: next } : item));
     await api(`/api/field/rea-inspections/${selected.id}`, token, { method: "PATCH", body: JSON.stringify({ sectionAssignments: next }) });
@@ -125,7 +126,7 @@ export default function ReaFieldInspections() {
   };
 
   const openSectionAssignModal = () => {
-    if (!selectedTeam || !isTeamLead) return;
+    if (!selectedTeam || !canAssignSections) return;
     setDraftSectionAssignments({ ...(selected?.sectionAssignments || {}) });
     setSectionAssignModal(true);
   };
@@ -207,8 +208,8 @@ export default function ReaFieldInspections() {
 
                 <div className="grid md:grid-cols-[280px_minmax(0,1fr)]">
                   <div className={`border-b border-slate-100 p-3 md:block md:border-b-0 md:border-r ${showSectionList ? "block" : "hidden"}`}>
-                    {isTeamLead && <button onClick={openSectionAssignModal} className="mb-3 w-full rounded-lg border border-[#b9dfc5] bg-white px-3 py-2 text-xs font-bold text-[#08733f]">Assign Sections</button>}
-                    <p className="mb-2 px-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">{isTeamLead ? "Section Assignments" : "Inspection Sections"}</p>
+                    {canAssignSections && <button onClick={openSectionAssignModal} className="mb-3 w-full rounded-lg border border-[#b9dfc5] bg-white px-3 py-2 text-xs font-bold text-[#08733f]">Assign Sections</button>}
+                    <p className="mb-2 px-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">{canAssignSections ? "Section Assignments" : "Inspection Sections"}</p>
                     {sections.map((section) => {
                       const filled = section.fields.filter((field) => selected.form?.[field]?.trim()).length;
                       const done = filled === section.fields.length && section.fields.length > 0;
@@ -220,7 +221,7 @@ export default function ReaFieldInspections() {
                         setDraftSectionAssignments({ ...(selected.sectionAssignments || {}) });
                         setSectionAssignModal(true);
                       };
-                      return <div key={section.id} onClick={isTeamLead ? editAssignment : openSection} className={`mb-2 w-full cursor-pointer rounded-lg border p-3 text-left ${selectedSection === section.id ? "border-[#9ed1ae] bg-[#edf9f0]" : "border-slate-100 hover:bg-slate-50"}`}>
+                      return <div key={section.id} onClick={canAssignSections ? editAssignment : openSection} className={`mb-2 w-full cursor-pointer rounded-lg border p-3 text-left ${selectedSection === section.id ? "border-[#9ed1ae] bg-[#edf9f0]" : "border-slate-100 hover:bg-slate-50"}`}>
                         <div className="flex items-center gap-2">
                           <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${done ? "bg-[#08733f] text-white" : assigned ? "bg-[#eaf8ef] text-[#08733f]" : "bg-slate-100 text-slate-400"}`}>{done ? <Check className="h-3.5 w-3.5" /> : <span className="text-[10px] font-bold">{sections.indexOf(section)+1}</span>}</span>
                           <span className="min-w-0 flex-1 truncate text-xs font-bold text-[#173b2a]">{section.title}</span>
@@ -228,7 +229,7 @@ export default function ReaFieldInspections() {
                         </div>
                         <div className="mt-1 pl-9 text-[9px] text-slate-500">{assignee ? assignee.name : "Not assigned"}</div>
                         <div className="mt-1 pl-9 text-[9px] font-semibold text-slate-400">{status}</div>
-                        {isTeamLead && <div className="mt-2 pl-9 text-[9px] font-semibold text-[#08733f]">Click to change assignment</div>}
+                        {canAssignSections && <div className="mt-2 pl-9 text-[9px] font-semibold text-[#08733f]">Click to change assignment</div>}
                         {!isTeamLead && <div className="mt-2 pl-9 text-[9px] font-semibold text-slate-400">Tap to open section</div>}
                       </div>;
                     })}
@@ -239,7 +240,7 @@ export default function ReaFieldInspections() {
                     {(() => { const section = sections.find((item) => item.id === selectedSection) || sections[0]; const assigned = assignedSections[section.id]; const assignee = selectedTeam?.members.find((member) => member.id === assigned); const canEdit = !selected.status || !["Submitted","Approved","Verified"].includes(selected.status); return <div>
                       <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between"><div><h4 className="text-base font-bold text-[#173b2a]">{section.title}</h4><p className="mt-1 text-xs text-slate-500">{section.description}</p></div><span className="rounded-full bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-500">{assignee ? `Assigned to ${assignee.name}` : "Not assigned"}</span></div>
                       <div className="mt-5 space-y-4">{section.fields.map((field) => <label key={field} className="block"><span className="text-xs font-semibold text-slate-600">{field}</span><textarea disabled={!canEdit} value={selected.form?.[field] || ""} onChange={(event) => saveField(field, event.target.value)} rows={field.includes("observation") || field.includes("notes") ? 4 : 2} className="mt-1.5 w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-[#173b2a] outline-none focus:border-[#08733f] focus:ring-2 focus:ring-[#08733f]/10 disabled:bg-slate-50" placeholder="Enter inspection information…" /></label>)}</div>
-                      <div className="mt-5 flex flex-col gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-[10px] text-slate-400">All team members see changes after the next sync. Last saved {selected.updatedAt ? new Date(selected.updatedAt).toLocaleTimeString() : "—"}.</p>{isTeamLead && <button disabled={selected.status==="Submitted" || selected.status==="Approved" || selected.status==="Verified"} onClick={() => void submitInspection()} className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#08733f] px-4 py-2.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300"><Send className="h-4 w-4" /> Submit Inspection</button>}</div>
+                      <div className="mt-5 flex flex-col gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-[10px] text-slate-400">All team members see changes after the next sync. Last saved {selected.updatedAt ? new Date(selected.updatedAt).toLocaleTimeString() : "—"}.</p>{canAssignSections && <button disabled={selected.status==="Submitted" || selected.status==="Approved" || selected.status==="Verified"} onClick={() => void submitInspection()} className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#08733f] px-4 py-2.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300"><Send className="h-4 w-4" /> Submit Inspection</button>}</div>
                     </div>; })()}
                   </div>
                 </div>
