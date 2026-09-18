@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronRight, Cloud, Plus, RefreshCw, Save, Send, ShieldCheck, Trash2, Users, UserPlus, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Cloud, Plus, RefreshCw, Save, Send, ShieldCheck, Trash2, Users, UserPlus, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
 
 type Staff = { id: string; name: string; email?: string; role?: string; };
@@ -205,10 +205,11 @@ export default function ReaFieldInspections() {
                   <div className={`border-b border-slate-100 p-3 md:block md:border-b-0 md:border-r ${showSectionList ? "block" : "hidden"}`}>
                     {isTeamLead && <button onClick={openSectionAssignModal} className="mb-3 w-full rounded-lg border border-[#b9dfc5] bg-white px-3 py-2 text-xs font-bold text-[#08733f]">Assign Sections</button>}
                     {sections.map((section) => {
-                      const done = section.fields.some((field) => selected.form?.[field]?.trim());
+                      const filled = section.fields.filter((field) => selected.form?.[field]?.trim()).length;
+                      const done = filled === section.fields.length && section.fields.length > 0;
                       const assigned = assignedSections[section.id];
                       const assignee = selectedTeam?.members.find((member) => member.id === assigned);
-                      const status = done ? "Completed" : assigned ? "Not Started" : "Unassigned";
+                      const status = done ? "Completed" : filled > 0 ? "In Progress" : assigned ? "Not Started" : "Unassigned";
                       return <button key={section.id} onClick={() => { setSelectedSection(section.id); setShowSectionList(false); }} className={`mb-2 w-full rounded-lg border p-3 text-left ${selectedSection === section.id ? "border-[#9ed1ae] bg-[#edf9f0]" : "border-slate-100 hover:bg-slate-50"}`}>
                         <div className="flex items-center gap-2">
                           <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${done ? "bg-[#08733f] text-white" : assigned ? "bg-[#eaf8ef] text-[#08733f]" : "bg-slate-100 text-slate-400"}`}>{done ? <Check className="h-3.5 w-3.5" /> : <span className="text-[10px] font-bold">{sections.indexOf(section)+1}</span>}</span>
