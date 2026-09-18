@@ -36,6 +36,8 @@ export default function ReaUserManagement() {
   const [accessDraft, setAccessDraft] = useState<string[]>([]);
   const [actionMode, setActionMode] = useState<"access" | "password" | null>(null);
   const [success, setSuccess] = useState("");
+  const [actionSaving, setActionSaving] = useState(false);
+  const [actionError, setActionError] = useState("");
   const [form, setForm] = useState({
     name: "", email: "", phone: "", department: "", staffRole: "Programme Manager",
     temporaryPassword: makePassword(), access: ["Overview", "Field Inspections", "Verification", "Reports"],
@@ -47,7 +49,6 @@ export default function ReaUserManagement() {
       setUsers(Array.isArray(payload.users) ? payload.users : []);
       setError("");
     }).catch((reason) => {
-      setUsers([]);
       setError(reason instanceof Error ? reason.message : "Unable to load portal users from the database.");
     }).finally(() => setLoading(false));
   };
@@ -77,12 +78,14 @@ export default function ReaUserManagement() {
   }
   async function saveAccess() {
     if (!actionUser) return;
-    try { await updateReaUserAccessApi(actionUser.id, accessDraft); setActionUser(null); setActionMode(null); setSuccess("Dashboard access updated."); loadUsers(); } catch (e) { setError(e instanceof Error ? e.message : "Unable to update access."); }
+    setActionSaving(true); setActionError(""); setError("");
+    try { await updateReaUserAccessApi(actionUser.id, accessDraft); setActionUser(null); setActionMode(null); setSuccess("Dashboard access updated."); loadUsers(); } catch (e) { setActionError(e instanceof Error ? e.message : "Unable to update access."); } finally { setActionSaving(false); }
   }
   async function sendPasswordReset() {
     if (!actionUser) return;
+    setActionSaving(true); setActionError(""); setError("");
     try { await sendReaUserPasswordResetApi(actionUser.id); setActionUser(null); setActionMode(null); setSuccess(`Password reset email sent to ${actionUser.email}.`); loadUsers(); }
-    catch (e) { setError(e instanceof Error ? e.message : "Unable to send password reset email."); }
+    catch (e) { setActionError(e instanceof Error ? e.message : "Unable to send password reset email."); } finally { setActionSaving(false); }
   }
 
   async function createStaff() {
@@ -126,8 +129,8 @@ export default function ReaUserManagement() {
         <tbody>{visible.map((user)=><tr key={user.id} className="border-t border-slate-100 hover:bg-[#f8fcf9]"><td className="px-5 py-4"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 text-xs font-bold text-emerald-700">{user.name.split(/\s+/).slice(0,2).map((part)=>part[0]).join("")}</span><p className="text-xs font-bold text-slate-800">{user.name}</p></div></td><td className="px-4 py-4 text-xs text-slate-600">{user.email || "—"}</td><td className="px-4 py-4"><span className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700">{user.classification}</span></td><td className="px-4 py-4"><p className="text-xs font-semibold text-slate-700">{roleLabel(user.role)}</p><p className="mt-0.5 text-[10px] text-slate-500">{user.department || user.consultantFirm || (user.classification === "REA Staff" ? "Rural Electrification Agency" : "—")}</p></td><td className="px-4 py-4"><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${user.status === "Active" ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>{user.status}</span></td><td className="px-4 py-4">
   <div className="flex min-w-[220px] flex-wrap items-center gap-1.5">
     <span className="mr-1 text-[10px] text-slate-500">{user.classification === "REA Staff" ? (user.access?.length || 0) + " modules" : "—"}</span>
-    <button type="button" onClick={()=>{setActionUser(user);setAccessDraft(user.access||[]);setActionMode("access")}} className="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-50">Access</button>
-    <button type="button" onClick={()=>{setActionUser(user);setActionMode("password")}} className="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-50">Reset email</button>
+    <button type="button" onClick={()=>{setActionError("");setActionUser(user);setAccessDraft(user.access||[]);setActionMode("access")}} className="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-50">Access</button>
+    <button type="button" onClick={()=>{setActionError("");setActionUser(user);setActionMode("password")}} className="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-50">Reset email</button>
     {user.status==="Active"
       ? <button type="button" onClick={()=>void changeStatus(user,"Suspended")} className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[10px] font-semibold text-amber-700 hover:bg-amber-100">Suspend</button>
       : <button type="button" onClick={()=>void changeStatus(user,"Active")} className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-100">Activate</button>}
@@ -136,7 +139,7 @@ export default function ReaUserManagement() {
 </td></tr>)}</tbody></table>{visible.length === 0 && <div className="border-t border-slate-100 p-8 text-center text-xs text-slate-500">No database users match this view.</div>}</div>}
     </section>
 
-    {actionUser && actionMode && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"><div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl"><div className="flex items-center justify-between border-b p-5"><div><h3 className="font-bold text-[#173b2a]">{actionMode === "access" ? "Access Control" : "Send Password Reset"}</h3><p className="mt-1 text-xs text-slate-500">{actionUser.name}</p></div><button onClick={()=>{setActionUser(null);setActionMode(null)}}><X className="h-5 w-5 text-slate-400"/></button></div>{actionMode === "access" ? <><div className="p-5"><p className="mb-3 text-xs text-slate-500">Select the dashboard modules this user can access.</p><div className="grid gap-2 sm:grid-cols-2">{reaAccessModules.map(module=><label key={module} className="flex items-center gap-2 rounded-lg border p-3 text-xs"><input type="checkbox" checked={accessDraft.includes(module)} onChange={()=>setAccessDraft(v=>v.includes(module)?v.filter(x=>x!==module):[...v,module])}/>{module}</label>)}</div></div><div className="flex justify-end gap-3 border-t p-5"><button onClick={()=>{setActionUser(null);setActionMode(null)}} className="rounded-lg border px-4 py-2.5 text-xs font-bold">Cancel</button><button onClick={()=>void saveAccess()} className="rounded-lg bg-[#08733f] px-4 py-2.5 text-xs font-bold text-white">Save Access</button></div></> : <><div className="p-5"><div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4 text-xs leading-5 text-emerald-800">A secure, one-time reset link will be sent to <strong>{actionUser.email}</strong>. The link expires after 30 minutes.</div></div><div className="flex justify-end gap-3 border-t p-5"><button onClick={()=>{setActionUser(null);setActionMode(null)}} className="rounded-lg border px-4 py-2.5 text-xs font-bold">Cancel</button><button onClick={()=>void sendPasswordReset()} className="rounded-lg bg-[#08733f] px-4 py-2.5 text-xs font-bold text-white">Send reset email</button></div></>}</div></div>}
+    {actionUser && actionMode && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"><div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl"><div className="flex items-center justify-between border-b p-5"><div><h3 className="font-bold text-[#173b2a]">{actionMode === "access" ? "Access Control" : "Send Password Reset"}</h3><p className="mt-1 text-xs text-slate-500">{actionUser.name}</p></div><button onClick={()=>{setActionUser(null);setActionMode(null)}}><X className="h-5 w-5 text-slate-400"/></button></div>{actionMode === "access" ? <><div className="p-5"><p className="mb-3 text-xs text-slate-500">Select the dashboard modules this user can access.</p><div className="grid gap-2 sm:grid-cols-2">{reaAccessModules.map(module=><label key={module} className="flex items-center gap-2 rounded-lg border p-3 text-xs"><input type="checkbox" checked={accessDraft.includes(module)} onChange={()=>setAccessDraft(v=>v.includes(module)?v.filter(x=>x!==module):[...v,module])}/>{module}</label>)}</div>{actionError && <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700">{actionError}</div>}</div><div className="flex justify-end gap-3 border-t p-5"><button disabled={actionSaving} onClick={()=>{setActionUser(null);setActionMode(null);setActionError("")}} className="rounded-lg border px-4 py-2.5 text-xs font-bold disabled:opacity-50">Cancel</button><button disabled={actionSaving} onClick={()=>void saveAccess()} className="rounded-lg bg-[#08733f] px-4 py-2.5 text-xs font-bold text-white disabled:cursor-wait disabled:opacity-50">{actionSaving ? "Saving…" : "Save Access"}</button></div></> : <><div className="p-5"><div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4 text-xs leading-5 text-emerald-800">A secure, one-time reset link will be sent to <strong>{actionUser.email || "this user"}</strong>. The link expires after 30 minutes.</div>{actionError && <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs font-semibold leading-5 text-rose-700">{actionError}</div>}</div><div className="flex justify-end gap-3 border-t p-5"><button disabled={actionSaving} onClick={()=>{setActionUser(null);setActionMode(null);setActionError("")}} className="rounded-lg border px-4 py-2.5 text-xs font-bold disabled:opacity-50">Cancel</button><button disabled={actionSaving || !actionUser.email} onClick={()=>void sendPasswordReset()} className="rounded-lg bg-[#08733f] px-4 py-2.5 text-xs font-bold text-white disabled:cursor-wait disabled:opacity-50">{actionSaving ? "Sending…" : "Send reset email"}</button></div></>}</div></div>}
 
     {showCreate && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
       <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
