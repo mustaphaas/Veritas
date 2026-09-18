@@ -374,7 +374,7 @@ async function handleCollaborativeInspections(request, env, user) {
     const currentAssignments = JSON.parse(inspection.section_assignments_json || "{}");
     const nextForm = body?.formPatch && typeof body.formPatch === "object" ? { ...currentForm, ...body.formPatch } : currentForm;
     const nextAssignments = body?.sectionAssignments && typeof body.sectionAssignments === "object" ? body.sectionAssignments : currentAssignments;
-    if (body?.sectionAssignments && team.team_lead_id !== user.id) return response({ error: "Only the Team Lead can assign sections." }, 403);
+    if (body?.sectionAssignments && team.team_lead_id !== user.id && user.role !== "rea_admin") return response({ error: "Only the Team Lead or REA Administrator can assign sections." }, 403);
     const timestamp = now();
     await env.DB.prepare("UPDATE collaborative_inspections SET form_json=?,section_assignments_json=?,status='In Progress',version=version+1,last_saved_by=?,updated_at=? WHERE id=?")
       .bind(JSON.stringify(nextForm), JSON.stringify(nextAssignments), user.id, timestamp, inspection.id).run();
