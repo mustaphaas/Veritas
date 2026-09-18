@@ -80,7 +80,9 @@ async function login(request, env) {
   const body = await request.json().catch(() => null);
   if (!body?.identifier || !body?.password) return response({ error: "Phone/email and password are required." }, 400);
   const identifier = String(body.identifier).trim().toLowerCase();
-  const user = await env.DB.prepare("SELECT * FROM users WHERE (lower(email)=? OR phone=?) AND status='active'").bind(identifier, identifier).first();
+  const user = await env.DB.prepare(`SELECT u.*,r.staff_role,r.department,r.access_json
+    FROM users u LEFT JOIN rea_staff_accounts r ON r.user_id=u.id
+    WHERE (lower(u.email)=? OR u.phone=?) AND u.status='active'`).bind(identifier, identifier).first();
   if (!user) return response({ error: "Invalid credentials." }, 401);
   let passwordMatches = false;
   try {
@@ -93,7 +95,8 @@ async function login(request, env) {
   const sessionToken = token(), createdAt = now(), expiresAt = new Date(Date.now() + SESSION_DAYS * 86400000).toISOString();
   await env.DB.prepare("INSERT INTO sessions(token_hash,user_id,created_at,expires_at,last_seen_at) VALUES(?,?,?,?,?)").bind(await digest(sessionToken), user.id, createdAt, expiresAt, createdAt).run();
   await audit(env, request, user, null, "login", { sessionExpiresAt: expiresAt });
-  return response({ token: sessionToken, expiresAt, user: { id: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role, consultantFirm: user.consultant_firm, staffRole: user.staff_role || "", department: user.department || "", access: (() => { try { return JSON.parse(user.access_json || "[]"); } catch { return []; } })() } });
+  const effectiveRole = user.role === "rea_admin" && user.staff_role && user.staff_role !== "REA Administrator" ? "rea_staff" : user.role;
+  return response({ token: sessionToken, expiresAt, user: { id: user.id, name: user.name, email: user.email, phone: user.phone, role: effectiveRole, consultantFirm: user.consultant_firm, staffRole: user.staff_role || "", department: user.department || "", access: (() => { try { return JSON.parse(user.access_json || "[]"); } catch { return []; } })() } });
 }
 
 async function listAssignments(env, user, url) {
