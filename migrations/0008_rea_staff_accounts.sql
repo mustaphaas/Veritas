@@ -1,22 +1,23 @@
--- Allow REA staff accounts to be created and persist their dashboard access.
-PRAGMA writable_schema=ON;
-UPDATE sqlite_schema
-SET sql = replace(
-  sql,
-  "CHECK (role IN ('field_officer','consultant_admin','rea_admin'))",
-  "CHECK (role IN ('field_officer','consultant_admin','rea_admin','rea_staff'))"
-)
-WHERE type='table' AND name='users';
-PRAGMA writable_schema=OFF;
+-- Persist REA staff-specific access without changing the legacy users.role CHECK constraint.
+-- Cloudflare D1 rejects PRAGMA writable_schema, so REA staff accounts use a
+-- companion table while the parent users row keeps the supported rea_admin role.
+CREATE TABLE IF NOT EXISTS rea_staff_accounts (
+  user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  staff_role TEXT NOT NULL,
+  department TEXT,
+  access_json TEXT NOT NULL DEFAULT '["Overview","Field Inspections","Verification","Reports"]',
+  created_at TEXT NOT NULL
+);
 
-ALTER TABLE users ADD COLUMN access_json TEXT NOT NULL DEFAULT '["Overview","Field Inspections","Verification","Reports"]';
-ALTER TABLE users ADD COLUMN staff_role TEXT;
-ALTER TABLE users ADD COLUMN department TEXT;
+CREATE INDEX IF NOT EXISTS idx_rea_staff_accounts_role
+  ON rea_staff_accounts(staff_role);
 
-UPDATE users
-SET access_json='["Overview","Claims","Field Inspections","Verification","Consultants","Analytics","Reports","Users","Audit Trail"]',
-    staff_role='REA Administrator',
-    department='ICT / Administration'
-WHERE role='rea_admin';
-
-PRAGMA integrity_check;
+INSERT OR IGNORE INTO rea_staff_accounts(user_id,staff_role,department,access_json,created_at)
+SELECT id,
+       'REA Administrator',
+       'ICT / Administration',
+       '["Overview","Claims","Field Inspections","Verification","Consultants","Analytics","Reports","Users","Audit Trail"]',
+       created_at
+FROM users
+WHERE role='rea_admin'
+  AND NOT EXISTS (SELECT 1 FROM rea_staff_accounts WHERE user_id=users.id);
