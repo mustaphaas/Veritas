@@ -176,16 +176,26 @@ async function reaUserAudit(env, request, user, action, details) {
 }
 
 
-async function sendResendEmail(env, { to, subject, html }) {
-  if (!env.RESEND_API_KEY) throw new Error("RESEND_API_KEY is not configured.");
-  const from = String(env.RESEND_FROM_EMAIL || "Veritas <onboarding@resend.dev>").trim();
-  const response = await fetch("https://api.resend.com/emails", {
+async function sendBrevoEmail(env, { to, subject, html }) {
+  if (!env.BREVO_API_KEY) throw new Error("BREVO_API_KEY is not configured.");
+  const fromEmail = String(env.BREVO_FROM_EMAIL || "mustaphaaliyu236@gmail.com").trim();
+  const fromName = String(env.BREVO_FROM_NAME || "Veritas").trim();
+  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: \`Bearer \${env.RESEND_API_KEY}\` },
-    body: JSON.stringify({ from, to: [to], subject, html }),
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "api-key": env.BREVO_API_KEY,
+    },
+    body: JSON.stringify({
+      sender: { name: fromName, email: fromEmail },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+    }),
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(String(payload?.message || payload?.error || \`Resend returned HTTP \${response.status}.\`));
+  if (!response.ok) throw new Error(String(payload?.message || payload?.code || `Brevo returned HTTP ${response.status}.`));
   return payload;
 }
 
@@ -205,11 +215,11 @@ async function sendPasswordResetForUser(request, env, targetId, actor = null) {
   const target = await env.DB.prepare("SELECT id,name,email,status FROM users WHERE id=?").bind(targetId).first();
   if (!target) return { ok: false, status: 404, error: "User not found." };
   if (!target.email) return { ok: false, status: 422, error: "This user does not have an email address." };
-  if (!env.RESEND_API_KEY) return { ok: false, status: 503, error: "Password reset email is not configured. Add the RESEND_API_KEY secret first." };
+  if (!env.BREVO_API_KEY) return { ok: false, status: 503, error: "Password reset email is not configured. Add the BREVO_API_KEY secret first." };
   const { rawToken, expiresAt } = await createPasswordReset(env, target.id, actor?.id || null);
   const baseUrl = String(env.APP_BASE_URL || new URL(request.url).origin).replace(/\/$/, "");
   const resetUrl = \`\${baseUrl}/reset-password?token=\${encodeURIComponent(rawToken)}\`;
-  await sendResendEmail(env, {
+  await sendBrevoEmail(env, {
     to: target.email,
     subject: "Reset your Veritas password",
     html: \`<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#173b2a"><div style="padding:24px 0;border-bottom:1px solid #d6e9da"><strong style="font-size:24px;color:#08733f">Veritas</strong><div style="font-size:11px;color:#64748b;margin-top:4px">REA Monitoring Platform</div></div><div style="padding:28px 0"><h2 style="margin:0 0 12px">Reset your password</h2><p style="line-height:1.6;color:#475569">Hello \${String(target.name || "there").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'\"':"&quot;" }[c]))}, a password reset was requested for your Veritas account.</p><p style="line-height:1.6;color:#475569">Use the button below to create a new password. This link expires in 30 minutes and can only be used once.</p><p style="margin:28px 0"><a href="\${resetUrl}" style="display:inline-block;background:#08733f;color:#fff;text-decoration:none;padding:12px 20px;border-radius:6px;font-weight:700">Reset Password</a></p><p style="font-size:12px;color:#64748b;line-height:1.6">If you did not request this, you can ignore this email. Your current password will remain unchanged.</p><p style="font-size:11px;color:#94a3b8;word-break:break-all">\${resetUrl}</p></div></div>\`,
@@ -222,7 +232,7 @@ async function publicForgotPasswordResponse(request, env) {
   const email = String(body?.email || "").trim().toLowerCase();
   if (!/^\S+@\S+\.\S+$/.test(email)) return json({ error: "Enter a valid email address." }, 400);
   const user = await env.DB.prepare("SELECT id,status FROM users WHERE lower(email)=lower(?) LIMIT 1").bind(email).first();
-  if (user && String(user.status).toLowerCase() === "active" && env.RESEND_API_KEY) {
+  if (user && String(user.status).toLowerCase() === "active" && env.BREVO_API_KEY) {
     try { await sendPasswordResetForUser(request, env, user.id, null); }
     catch (error) { console.error(JSON.stringify({ event: "public-password-reset-email-failed", message: error instanceof Error ? error.message : "Unknown error" })); }
   }
