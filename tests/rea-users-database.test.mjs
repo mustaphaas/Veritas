@@ -15,7 +15,7 @@ test("REA Users tab is database-backed and does not render local/demo staff", ()
 test("worker exposes database-backed REA portal users endpoint", () => {
   assert.match(worker, /async function reaUsersResponse/);
   assert.match(worker, /url\.pathname === "\/api\/rea\/users"/);
-  assert.match(worker, /FROM users ORDER BY role,name/);
+  assert.match(worker, /FROM users u LEFT JOIN rea_staff_accounts r ON r\.user_id=u\.id/);
 });
 
 test("AI user classification distinguishes REA staff from consultant-side users", () => {
