@@ -132,7 +132,7 @@ export default function ReaFieldInspections() {
   };
 
   const saveSectionAssignments = async () => {
-    if (!selected || !token || !isTeamLead) return;
+    if (!selected || !token || !canAssignSections) return;
     try {
       setSaving(true);
       setMessage("Saving section assignments…");
