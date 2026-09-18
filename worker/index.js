@@ -169,6 +169,56 @@ async function reaStaffCreateResponse(request, env) {
   return json({ ok: true, user: { id, name, email, phone, role: "rea_staff", staffRole, department, access, status: "Active", createdAt: timestamp } }, 201);
 }
 
+async function reaUserLifecycleResponse(request, env, targetId, action) {
+  const user = await authenticatedDatabaseUser(request, env);
+  if (!user) return json({ error: "Authentication required." }, 401);
+  if (user.role !== "rea_admin") return json({ error: "Only the REA Administrator can manage users." }, 403);
+  const target = await env.DB.prepare("SELECT u.*, r.staff_role, r.department, r.access_json FROM users u LEFT JOIN rea_staff_accounts r ON r.user_id=u.id WHERE u.id=?").bind(targetId).first();
+  if (!target) return json({ error: "User not found." }, 404);
+  if (target.id === user.id && ["suspend","delete"].includes(action)) return json({ error: "You cannot suspend or delete your own administrator account." }, 409);
+
+  if (action === "status") {
+    const body = await request.json().catch(() => null);
+    const status = body?.status === "Suspended" ? "suspended" : body?.status === "Active" ? "active" : "";
+    if (!status) return json({ error: "Status must be Active or Suspended." }, 400);
+    await env.DB.prepare("UPDATE users SET status=? WHERE id=?").bind(status, target.id).run();
+    await auditEvent(env, request, user, "rea-user-status-changed", { targetUserId: target.id, status });
+    return json({ ok: true, status: status === "active" ? "Active" : "Suspended" });
+  }
+
+  if (action === "access") {
+    const body = await request.json().catch(() => null);
+    if (!Array.isArray(body?.access)) return json({ error: "Access must be an array." }, 400);
+    if (!target.staff_role && !String(target.role).startsWith("rea_")) return json({ error: "Dashboard access controls are available for REA staff accounts." }, 422);
+    const access = [...new Set(body.access.map((item) => String(item).trim()).filter(Boolean))];
+    await env.DB.prepare("INSERT INTO rea_staff_accounts(user_id,staff_role,department,access_json,created_at) VALUES(?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET access_json=excluded.access_json")
+      .bind(target.id, target.staff_role || "Viewer", target.department || "", JSON.stringify(access), target.created_at || now()).run();
+    await auditEvent(env, request, user, "rea-user-access-updated", { targetUserId: target.id, access });
+    return json({ ok: true, access });
+  }
+
+  if (action === "password") {
+    const body = await request.json().catch(() => null);
+    const password = String(body?.password || "");
+    if (password.length < 8) return json({ error: "Password must be at least 8 characters." }, 400);
+    const record = await managementPasswordRecord(password);
+    await env.DB.prepare("UPDATE users SET password_salt=?,password_hash=?,status='active' WHERE id=?").bind(record.salt, record.hash, target.id).run();
+    await auditEvent(env, request, user, "rea-user-password-reset", { targetUserId: target.id });
+    return json({ ok: true, status: "Active" });
+  }
+
+  if (action === "delete") {
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM rea_staff_accounts WHERE user_id=?").bind(target.id),
+      env.DB.prepare("DELETE FROM users WHERE id=?").bind(target.id)
+    ]);
+    await auditEvent(env, request, user, "rea-user-deleted", { targetUserId: target.id });
+    return json({ ok: true });
+  }
+
+  return json({ error: "Unsupported user action." }, 400);
+}
+
 async function reaProjectsResponse(request, env) {
   const user = await authenticatedDatabaseUser(request, env);
   if (!user) return json({ error: "Authentication required." }, 401);
@@ -1222,6 +1272,15 @@ export default {
     if (url.pathname === "/api/consultant/profile") {
       if (request.method !== "GET") return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
       return consultantProfileResponse(request, env);
+    }
+
+    const reaUserActionMatch = url.pathname.match(/^\/api\/rea\/users\/([^/]+)\/(status|access|password)$/);
+    if (reaUserActionMatch && request.method === "PATCH") {
+      return reaUserLifecycleResponse(request, env, decodeURIComponent(reaUserActionMatch[1]), reaUserActionMatch[2]);
+    }
+    const reaUserDeleteMatch = url.pathname.match(/^\/api\/rea\/users\/([^/]+)$/);
+    if (reaUserDeleteMatch && request.method === "DELETE") {
+      return reaUserLifecycleResponse(request, env, decodeURIComponent(reaUserDeleteMatch[1]), "delete");
     }
 
     if (url.pathname === "/api/rea/users") {
