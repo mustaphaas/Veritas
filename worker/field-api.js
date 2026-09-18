@@ -225,7 +225,10 @@ async function review(request, env, user, assignment) {
 
 
 async function collaborativeStaff(env) {
-  const result = await env.DB.prepare("SELECT id,name,email FROM users WHERE role='rea_admin' AND status='active' ORDER BY name").all();
+  const result = await env.DB.prepare(`SELECT u.id,u.name,u.email,
+      COALESCE(r.staff_role,'REA Administrator') AS role
+    FROM users u LEFT JOIN rea_staff_accounts r ON r.user_id=u.id
+    WHERE u.role='rea_admin' AND u.status='active' ORDER BY u.name`).all();
   return result.results;
 }
 
@@ -274,7 +277,7 @@ async function collaborativeInspections(env) {
 async function handleCollaborativeInspections(request, env, user) {
   const url = new URL(request.url), path = url.pathname;
   if (!path.startsWith("/api/field/rea-inspections")) return null;
-  if (user.role !== "rea_admin") return response({ error: "REA access required." }, 403);
+  if (user.role !== "rea_admin" && user.role !== "rea_staff") return response({ error: "REA access required." }, 403);
 
   if (path === "/api/field/rea-inspections" && request.method === "GET") {
     return response({
@@ -293,7 +296,7 @@ async function handleCollaborativeInspections(request, env, user) {
     const lead = await env.DB.prepare("SELECT id FROM users WHERE id=? AND role='rea_admin' AND status='active'").bind(body.teamLeadId).first();
     if (!lead) return response({ error: "Team Lead must be an active REA staff member." }, 422);
     const placeholders = memberIds.map(() => "?").join(",");
-    const valid = await env.DB.prepare(`SELECT id FROM users WHERE role='rea_admin' AND status='active' AND id IN (${placeholders})`).bind(...memberIds).all();
+    const valid = await env.DB.prepare(`SELECT u.id FROM users u WHERE u.role='rea_admin' AND u.status='active' AND u.id IN (\${placeholders})`).bind(...memberIds).all();
     if (valid.results.length !== memberIds.length) return response({ error: "All team members must be active REA staff." }, 422);
     const id = `team-${crypto.randomUUID()}`, timestamp = now();
     await env.DB.prepare("INSERT INTO inspection_teams(id,name,team_lead_id,status,created_at,updated_at) VALUES(?,?,?,?,?,?)")
