@@ -63,7 +63,7 @@ export default function ReaFieldInspections() {
 
   const load = async () => {
     if (!token) return;
-    const data = await api("/api/rea/field-inspections", token);
+    const data = await api("/api/field/rea-inspections", token);
     setStaff(data.staff || []);
     setProjects(data.projects || []);
     setTeams(data.teams || []);
@@ -85,7 +85,7 @@ export default function ReaFieldInspections() {
     window.clearTimeout((saveField as unknown as { timer?: number }).timer);
     (saveField as unknown as { timer?: number }).timer = window.setTimeout(async () => {
       try {
-        await api(`/api/rea/field-inspections/${selected.id}`, token, { method: "PATCH", body: JSON.stringify({ formPatch: { [field]: value } }) });
+        await api(`/api/field/rea-inspections/${selected.id}`, token, { method: "PATCH", body: JSON.stringify({ formPatch: { [field]: value } }) });
         setSaving(false); setMessage("Saved");
       } catch { setSaving(false); setMessage("Save failed — retrying"); }
     }, 450);
@@ -93,13 +93,13 @@ export default function ReaFieldInspections() {
 
   const createTeam = async () => {
     if (!teamName || !teamLeadId || !teamMembers.length) return;
-    await api("/api/rea/field-inspections/teams", token, { method: "POST", body: JSON.stringify({ name: teamName, teamLeadId, memberIds: [...new Set([teamLeadId, ...teamMembers])] }) });
+    await api("/api/field/rea-inspections/teams", token, { method: "POST", body: JSON.stringify({ name: teamName, teamLeadId, memberIds: [...new Set([teamLeadId, ...teamMembers])] }) });
     setTeamModal(false); setTeamName(""); setTeamLeadId(""); setTeamMembers([]); await load();
   };
 
   const assignProject = async () => {
     if (!assignTeamId || !assignProjectId) return;
-    await api("/api/rea/field-inspections/assign", token, { method: "POST", body: JSON.stringify({ teamId: assignTeamId, projectId: assignProjectId, dueDate: assignDueDate || null }) });
+    await api("/api/field/rea-inspections/assign", token, { method: "POST", body: JSON.stringify({ teamId: assignTeamId, projectId: assignProjectId, dueDate: assignDueDate || null }) });
     setAssignModal(false); setAssignTeamId(""); setAssignProjectId(""); setAssignDueDate(""); await load();
   };
 
@@ -107,13 +107,13 @@ export default function ReaFieldInspections() {
     if (!selected || !token || !isTeamLead) return;
     const next = { ...selected.sectionAssignments, [sectionId]: userId };
     setInspections((current) => current.map((item) => item.id === selected.id ? { ...item, sectionAssignments: next } : item));
-    await api(`/api/rea/field-inspections/${selected.id}`, token, { method: "PATCH", body: JSON.stringify({ sectionAssignments: next }) });
+    await api(`/api/field/rea-inspections/${selected.id}`, token, { method: "PATCH", body: JSON.stringify({ sectionAssignments: next }) });
   };
 
   const submitInspection = async () => {
     if (!selected || !isTeamLead) return;
     if (completion < 100) { setMessage("Complete all sections before submission"); return; }
-    await api(`/api/rea/field-inspections/${selected.id}/submit`, token, { method: "POST" });
+    await api(`/api/field/rea-inspections/${selected.id}/submit`, token, { method: "POST" });
     await load();
     setMessage("Submitted");
   };
