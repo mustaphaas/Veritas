@@ -37,6 +37,7 @@ export default function ReaFieldInspections() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [selectedInspection, setSelectedInspection] = useState<string>("");
+  const [selectedTeamId, setSelectedTeamId] = useState<string>("");
   const [selectedSection, setSelectedSection] = useState("project");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("Saved");
@@ -52,7 +53,7 @@ export default function ReaFieldInspections() {
   const [draftSectionAssignments, setDraftSectionAssignments] = useState<Record<string,string>>({});
 
   const selected = inspections.find((item) => item.id === selectedInspection);
-  const selectedTeam = teams.find((team) => team.id === selected?.teamId);
+  const selectedTeam = teams.find((team) => team.id === selectedTeamId) || teams.find((team) => team.id === selected?.teamId);
   const isLead = selectedTeam?.teamLeadId === session?.email || selectedTeam?.teamLeadId === session?.name || selectedTeam?.teamLeadId === session?.role ? true : selectedTeam?.members.some((member) => member.id === selectedTeam.teamLeadId && member.email === session?.email);
   const currentUser = staff.find((member) => member.email?.toLowerCase() === session?.email?.toLowerCase());
   const lead = selectedTeam?.members.find((member) => member.id === selectedTeam.teamLeadId);
@@ -148,6 +149,27 @@ export default function ReaFieldInspections() {
     }
   };
 
+  const selectTeam = (team: Team) => {
+    setSelectedTeamId(team.id);
+    const teamInspection = inspections.find((item) => item.teamId === team.id);
+    setSelectedInspection(teamInspection?.id || "");
+    setSelectedSection("project");
+  };
+
+  const deleteTeam = async (team: Team) => {
+    if (!token) return;
+    if (!window.confirm(`Delete ${team.name}? This cannot be undone.`)) return;
+    try {
+      setMessage("Deleting team…");
+      await api(`/api/field/rea-inspections/teams/${team.id}`, token, { method: "DELETE" });
+      if (selectedTeamId === team.id) { setSelectedTeamId(""); setSelectedInspection(""); }
+      await load();
+      setMessage("Team deleted");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to delete team");
+    }
+  };
+
   const openTeamModal = () => {
     setTeamLeadId(currentUser?.id || staff[0]?.id || "");
     setTeamMembers(currentUser?.id ? [currentUser.id] : []);
@@ -166,7 +188,7 @@ export default function ReaFieldInspections() {
       <div className="mt-5 grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
         <aside className="rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3"><div><h3 className="text-sm font-bold text-[#173b2a]">Inspection Teams</h3><p className="text-[11px] text-slate-500">{teams.length} active teams</p></div><button onClick={() => void load()} className="rounded-md p-2 text-slate-500 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /></button></div>
-          <div className="max-h-[620px] overflow-auto p-2">{teams.map((team, index) => <div key={team.id} className="mb-2"><div className={`rounded-lg border p-3 ${selectedTeam?.id === team.id ? "border-[#9ed1ae] bg-[#f4fbf6]" : "border-slate-100"}`}><div className="flex items-start gap-2"><div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white ${colors[index % colors.length]}`}><Users className="h-4 w-4" /></div><div className="min-w-0"><p className="truncate text-xs font-bold text-[#173b2a]">{team.name}</p><p className="mt-0.5 text-[10px] text-slate-500">Lead: {team.teamLeadName}</p></div></div><p className="mt-2 text-[10px] text-slate-500">{team.members.length} REA staff</p></div></div>)}</div>
+          <div className="max-h-[620px] overflow-auto p-2">{teams.map((team, index) => <div key={team.id} className="mb-2"><button type="button" onClick={() => selectTeam(team)} className={`w-full rounded-lg border p-3 text-left ${selectedTeam?.id === team.id ? "border-[#9ed1ae] bg-[#f4fbf6]" : "border-slate-100 hover:bg-slate-50"}`}><div className="flex items-start gap-2"><div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white ${colors[index % colors.length]}`}><Users className="h-4 w-4" /></div><div className="min-w-0 flex-1"><p className="truncate text-xs font-bold text-[#173b2a]">{team.name}</p><p className="mt-0.5 text-[10px] text-slate-500">Lead: {team.teamLeadName}</p></div><button type="button" onClick={(event) => { event.stopPropagation(); void deleteTeam(team); }} className="rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Delete team"><Trash2 className="h-4 w-4" /></button></div><p className="mt-2 text-[10px] text-slate-500">{team.members.length} REA staff</p></button></div>)}</div>
         </aside>
 
         <main className="min-w-0">
