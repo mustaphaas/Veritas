@@ -150,12 +150,13 @@ async function reaStaffCreateResponse(request, env) {
   const credentials = await managementPasswordRecord(password);
 
   try {
-    await env.DB.prepare(`INSERT INTO users(id,name,email,phone,role,consultant_firm,password_salt,password_hash,status,created_at,access_json,staff_role,department)
-      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-      .bind(id, name, email, phone, "rea_admin", null, credentials.salt, credentials.hash, "active", timestamp)
-      .run();
-    await env.DB.prepare("INSERT INTO rea_staff_accounts(user_id,staff_role,department,access_json,created_at) VALUES(?,?,?,?,?)")
-      .bind(id, staffRole, department || null, JSON.stringify(access), timestamp).run();
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO users(id,name,email,phone,role,consultant_firm,password_salt,password_hash,status,created_at)
+        VALUES(?,?,?,?,?,?,?,?,?,?)`)
+        .bind(id, name, email, phone, "rea_admin", null, credentials.salt, credentials.hash, "active", timestamp),
+      env.DB.prepare("INSERT INTO rea_staff_accounts(user_id,staff_role,department,access_json,created_at) VALUES(?,?,?,?,?)")
+        .bind(id, staffRole, department || null, JSON.stringify(access), timestamp),
+    ]);
   } catch (error) {
     console.error(JSON.stringify({ event: "rea-staff-create-failed", message: error instanceof Error ? error.message : "Unknown error" }));
     return json({ error: "Unable to create the REA staff account in the database." }, 409);
