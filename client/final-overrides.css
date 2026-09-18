@@ -100,7 +100,7 @@ aside > div.flex.h-\[94px\].items-center.gap-3.px-4 > div:first-child img {
     top: 0 !important;
     left: 0 !important;
     bottom: 0 !important;
-    width: 250px !important;
+    width: 72px !important;
     height: 100vh !important;
     max-height: none !important;
     align-items: stretch !important;
@@ -167,12 +167,11 @@ aside > div.flex.h-\[94px\].items-center.gap-3.px-4 > div:first-child img {
     width: 100% !important;
     height: 42px !important;
     min-height: 42px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: flex-start !important;
-    gap: 12px !important;
+    display: grid !important;
+    place-items: center !important;
+    gap: 0 !important;
     margin: 0 !important;
-    padding: 0 12px !important;
+    padding: 0 !important;
     border: 1px solid transparent;
     border-radius: 11px !important;
     color: #7c8982 !important;
@@ -249,7 +248,8 @@ aside > div.flex.h-\[94px\].items-center.gap-3.px-4 > div:first-child img {
 
   .veritas-side-rail [data-label]:hover::after,
   .veritas-side-rail [data-label]:focus-visible::after {
-    opacity: 0;
+    transform: translate(0, -50%) scale(1);
+    opacity: 1;
   }
 
   .veritas-side-rail .veritas-rail-footer {
