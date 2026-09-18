@@ -451,7 +451,7 @@ export default function Index() {
             <TabErrorBoundary key="Consultants" tab="Consultants"><ReaConsultantsManagement /></TabErrorBoundary>
           ) : resolvedActiveNav === "Claims" ? (
             <TabErrorBoundary key="Claims" tab="Claims"><ReaClaimsManagement /></TabErrorBoundary>
-          ) : resolvedActiveNav === "Field Inspections" ? (\n            <TabErrorBoundary key="Field Inspections" tab="Field Inspections"><ReaFieldInspections /></TabErrorBoundary>\n          ) : resolvedActiveNav === "Verification" ? (
+          ) : resolvedActiveNav === "Field Inspections" ? (\n              <TabErrorBoundary key="Field Inspections" tab="Field Inspections"><ReaFieldInspections /></TabErrorBoundary>\n            ) : resolvedActiveNav === "Verification" ? (
             <ReaVerificationManagement />
           ) : resolvedActiveNav === "Reports" ? (
             <TabErrorBoundary key="Reports" tab="Reports"><ReaReportsManagement projects={portfolioProjects} /></TabErrorBoundary>
