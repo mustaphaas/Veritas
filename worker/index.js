@@ -175,6 +175,94 @@ async function reaUserAudit(env, request, user, action, details) {
     .run();
 }
 
+
+async function sendResendEmail(env, { to, subject, html }) {
+  if (!env.RESEND_API_KEY) throw new Error("RESEND_API_KEY is not configured.");
+  const from = String(env.RESEND_FROM_EMAIL || "Veritas <onboarding@resend.dev>").trim();
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: \`Bearer \${env.RESEND_API_KEY}\` },
+    body: JSON.stringify({ from, to: [to], subject, html }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(String(payload?.message || payload?.error || \`Resend returned HTTP \${response.status}.\`));
+  return payload;
+}
+
+async function createPasswordReset(env, userId, requestedBy = null) {
+  const rawToken = token();
+  const tokenHash = await digest(rawToken);
+  const createdAt = new Date().toISOString();
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM password_reset_tokens WHERE user_id=? AND used_at IS NULL").bind(userId),
+    env.DB.prepare("INSERT INTO password_reset_tokens(id,user_id,token_hash,expires_at,used_at,requested_by,created_at) VALUES(?,?,?,?,?,?,?)").bind(crypto.randomUUID(), userId, tokenHash, expiresAt, null, requestedBy, createdAt),
+  ]);
+  return { rawToken, expiresAt };
+}
+
+async function sendPasswordResetForUser(request, env, targetId, actor = null) {
+  const target = await env.DB.prepare("SELECT id,name,email,status FROM users WHERE id=?").bind(targetId).first();
+  if (!target) return { ok: false, status: 404, error: "User not found." };
+  if (!target.email) return { ok: false, status: 422, error: "This user does not have an email address." };
+  if (!env.RESEND_API_KEY) return { ok: false, status: 503, error: "Password reset email is not configured. Add the RESEND_API_KEY secret first." };
+  const { rawToken, expiresAt } = await createPasswordReset(env, target.id, actor?.id || null);
+  const baseUrl = String(env.APP_BASE_URL || new URL(request.url).origin).replace(/\/$/, "");
+  const resetUrl = \`\${baseUrl}/reset-password?token=\${encodeURIComponent(rawToken)}\`;
+  await sendResendEmail(env, {
+    to: target.email,
+    subject: "Reset your Veritas password",
+    html: \`<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#173b2a"><div style="padding:24px 0;border-bottom:1px solid #d6e9da"><strong style="font-size:24px;color:#08733f">Veritas</strong><div style="font-size:11px;color:#64748b;margin-top:4px">REA Monitoring Platform</div></div><div style="padding:28px 0"><h2 style="margin:0 0 12px">Reset your password</h2><p style="line-height:1.6;color:#475569">Hello \${String(target.name || "there").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'\"':"&quot;" }[c]))}, a password reset was requested for your Veritas account.</p><p style="line-height:1.6;color:#475569">Use the button below to create a new password. This link expires in 30 minutes and can only be used once.</p><p style="margin:28px 0"><a href="\${resetUrl}" style="display:inline-block;background:#08733f;color:#fff;text-decoration:none;padding:12px 20px;border-radius:6px;font-weight:700">Reset Password</a></p><p style="font-size:12px;color:#64748b;line-height:1.6">If you did not request this, you can ignore this email. Your current password will remain unchanged.</p><p style="font-size:11px;color:#94a3b8;word-break:break-all">\${resetUrl}</p></div></div>\`,
+  });
+  return { ok: true, target, expiresAt };
+}
+
+async function publicForgotPasswordResponse(request, env) {
+  const body = await request.json().catch(() => null);
+  const email = String(body?.email || "").trim().toLowerCase();
+  if (!/^\S+@\S+\.\S+$/.test(email)) return json({ error: "Enter a valid email address." }, 400);
+  const user = await env.DB.prepare("SELECT id,status FROM users WHERE lower(email)=lower(?) LIMIT 1").bind(email).first();
+  if (user && String(user.status).toLowerCase() === "active" && env.RESEND_API_KEY) {
+    try { await sendPasswordResetForUser(request, env, user.id, null); }
+    catch (error) { console.error(JSON.stringify({ event: "public-password-reset-email-failed", message: error instanceof Error ? error.message : "Unknown error" })); }
+  }
+  return json({ ok: true, message: "If an active Veritas account exists for that email, a password reset link has been sent." });
+}
+
+async function publicResetPasswordResponse(request, env) {
+  const body = await request.json().catch(() => null);
+  const rawToken = String(body?.token || "");
+  const password = String(body?.password || "");
+  if (!rawToken || password.length < 8) return json({ error: "A valid reset token and a password of at least 8 characters are required." }, 400);
+  const tokenHash = await digest(rawToken);
+  const record = await env.DB.prepare("SELECT id,user_id,expires_at,used_at FROM password_reset_tokens WHERE token_hash=? LIMIT 1").bind(tokenHash).first();
+  if (!record || record.used_at || Date.parse(record.expires_at) <= Date.now()) return json({ error: "This password reset link is invalid or has expired." }, 400);
+  const credentials = await managementPasswordRecord(password);
+  const timestamp = new Date().toISOString();
+  await env.DB.batch([
+    env.DB.prepare("UPDATE users SET password_salt=?,password_hash=?,status='active' WHERE id=?").bind(credentials.salt, credentials.hash, record.user_id),
+    env.DB.prepare("UPDATE password_reset_tokens SET used_at=? WHERE id=?").bind(timestamp, record.id),
+    env.DB.prepare("DELETE FROM sessions WHERE user_id=?").bind(record.user_id),
+    env.DB.prepare("INSERT INTO audit_events(id,assignment_id,actor_id,action,details_json,ip_address,created_at) VALUES(?,?,?,?,?,?,?)").bind(crypto.randomUUID(), null, record.user_id, "rea-user-password-reset-completed", JSON.stringify({ userId: record.user_id }), request.headers.get("CF-Connecting-IP"), timestamp),
+  ]);
+  return json({ ok: true, message: "Password updated successfully. You can now sign in with your new password." });
+}
+
+async function reaUserPasswordResetEmailResponse(request, env, targetId) {
+  const actor = await authenticatedDatabaseUser(request, env);
+  if (!actor) return json({ error: "Authentication required." }, 401);
+  if (actor.role !== "rea_admin") return json({ error: "Only the REA Administrator can send password reset emails." }, 403);
+  try {
+    const result = await sendPasswordResetForUser(request, env, targetId, actor);
+    if (!result.ok) return json({ error: result.error }, result.status);
+    await reaUserAudit(env, request, actor, "rea-user-password-reset-email-sent", { targetUserId: targetId, expiresAt: result.expiresAt });
+    return json({ ok: true, message: \`Password reset email sent to \${result.target.email}.\` });
+  } catch (error) {
+    console.error(JSON.stringify({ event: "rea-password-reset-email-failed", message: error instanceof Error ? error.message : "Unknown error", build: BUILD_ID }));
+    return json({ error: "Unable to send the password reset email. Check the email service configuration." }, 502);
+  }
+}
+
 async function reaUserLifecycleResponse(request, env, targetId, action) {
   const user = await authenticatedDatabaseUser(request, env);
   if (!user) return json({ error: "Authentication required." }, 401);
@@ -1279,6 +1367,17 @@ export default {
       if (request.method !== "GET") return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
       return consultantProfileResponse(request, env);
     }
+
+    if (url.pathname === "/api/auth/forgot-password") {
+      if (request.method !== "POST") return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
+      return publicForgotPasswordResponse(request, env);
+    }
+    if (url.pathname === "/api/auth/reset-password") {
+      if (request.method !== "POST") return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
+      return publicResetPasswordResponse(request, env);
+    }
+    const reaPasswordResetMatch = url.pathname.match(/^\/api\/rea\/users\/([^/]+)\/password-reset$/);
+    if (reaPasswordResetMatch && request.method === "POST") return reaUserPasswordResetEmailResponse(request, env, decodeURIComponent(reaPasswordResetMatch[1]));
 
     const reaUserActionMatch = url.pathname.match(/^\/api\/rea\/users\/([^/]+)\/(status|access|password)$/);
     if (reaUserActionMatch && request.method === "PATCH") {

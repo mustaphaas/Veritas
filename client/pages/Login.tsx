@@ -12,6 +12,7 @@ import {
   Zap,
 } from "lucide-react";
 import { demoAccounts, useAuth } from "../lib/auth";
+import { requestPasswordResetApi } from "../lib/field-api";
 
 export default function Login() {
   const { session, login } = useAuth();
@@ -22,6 +23,10 @@ export default function Login() {
   const [signingIn, setSigningIn] = useState(false);
   const [error, setError] = useState("");
   const [selectedRole, setSelectedRole] = useState(demoAccounts[0].role);
+  const [showForgot, setShowForgot] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetting, setResetting] = useState(false);
+  const [resetMessage, setResetMessage] = useState("");
 
   useEffect(() => setError(""), [email, password]);
   if (session) return <Navigate to={session.path} replace />;
@@ -137,6 +142,7 @@ export default function Login() {
               })}
             </div>
 
+            {showForgot ? <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4"><p className="text-sm font-bold text-[#173b2a]">Forgot your password?</p><p className="mt-1 text-xs leading-5 text-slate-500">Enter your Veritas email and we’ll send a secure reset link.</p><div className="mt-3 flex gap-2"><input type="email" value={resetEmail} onChange={(event)=>setResetEmail(event.target.value)} placeholder="Email address" className="h-10 min-w-0 flex-1 rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-[#08733f]" /><button type="button" disabled={resetting} onClick={async()=>{setResetting(true);setResetMessage("");try{const result=await requestPasswordResetApi(resetEmail);setResetMessage(result.message||"If an account exists, a reset link has been sent.");}catch(error){setResetMessage(error instanceof Error?error.message:"Unable to request a password reset.");}finally{setResetting(false);}}} className="rounded-md bg-[#08733f] px-3 text-xs font-bold text-white disabled:opacity-60">{resetting?"Sending…":"Send"}</button></div>{resetMessage&&<p className="mt-2 text-xs text-[#08733f]">{resetMessage}</p>}<button type="button" onClick={()=>setShowForgot(false)} className="mt-2 text-[11px] font-semibold text-slate-500">Back to sign in</button></div> : null}
             <form onSubmit={submit} className="mt-6 space-y-4">
               <label className="block">
                 <span className="text-xs font-semibold text-[#263c31]">

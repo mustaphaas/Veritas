@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { BadgeCheck, MoreHorizontal, Search, ShieldCheck, UserPlus, UserRoundCog, UserRoundX, X } from "lucide-react";
-import { createReaStaffApi, fetchReaPortalUsers, updateReaUserStatusApi, updateReaUserAccessApi, resetReaUserPasswordApi, deleteReaUserApi } from "../lib/field-api";
+import { createReaStaffApi, fetchReaPortalUsers, updateReaUserStatusApi, updateReaUserAccessApi, sendReaUserPasswordResetApi, deleteReaUserApi } from "../lib/field-api";
 import { reaAccessModules } from "../lib/rea-admin";
 
 type PortalUser = {
@@ -34,7 +34,6 @@ export default function ReaUserManagement() {
   const [actionUser, setActionUser] = useState<PortalUser | null>(null);
   const [actionMenu, setActionMenu] = useState<string | null>(null);
   const [accessDraft, setAccessDraft] = useState<string[]>([]);
-  const [newPassword, setNewPassword] = useState("");
   const [actionMode, setActionMode] = useState<"access" | "password" | null>(null);
   const [success, setSuccess] = useState("");
   const [form, setForm] = useState({
@@ -80,9 +79,10 @@ export default function ReaUserManagement() {
     if (!actionUser) return;
     try { await updateReaUserAccessApi(actionUser.id, accessDraft); setActionUser(null); setActionMode(null); setSuccess("Dashboard access updated."); loadUsers(); } catch (e) { setError(e instanceof Error ? e.message : "Unable to update access."); }
   }
-  async function resetPassword() {
-    if (!actionUser || newPassword.length < 8) { setError("Password must be at least 8 characters."); return; }
-    try { await resetReaUserPasswordApi(actionUser.id, newPassword); setActionUser(null); setActionMode(null); setSuccess("Password reset successfully."); loadUsers(); } catch (e) { setError(e instanceof Error ? e.message : "Unable to reset password."); }
+  async function sendPasswordReset() {
+    if (!actionUser) return;
+    try { await sendReaUserPasswordResetApi(actionUser.id); setActionUser(null); setActionMode(null); setSuccess(`Password reset email sent to ${actionUser.email}.`); loadUsers(); }
+    catch (e) { setError(e instanceof Error ? e.message : "Unable to send password reset email."); }
   }
 
   async function createStaff() {
@@ -127,7 +127,7 @@ export default function ReaUserManagement() {
   <div className="flex min-w-[220px] flex-wrap items-center gap-1.5">
     <span className="mr-1 text-[10px] text-slate-500">{user.classification === "REA Staff" ? (user.access?.length || 0) + " modules" : "—"}</span>
     <button type="button" onClick={()=>{setActionUser(user);setAccessDraft(user.access||[]);setActionMode("access")}} className="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-50">Access</button>
-    <button type="button" onClick={()=>{setActionUser(user);setNewPassword("");setActionMode("password")}} className="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-50">Password</button>
+    <button type="button" onClick={()=>{setActionUser(user);setActionMode("password")}} className="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-50">Reset email</button>
     {user.status==="Active"
       ? <button type="button" onClick={()=>void changeStatus(user,"Suspended")} className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[10px] font-semibold text-amber-700 hover:bg-amber-100">Suspend</button>
       : <button type="button" onClick={()=>void changeStatus(user,"Active")} className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-100">Activate</button>}
@@ -136,7 +136,7 @@ export default function ReaUserManagement() {
 </td></tr>)}</tbody></table>{visible.length === 0 && <div className="border-t border-slate-100 p-8 text-center text-xs text-slate-500">No database users match this view.</div>}</div>}
     </section>
 
-    {actionUser && actionMode && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"><div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl"><div className="flex items-center justify-between border-b p-5"><div><h3 className="font-bold text-[#173b2a]">{actionMode === "access" ? "Access Control" : "Reset Password"}</h3><p className="mt-1 text-xs text-slate-500">{actionUser.name}</p></div><button onClick={()=>{setActionUser(null);setActionMode(null)}}><X className="h-5 w-5 text-slate-400"/></button></div>{actionMode === "access" ? <><div className="p-5"><p className="mb-3 text-xs text-slate-500">Select the dashboard modules this user can access.</p><div className="grid gap-2 sm:grid-cols-2">{reaAccessModules.map(module=><label key={module} className="flex items-center gap-2 rounded-lg border p-3 text-xs"><input type="checkbox" checked={accessDraft.includes(module)} onChange={()=>setAccessDraft(v=>v.includes(module)?v.filter(x=>x!==module):[...v,module])}/>{module}</label>)}</div></div><div className="flex justify-end gap-3 border-t p-5"><button onClick={()=>{setActionUser(null);setActionMode(null)}} className="rounded-lg border px-4 py-2.5 text-xs font-bold">Cancel</button><button onClick={()=>void saveAccess()} className="rounded-lg bg-[#08733f] px-4 py-2.5 text-xs font-bold text-white">Save Access</button></div></> : <><div className="p-5"><p className="mb-3 text-xs text-slate-500">Enter a new temporary password. The user will be activated after reset.</p><input type="password" value={newPassword} onChange={e=>setNewPassword(e.target.value)} placeholder="New password (8+ characters)" className="h-11 w-full rounded-lg border px-3 text-xs"/></div><div className="flex justify-end gap-3 border-t p-5"><button onClick={()=>{setActionUser(null);setActionMode(null)}} className="rounded-lg border px-4 py-2.5 text-xs font-bold">Cancel</button><button onClick={()=>void resetPassword()} className="rounded-lg bg-[#08733f] px-4 py-2.5 text-xs font-bold text-white">Reset Password</button></div></>}</div></div>}
+    {actionUser && actionMode && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"><div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl"><div className="flex items-center justify-between border-b p-5"><div><h3 className="font-bold text-[#173b2a]">{actionMode === "access" ? "Access Control" : "Send Password Reset"}</h3><p className="mt-1 text-xs text-slate-500">{actionUser.name}</p></div><button onClick={()=>{setActionUser(null);setActionMode(null)}}><X className="h-5 w-5 text-slate-400"/></button></div>{actionMode === "access" ? <><div className="p-5"><p className="mb-3 text-xs text-slate-500">Select the dashboard modules this user can access.</p><div className="grid gap-2 sm:grid-cols-2">{reaAccessModules.map(module=><label key={module} className="flex items-center gap-2 rounded-lg border p-3 text-xs"><input type="checkbox" checked={accessDraft.includes(module)} onChange={()=>setAccessDraft(v=>v.includes(module)?v.filter(x=>x!==module):[...v,module])}/>{module}</label>)}</div></div><div className="flex justify-end gap-3 border-t p-5"><button onClick={()=>{setActionUser(null);setActionMode(null)}} className="rounded-lg border px-4 py-2.5 text-xs font-bold">Cancel</button><button onClick={()=>void saveAccess()} className="rounded-lg bg-[#08733f] px-4 py-2.5 text-xs font-bold text-white">Save Access</button></div></> : <><div className="p-5"><div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4 text-xs leading-5 text-emerald-800">A secure, one-time reset link will be sent to <strong>{actionUser.email}</strong>. The link expires after 30 minutes.</div></div><div className="flex justify-end gap-3 border-t p-5"><button onClick={()=>{setActionUser(null);setActionMode(null)}} className="rounded-lg border px-4 py-2.5 text-xs font-bold">Cancel</button><button onClick={()=>void sendPasswordReset()} className="rounded-lg bg-[#08733f] px-4 py-2.5 text-xs font-bold text-white">Send reset email</button></div></>}</div></div>}
 
     {showCreate && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
       <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">

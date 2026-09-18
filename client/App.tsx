@@ -19,6 +19,7 @@ import FieldOfficerDashboard from "./pages/FieldOfficerDashboard";
 import ConsultantAdminDashboard from "./pages/ConsultantAdminDashboard";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
+import ResetPassword from "./pages/ResetPassword";
 import ReaFieldInspections from "./pages/ReaFieldInspections";
 import VeritasAssistant from "./components/VeritasAssistant";
 import VeritasFooter from "./components/VeritasFooter";
@@ -81,6 +82,7 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route
                 path="/"
                 element={
