@@ -144,6 +144,7 @@ export default function ReaFieldInspections() {
         : item
       ));
       setSectionAssignModal(false);
+      setSelectedSection("project");
       setShowSectionList(true);
       setMessage("Section assignments saved");
     } catch (error) {
