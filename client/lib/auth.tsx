@@ -110,7 +110,7 @@ export function AuthProvider({children}:{children:ReactNode}){
   }
   const local=authenticateDemoAccount(email,password);
   if(local&&local.role!==cloudRole)return null;
-  const account:LoginAccount=local??{role:cloudRole,roleLabel:cloudRole==="rea"?"REA Dashboard":cloudRole==="consultant"?"Consultant Admin":"Field Officer",name:cloud.user.name||email,initials:initials(cloud.user.name||email),email:cloud.user.email||email,password,path:cloudRole==="rea"?"/":cloudRole==="consultant"?"/consultant-admin":"/field-officer",consultantId};
+  const account:LoginAccount=local??{role:cloudRole,roleLabel:cloudRole==="rea"?(cloud.user.staffRole||"REA Staff"):cloudRole==="consultant"?"Consultant Admin":"Field Officer",name:cloud.user.name||email,initials:initials(cloud.user.name||email),email:cloud.user.email||email,password,path:cloudRole==="rea"?"/":cloudRole==="consultant"?"/consultant-admin":"/field-officer",consultantId,access:cloudRole==="rea"?cloud.user.access:undefined};
   if(cloudRole==="consultant"&&consultantId)account.consultantId=consultantId;
   if(account.role==="rea")appendAuditEvent({actor:account.name,action:"Signed in",category:"Authentication",target:"REA Dashboard",details:`Successful login for ${account.email}`,severity:"Success"});
   const{password:_password,...baseSession}=account;const nextSession={...baseSession,apiToken:cloud.token,apiExpiresAt:cloud.expiresAt};setSession(nextSession);window.sessionStorage.setItem(SESSION_KEY,JSON.stringify(nextSession));window.dispatchEvent(new Event("veritas-cloud-session"));return nextSession;
