@@ -17,6 +17,7 @@ import {
   Building2,
   CheckCircle2,
   ClipboardCheck,
+  ClipboardList,
   Clock3,
   CloudUpload,
   FileCheck2,
@@ -81,7 +82,7 @@ class TabErrorBoundary extends Component<{ children: ReactNode; tab: string }, {
 const navigation = [
   { label: "Overview", icon: LayoutDashboard },
   { label: "Claims", icon: ClipboardCheck },
-  { label: "Field Inspections", icon: ClipboardCheck },
+  { label: "Field Inspections", icon: ClipboardList },
   { label: "Verification", icon: FileCheck2 },
   { label: "Consultants", icon: Building2 },
   { label: "Analytics", icon: BarChart3 },
