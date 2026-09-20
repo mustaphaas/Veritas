@@ -59,6 +59,7 @@ import {
 import { useAuth } from "../lib/auth";
 import { fetchReaMapProjects, reaRecordToDashboardProject } from "../lib/rea-project-map-data";
 import ReaAdministration from "../components/ReaAdministration";
+import ReaReportsAdministration from "../components/ReaReportsAdministration";
 import ReaConsultantsManagement from "../components/ReaConsultantsManagement";
 import ReaVerificationManagement from "../components/ReaVerificationManagement";
 import ReaClaimsManagement from "../components/ReaClaimsManagement";
@@ -82,6 +83,7 @@ const navigation = [
   { label: "Field Inspections", icon: ClipboardList },
   { label: "Verification", icon: FileCheck2 },
   { label: "Consultants", icon: Building2 },
+  { label: "Reports", icon: FileCheck2 },
   { label: "Administration", icon: Settings },
 ];
 
@@ -433,8 +435,10 @@ export default function Index() {
               <h2 className="mt-3 text-base font-bold text-[#173b2a]">No dashboard access assigned</h2>
               <p className="mt-2 text-xs text-slate-500">Your account is active, but an REA Administrator has not assigned any dashboard modules.</p>
             </section>
+          ) : resolvedActiveNav === "Reports" ? (
+            <TabErrorBoundary key="Reports" tab="Reports"><ReaReportsAdministration portfolioProjects={portfolioProjects} /></TabErrorBoundary>
           ) : resolvedActiveNav === "Administration" ? (
-            <TabErrorBoundary key="Administration" tab="Administration"><ReaAdministration portfolioProjects={portfolioProjects} /></TabErrorBoundary>
+            <TabErrorBoundary key="Administration" tab="Administration"><ReaAdministration /></TabErrorBoundary>
           ) : resolvedActiveNav === "Consultants" ? (
             <TabErrorBoundary key="Consultants" tab="Consultants"><ReaConsultantsManagement /></TabErrorBoundary>
           ) : resolvedActiveNav === "Claims" ? (
