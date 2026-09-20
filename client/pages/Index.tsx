@@ -58,7 +58,8 @@ import {
 } from "../lib/dashboard-data";
 import { useAuth } from "../lib/auth";
 import { fetchReaMapProjects, reaRecordToDashboardProject } from "../lib/rea-project-map-data";
-import ReaAdministration from "../components/ReaAdministration";
+import ReaUserManagement from "../components/ReaUserManagement";
+import ReaAuditTrail from "../components/ReaAuditTrail";
 import ReaReportsAdministration from "../components/ReaReportsAdministration";
 import ReaConsultantsManagement from "../components/ReaConsultantsManagement";
 import ReaVerificationManagement from "../components/ReaVerificationManagement";
@@ -84,7 +85,8 @@ const navigation = [
   { label: "Verification", icon: FileCheck2 },
   { label: "Consultants", icon: Building2 },
   { label: "Reports", icon: FileCheck2 },
-  { label: "Administration", icon: Settings },
+  { label: "Users", icon: UsersRound },
+  { label: "Audit Trail", icon: Activity },
 ];
 
 type BoundaryFeature = {
@@ -306,9 +308,6 @@ export default function Index() {
     const allowed = new Set(session.access ?? []);
     return navigation.filter((item) => {
       if (item.label === "Field Inspections") return true;
-      if (item.label === "Administration") {
-        return allowed.has("Administration") || ["Analytics", "Reports", "Users", "Audit Trail"].some((module) => allowed.has(module));
-      }
       return allowed.has(item.label);
     });
   }, [session?.role, accessKey]);
@@ -446,8 +445,10 @@ export default function Index() {
             </section>
           ) : resolvedActiveNav === "Reports" ? (
             <TabErrorBoundary key="Reports" tab="Reports"><ReaReportsAdministration portfolioProjects={portfolioProjects} /></TabErrorBoundary>
-          ) : resolvedActiveNav === "Administration" ? (
-            <TabErrorBoundary key="Administration" tab="Administration"><ReaAdministration /></TabErrorBoundary>
+          ) : resolvedActiveNav === "Users" ? (
+            <TabErrorBoundary key="Users" tab="Users"><ReaUserManagement /></TabErrorBoundary>
+          ) : resolvedActiveNav === "Audit Trail" ? (
+            <TabErrorBoundary key="Audit Trail" tab="Audit Trail"><ReaAuditTrail /></TabErrorBoundary>
           ) : resolvedActiveNav === "Consultants" ? (
             <TabErrorBoundary key="Consultants" tab="Consultants"><ReaConsultantsManagement /></TabErrorBoundary>
           ) : resolvedActiveNav === "Claims" ? (
