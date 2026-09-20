@@ -29,7 +29,7 @@ export type AuditEvent = {
 export const REA_STAFF_STORAGE_KEY = "veritas-rea-staff-accounts";
 export const REA_AUDIT_STORAGE_KEY = "veritas-rea-audit-trail";
 
-export const reaAccessModules = ["Overview", "Claims", "Field Inspections", "Verification", "Consultants", "Administration"];
+export const reaAccessModules = ["Overview", "Claims", "Field Inspections", "Verification", "Consultants", "Reports", "Users", "Audit Trail"];
 
 export function normalizeReaAccess(value: unknown, fallback: string[] = []): string[] {
   const source = Array.isArray(value) ? value : fallback;
