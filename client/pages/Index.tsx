@@ -58,13 +58,10 @@ import {
 } from "../lib/dashboard-data";
 import { useAuth } from "../lib/auth";
 import { fetchReaMapProjects, reaRecordToDashboardProject } from "../lib/rea-project-map-data";
-import ReaAnalyticsDashboard from "../components/ReaAnalyticsDashboard";
-import ReaUserManagement from "../components/ReaUserManagement";
-import ReaAuditTrail from "../components/ReaAuditTrail";
+import ReaAdministration from "../components/ReaAdministration";
 import ReaConsultantsManagement from "../components/ReaConsultantsManagement";
 import ReaVerificationManagement from "../components/ReaVerificationManagement";
 import ReaClaimsManagement from "../components/ReaClaimsManagement";
-import ReaReportsManagement from "../components/ReaReportsManagement";
 import ReaFieldInspections from "./ReaFieldInspections";
 
 class TabErrorBoundary extends Component<{ children: ReactNode; tab: string }, { failed: boolean }> {
@@ -85,10 +82,7 @@ const navigation = [
   { label: "Field Inspections", icon: ClipboardList },
   { label: "Verification", icon: FileCheck2 },
   { label: "Consultants", icon: Building2 },
-  { label: "Analytics", icon: BarChart3 },
-  { label: "Reports", icon: FileCheck2 },
-  { label: "Users", icon: UsersRound },
-  { label: "Audit Trail", icon: FileCheck2 },
+  { label: "Administration", icon: Settings },
 ];
 
 type BoundaryFeature = {
@@ -308,7 +302,13 @@ export default function Index() {
   const visibleNavigation = useMemo(() => {
     if (session?.role !== "rea") return navigation;
     const allowed = new Set(session.access ?? []);
-    return navigation.filter((item) => item.label === "Field Inspections" || allowed.has(item.label));
+    return navigation.filter((item) => {
+      if (item.label === "Field Inspections") return true;
+      if (item.label === "Administration") {
+        return allowed.has("Administration") || ["Analytics", "Reports", "Users", "Audit Trail"].some((module) => allowed.has(module));
+      }
+      return allowed.has(item.label);
+    });
   }, [session?.role, accessKey]);
   const resolvedActiveNav = visibleNavigation.some((item) => item.label === activeNav)
     ? activeNav
@@ -433,12 +433,8 @@ export default function Index() {
               <h2 className="mt-3 text-base font-bold text-[#173b2a]">No dashboard access assigned</h2>
               <p className="mt-2 text-xs text-slate-500">Your account is active, but an REA Administrator has not assigned any dashboard modules.</p>
             </section>
-          ) : resolvedActiveNav === "Analytics" ? (
-            <TabErrorBoundary key="Analytics" tab="Analytics"><ReaAnalyticsDashboard projects={portfolioProjects} /></TabErrorBoundary>
-          ) : resolvedActiveNav === "Users" ? (
-            <TabErrorBoundary key="Users" tab="Users"><ReaUserManagement /></TabErrorBoundary>
-          ) : resolvedActiveNav === "Audit Trail" ? (
-            <TabErrorBoundary key="Audit Trail" tab="Audit Trail"><ReaAuditTrail /></TabErrorBoundary>
+          ) : resolvedActiveNav === "Administration" ? (
+            <TabErrorBoundary key="Administration" tab="Administration"><ReaAdministration portfolioProjects={portfolioProjects} /></TabErrorBoundary>
           ) : resolvedActiveNav === "Consultants" ? (
             <TabErrorBoundary key="Consultants" tab="Consultants"><ReaConsultantsManagement /></TabErrorBoundary>
           ) : resolvedActiveNav === "Claims" ? (
