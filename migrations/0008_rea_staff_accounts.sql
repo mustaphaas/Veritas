@@ -16,7 +16,7 @@ INSERT OR IGNORE INTO rea_staff_accounts(user_id,staff_role,department,access_js
 SELECT id,
        'REA Administrator',
        'ICT / Administration',
-       '["Overview","Claims","Field Inspections","Verification","Consultants","Analytics","Reports","Users","Audit Trail"]',
+       '["Overview","Claims","Field Inspections","Verification","Consultants","Administration"]',
        created_at
 FROM users
 WHERE role='rea_admin'
