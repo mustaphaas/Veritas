@@ -1,20 +1,14 @@
 import { useState } from "react";
-import { BarChart3, FileCheck2, UsersRound, Activity } from "lucide-react";
-import ReaAnalyticsDashboard from "./ReaAnalyticsDashboard";
-import ReaReportsManagement from "./ReaReportsManagement";
+import { Activity, UsersRound } from "lucide-react";
 import ReaUserManagement from "./ReaUserManagement";
 import ReaAuditTrail from "./ReaAuditTrail";
 
-type Props = { portfolioProjects: any[] };
-
 const sections = [
-  { key: "Analytics", label: "Analytics", icon: BarChart3 },
-  { key: "Reports", label: "Reports", icon: FileCheck2 },
   { key: "Users", label: "Users", icon: UsersRound },
   { key: "Audit Trail", label: "Audit Trail", icon: Activity },
 ] as const;
 
-export default function ReaAdministration({ portfolioProjects }: Props) {
+export default function ReaAdministration() {
   const [active, setActive] = useState<(typeof sections)[number]["key"]>("Analytics");
 
   return (
@@ -27,7 +21,7 @@ export default function ReaAdministration({ portfolioProjects }: Props) {
           <div>
             <h2 className="text-xl font-bold text-[#173b2a]">Administration</h2>
             <p className="mt-1 text-xs text-slate-500">
-              Manage users, audit activity, reports and portfolio analytics from one administration area.
+              Manage REA users and review the system audit trail.
             </p>
           </div>
         </div>
@@ -55,15 +49,7 @@ export default function ReaAdministration({ portfolioProjects }: Props) {
         </div>
       </section>
 
-      {active === "Analytics" ? (
-        <ReaAnalyticsDashboard projects={portfolioProjects} />
-      ) : active === "Reports" ? (
-        <ReaReportsManagement projects={portfolioProjects} />
-      ) : active === "Users" ? (
-        <ReaUserManagement />
-      ) : (
-        <ReaAuditTrail />
-      )}
+      {active === "Users" ? <ReaUserManagement /> : <ReaAuditTrail />}
     </div>
   );
 }
