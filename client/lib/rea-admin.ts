@@ -20,7 +20,7 @@ export type AuditEvent = {
   timestamp: string;
   actor: string;
   action: string;
-  category: "Authentication" | "User Management" | "Access Control" | "Claims" | "Verification" | "System";
+  category: "Authentication" | "User Management" | "Access Control" | "Claims" | "Verification" | "Field Inspections" | "System";
   target: string;
   details: string;
   severity: "Info" | "Success" | "Warning" | "Critical";

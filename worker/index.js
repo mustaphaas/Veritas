@@ -322,6 +322,92 @@ async function reaUserLifecycleResponse(request, env, targetId, action) {
   return json({ error: "Unsupported user action." }, 400);
 }
 
+const AUDIT_ACTION_META = {
+  "login": { label: "Signed in", category: "Authentication", severity: "Success" },
+  "logout": { label: "Signed out", category: "Authentication", severity: "Info" },
+  "rea-staff-created": { label: "Created REA staff account", category: "User Management", severity: "Success" },
+  "rea-user-status-changed": { label: "Changed user status", category: "Access Control", severity: "Warning" },
+  "rea-user-access-updated": { label: "Updated dashboard access", category: "Access Control", severity: "Info" },
+  "rea-user-password-reset": { label: "Reset user password", category: "Access Control", severity: "Warning" },
+  "rea-user-password-reset-email-sent": { label: "Sent password reset email", category: "Access Control", severity: "Info" },
+  "rea-user-password-reset-completed": { label: "Completed password reset", category: "Access Control", severity: "Success" },
+  "rea-user-deleted": { label: "Deleted user account", category: "User Management", severity: "Critical" },
+  "field-officer-created": { label: "Created field officer", category: "User Management", severity: "Success" },
+  "assignment-created": { label: "Assigned project to officer", category: "Verification", severity: "Success" },
+  "arrival-verified": { label: "Verified GPS arrival", category: "Verification", severity: "Success" },
+  "draft-saved": { label: "Saved inspection draft", category: "Field Inspections", severity: "Info" },
+  "evidence-uploaded": { label: "Uploaded evidence", category: "Field Inspections", severity: "Success" },
+  "inspection-submitted": { label: "Submitted inspection", category: "Verification", severity: "Success" },
+  "inspection-approved": { label: "Approved inspection", category: "Verification", severity: "Success" },
+  "inspection-rejected": { label: "Rejected inspection", category: "Verification", severity: "Warning" },
+  "inspection-team-created": { label: "Created inspection team", category: "Field Inspections", severity: "Success" },
+  "inspection-team-deleted": { label: "Deleted inspection team", category: "Field Inspections", severity: "Warning" },
+  "collaborative-inspection-assigned": { label: "Assigned team to project", category: "Field Inspections", severity: "Success" },
+  "collaborative-inspection-submitted": { label: "Submitted collaborative inspection", category: "Field Inspections", severity: "Success" },
+  "collaborative-inspection-saved": { label: "Saved collaborative inspection", category: "Field Inspections", severity: "Info" },
+  "project-satellite-verified": { label: "Ran satellite verification", category: "Verification", severity: "Success" },
+};
+
+function describeAuditAction(action) {
+  return AUDIT_ACTION_META[action] || {
+    label: String(action || "Activity recorded").replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+    category: "System",
+    severity: "Info",
+  };
+}
+
+function auditEventTarget(action, details) {
+  return details?.projectId || details?.teamId || details?.inspectionId || details?.targetUserId
+    || details?.staffId || details?.officerId || details?.assignmentId || details?.userId || "Veritas";
+}
+
+function auditEventDetails(action, details) {
+  if (!details || typeof details !== "object") return "";
+  const entries = Object.entries(details).filter(([, value]) => value !== null && value !== undefined && value !== "");
+  if (!entries.length) return "";
+  return entries.slice(0, 4).map(([key, value]) => `${key}: ${typeof value === "object" ? JSON.stringify(value) : value}`).join(" · ");
+}
+
+async function reaAuditEventsResponse(request, env) {
+  const user = await authenticatedDatabaseUser(request, env);
+  if (!user) return json({ error: "Authentication required." }, 401);
+  if (!["rea_admin", "rea_staff"].includes(user.role)) return json({ error: "REA access required." }, 403);
+
+  const url = new URL(request.url);
+  const limit = Math.min(Math.max(parseInt(url.searchParams.get("limit") || "100", 10) || 100, 1), 500);
+  const before = url.searchParams.get("before");
+
+  const query = before
+    ? env.DB.prepare(`SELECT ae.id,ae.action,ae.details_json AS detailsJson,ae.assignment_id AS assignmentId,ae.ip_address AS ipAddress,ae.created_at AS createdAt,
+        u.name AS actorName,u.email AS actorEmail,u.role AS actorRole
+        FROM audit_events ae LEFT JOIN users u ON u.id=ae.actor_id
+        WHERE ae.created_at<? ORDER BY ae.created_at DESC LIMIT ?`).bind(before, limit)
+    : env.DB.prepare(`SELECT ae.id,ae.action,ae.details_json AS detailsJson,ae.assignment_id AS assignmentId,ae.ip_address AS ipAddress,ae.created_at AS createdAt,
+        u.name AS actorName,u.email AS actorEmail,u.role AS actorRole
+        FROM audit_events ae LEFT JOIN users u ON u.id=ae.actor_id
+        ORDER BY ae.created_at DESC LIMIT ?`).bind(limit);
+
+  const result = await query.all();
+  const events = (result.results || []).map((row) => {
+    let details = {};
+    try { details = JSON.parse(row.detailsJson || "{}"); } catch { details = {}; }
+    const meta = describeAuditAction(row.action);
+    return {
+      id: row.id,
+      timestamp: row.createdAt,
+      actor: row.actorName || "Deleted or unknown user",
+      actorEmail: row.actorEmail || "",
+      actorRole: row.actorRole || "",
+      action: meta.label,
+      category: meta.category,
+      severity: meta.severity,
+      target: row.assignmentId || auditEventTarget(row.action, details),
+      details: auditEventDetails(row.action, details),
+    };
+  });
+  return json({ events, hasMore: events.length === limit });
+}
+
 async function reaProjectsResponse(request, env) {
   const user = await authenticatedDatabaseUser(request, env);
   if (!user) return json({ error: "Authentication required." }, 401);
@@ -1374,6 +1460,16 @@ export default {
       } catch (error) {
         console.error(JSON.stringify({ event: "veritas_health_failure", message: error instanceof Error ? error.message : "Unknown error", build: BUILD_ID }));
         return json({ error: "Unable to run the Veritas health check." }, 503);
+      }
+    }
+
+    if (url.pathname === "/api/rea/audit-events") {
+      if (request.method !== "GET") return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
+      try {
+        return await reaAuditEventsResponse(request, env);
+      } catch (error) {
+        console.error(JSON.stringify({ event: "rea_audit_events_failure", message: error instanceof Error ? error.message : "Unknown error", build: BUILD_ID }));
+        return json({ error: "Unable to load audit events." }, 503);
       }
     }
 

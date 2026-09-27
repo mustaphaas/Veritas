@@ -398,6 +398,7 @@ export async function handleFieldApi(request, env) {
   if (path === "/api/field/auth/logout" && request.method === "POST") {
     const bearer = request.headers.get("Authorization").replace(/^Bearer\s+/i, "");
     await env.DB.prepare("DELETE FROM sessions WHERE token_hash=?").bind(await digest(bearer)).run();
+    await audit(env, request, user, null, "logout", {});
     return response({ ok: true });
   }
   if (path === "/api/field/assignments" && request.method === "GET") return listAssignments(env, user, url);
