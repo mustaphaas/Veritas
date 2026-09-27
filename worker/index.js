@@ -2,6 +2,7 @@ import { handleFieldApi } from "./field-api.js";
 import { analyticsCatalog, analyticsAnswerPrompt, deterministicAnalyticsPlan, executeAnalyticsPlan, parsePlannerJson, plannerPrompt, validateAnalyticsPlan } from "./analytics.js";
 import { handleSatelliteVerify } from "./satellite-verify.js";
 import { handleGeospatialCompare } from "./geospatial-compare.js";
+import { isSatelliteAnalysisQuestion, runSatelliteAnalysis, satelliteAnalysisAnswer } from "./satellite-analysis.js";
 
 const BUILD_ID = "veritas-2026-09-11-public-rea-team-r4";
 const encoder = new TextEncoder();
@@ -1053,6 +1054,35 @@ async function veritasResponse(request, env) {
       return json({ answer: publicAnswer, sources: [], mode: "veritas-public-rea", build: BUILD_ID });
     }
   }
+
+  // Satellite questions use the same point-centred Gemini vision pipeline as
+  // Project Map. This is deliberately handled before the text-only D1 context
+  // so Ask Veritas can actually inspect the imagery instead of only describing
+  // whether satellite fields exist in the database.
+  if (isSatelliteAnalysisQuestion(question)) {
+    try {
+      const satelliteResult = await runSatelliteAnalysis(request, env, question);
+      return json({
+        answer: satelliteAnalysisAnswer(satelliteResult),
+        sources: [],
+        mode: "veritas-satellite-vision",
+        build: BUILD_ID,
+      });
+    } catch (error) {
+      console.error(JSON.stringify({
+        event: "veritas_satellite_analysis_failure",
+        message: error instanceof Error ? error.message : "Unknown error",
+        build: BUILD_ID,
+      }));
+      return json({
+        answer: "Satellite analysis could not be completed for this request. Please select a project with stored GPS coordinates and try again.",
+        sources: [],
+        mode: "veritas-satellite-vision",
+        build: BUILD_ID,
+      }, 503);
+    }
+  }
+
   let analyticsResult = null;
   let plan = deterministicAnalyticsPlan(question);
   if (!plan && isLikelyAnalyticsQuestion(question) && !isReportRequest(question)) {

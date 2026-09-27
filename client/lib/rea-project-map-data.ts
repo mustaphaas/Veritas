@@ -75,6 +75,11 @@ export type SatelliteVerificationResult = {
   projectId: string;
   imageUrl: string;
   checkedAt: string;
+  imagerySource?: string | null;
+  imageryDate?: string | null;
+  analysisRadiusMetres?: number | null;
+  analysisMethod?: string | null;
+  analysisVersion?: string | null;
   verdict: SatelliteVerificationVerdict;
 };
 

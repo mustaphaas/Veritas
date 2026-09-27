@@ -153,7 +153,7 @@ function verifyButtonHtml() {
   </button>`;
 }
 
-function verdictHtml(verdict: SatelliteVerificationVerdict) {
+function verdictHtml(verdict: SatelliteVerificationVerdict, result?: { imagerySource?: string | null; imageryDate?: string | null; analysisMethod?: string | null }) {
   const confidence = typeof verdict.confidence === "number" ? `${Math.round(verdict.confidence * 100)}%` : "n/a";
   const houses = typeof verdict.estimatedNearbyHouses === "number" ? verdict.estimatedNearbyHouses : "n/a";
   const color = VERDICT_COLOR[verdict.status] ?? "#64748b";
@@ -166,6 +166,8 @@ function verdictHtml(verdict: SatelliteVerificationVerdict) {
     <span style="color:#64748b"> · confidence ${confidence} · ~${escapeHtml(String(houses))} houses nearby</span>
     ${verdict.notes ? `<div style="margin-top:3px;color:#475569">${escapeHtml(verdict.notes)}</div>` : ""}
     ${qualityNote}
+    <div style="margin-top:3px;color:#64748b">Source: ${escapeHtml(result?.imagerySource || "Esri World Imagery")} · Date: ${escapeHtml(result?.imageryDate || "not supplied by imagery export")}</div>
+    <div style="margin-top:2px;color:#64748b">Interpretation: ${escapeHtml(result?.analysisMethod || "Gemini vision analysis")}</div>
     <button type="button" data-satellite-verify-btn style="margin-top:4px;font-size:9px;font-weight:700;color:#173b2a;background:none;border:1px solid #173b2a;border-radius:4px;padding:2px 6px;cursor:pointer">Re-check</button>
   </div>`;
 }
@@ -276,7 +278,7 @@ function SatelliteCanvas({ projects, apiToken }: { projects: ReaMapProjectRecord
             slot.innerHTML = `<span style="font-size:10px;color:#64748b">Checking satellite imagery…</span>`;
             try {
               const result = await verifyProjectSatelliteImagery(projectId, apiToken);
-              slot.innerHTML = verdictHtml(result.verdict);
+              slot.innerHTML = verdictHtml(result.verdict, result);
             } catch (error) {
               slot.innerHTML = errorHtml(error instanceof Error ? error.message : "Satellite check failed.");
             }
