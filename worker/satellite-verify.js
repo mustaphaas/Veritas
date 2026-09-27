@@ -289,7 +289,9 @@ export async function handleSatelliteVerify(request, env) {
   await env.DB.prepare(
     `UPDATE projects SET
        satellite_verification_status=?, satellite_image_quality=?, satellite_verification_confidence=?,
-       satellite_house_estimate=?, satellite_verification_notes=?, satellite_verification_checked_at=?
+       satellite_house_estimate=?, satellite_verification_notes=?, satellite_verification_checked_at=?,
+       satellite_imagery_source=?, satellite_imagery_date=?, satellite_analysis_radius_metres=?,
+       satellite_analysis_method=?, satellite_analysis_image_url=?, satellite_analysis_version=?
      WHERE id=?`,
   )
     .bind(
@@ -299,6 +301,12 @@ export async function handleSatelliteVerify(request, env) {
       verdict.estimatedNearbyHouses,
       verdict.notes,
       checkedAt,
+      "Esri World Imagery",
+      null,
+      radius,
+      "Point-centred satellite image interpreted by Gemini vision",
+      imageUrl,
+      "satellite-analysis-v2",
       projectId,
     )
     .run();
@@ -318,5 +326,15 @@ export async function handleSatelliteVerify(request, env) {
     )
     .run();
 
-  return response({ projectId, imageUrl, checkedAt, verdict });
+  return response({
+    projectId,
+    imageUrl,
+    checkedAt,
+    imagerySource: "Esri World Imagery",
+    imageryDate: null,
+    analysisRadiusMetres: radius,
+    analysisMethod: "Point-centred satellite image interpreted by Gemini vision",
+    analysisVersion: "satellite-analysis-v2",
+    verdict,
+  });
 }
