@@ -153,7 +153,7 @@ function verifyButtonHtml() {
   </button>`;
 }
 
-function verdictHtml(verdict: SatelliteVerificationVerdict) {
+function verdictHtml(verdict: SatelliteVerificationVerdict, result?: { imagerySource?: string | null; imageryDate?: string | null; analysisMethod?: string | null }) {
   const confidence = typeof verdict.confidence === "number" ? `${Math.round(verdict.confidence * 100)}%` : "n/a";
   const houses = typeof verdict.estimatedNearbyHouses === "number" ? verdict.estimatedNearbyHouses : "n/a";
   const color = VERDICT_COLOR[verdict.status] ?? "#64748b";
@@ -166,7 +166,34 @@ function verdictHtml(verdict: SatelliteVerificationVerdict) {
     <span style="color:#64748b"> · confidence ${confidence} · ~${escapeHtml(String(houses))} houses nearby</span>
     ${verdict.notes ? `<div style="margin-top:3px;color:#475569">${escapeHtml(verdict.notes)}</div>` : ""}
     ${qualityNote}
+    <div style="margin-top:3px;color:#64748b">Source: ${escapeHtml(result?.imagerySource || "Esri World Imagery")} · Date: ${escapeHtml(result?.imageryDate || "not supplied by imagery export")}</div>
+    <div style="margin-top:2px;color:#64748b">Interpretation: ${escapeHtml(result?.analysisMethod || "Gemini vision analysis")}</div>
     <button type="button" data-satellite-verify-btn style="margin-top:4px;font-size:9px;font-weight:700;color:#173b2a;background:none;border:1px solid #173b2a;border-radius:4px;padding:2px 6px;cursor:pointer">Re-check</button>
+  </div>`;
+}
+
+function geospatialCompareHtml() {
+  return `<button type="button" data-geospatial-compare-btn style="margin-top:4px;margin-left:4px;font-size:9px;font-weight:700;color:#08733f;background:none;border:1px solid #08733f;border-radius:4px;padding:2px 6px;cursor:pointer">Compare GPS evidence</button>`;
+}
+
+function geospatialResultHtml(result: any) {
+  const status = result?.comparisonStatus || "insufficient_evidence";
+  const labels: Record<string, string> = {
+    aligned: "GPS aligned",
+    outside_geofence: "Outside approved geofence",
+    coordinates_available: "Coordinates available",
+    insufficient_evidence: "Insufficient GPS evidence",
+  };
+  const distance = typeof result?.distanceMetres === "number" ? `${Math.round(result.distanceMetres)} m` : "n/a";
+  const radius = typeof result?.geofenceRadiusMetres === "number" ? `${Math.round(result.geofenceRadiusMetres)} m` : "n/a";
+  const field = result?.fieldGps;
+  const fieldText = field ? `${Number(field.latitude).toFixed(6)}, ${Number(field.longitude).toFixed(6)}` : "Not captured";
+  const color = status === "aligned" ? "#159254" : status === "outside_geofence" ? "#c0392b" : "#64748b";
+  return `<div style="font-size:10px;line-height:1.5;margin-top:5px">
+    <span style="display:inline-block;padding:1px 6px;border-radius:3px;color:#fff;font-weight:700;background:${color}">${escapeHtml(labels[status] || status)}</span>
+    <div style="margin-top:3px;color:#475569">Approved GPS: ${escapeHtml(result?.projectGps ? `${Number(result.projectGps.latitude).toFixed(6)}, ${Number(result.projectGps.longitude).toFixed(6)}` : "Unavailable")}</div>
+    <div style="color:#475569">Field GPS: ${escapeHtml(fieldText)} · Distance: ${escapeHtml(distance)} · Geofence: ${escapeHtml(radius)}</div>
+    <button type="button" data-geospatial-compare-btn style="margin-top:4px;font-size:9px;font-weight:700;color:#08733f;background:none;border:1px solid #08733f;border-radius:4px;padding:2px 6px;cursor:pointer">Refresh comparison</button>
   </div>`;
 }
 
@@ -218,10 +245,31 @@ function SatelliteCanvas({ projects, apiToken }: { projects: ReaMapProjectRecord
 
           container.addEventListener("click", async (clickEvent) => {
             const target = clickEvent.target as HTMLElement | null;
-            const button = target?.closest<HTMLElement>("[data-satellite-verify-btn]");
-            const slot = button?.closest<HTMLElement>("[data-satellite-verify-slot]");
+            const geospatialButton = target?.closest<HTMLElement>("[data-geospatial-compare-btn]");
+            const satelliteButton = target?.closest<HTMLElement>("[data-satellite-verify-btn]");
+            const activeButton = geospatialButton || satelliteButton;
+            const slot = activeButton?.closest<HTMLElement>("[data-satellite-verify-slot]");
             const projectId = slot?.getAttribute("data-satellite-verify-slot");
-            if (!button || !slot || !projectId) return;
+            if (!activeButton || !slot || !projectId) return;
+
+            if (geospatialButton) {
+              if (!apiToken) {
+                slot.innerHTML = errorHtml("Sign in again to compare GPS evidence.");
+                return;
+              }
+              slot.innerHTML = `<span style="font-size:10px;color:#64748b">Comparing project GPS and field evidence…</span>`;
+              try {
+                const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/geospatial-compare`, {
+                  headers: { Authorization: `Bearer ${apiToken}` },
+                });
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(payload?.error || "Unable to compare geospatial evidence.");
+                slot.innerHTML = geospatialResultHtml(payload);
+              } catch (error) {
+                slot.innerHTML = errorHtml(error instanceof Error ? error.message : "Geospatial comparison failed.");
+              }
+              return;
+            }
 
             if (!apiToken) {
               slot.innerHTML = errorHtml("Sign in again to run a satellite check.");
@@ -230,7 +278,7 @@ function SatelliteCanvas({ projects, apiToken }: { projects: ReaMapProjectRecord
             slot.innerHTML = `<span style="font-size:10px;color:#64748b">Checking satellite imagery…</span>`;
             try {
               const result = await verifyProjectSatelliteImagery(projectId, apiToken);
-              slot.innerHTML = verdictHtml(result.verdict);
+              slot.innerHTML = verdictHtml(result.verdict, result);
             } catch (error) {
               slot.innerHTML = errorHtml(error instanceof Error ? error.message : "Satellite check failed.");
             }
@@ -270,7 +318,7 @@ function SatelliteCanvas({ projects, apiToken }: { projects: ReaMapProjectRecord
             fillOpacity: 0.96,
           })
             .bindPopup(
-              `<div style="min-width:200px;font-family:system-ui,sans-serif"><strong>${escapeHtml(project.name)}</strong><br/><span style="font-size:11px;color:#64748b">${escapeHtml(project.community || project.lga || project.state)}</span><br/><span style="font-size:11px;color:#08733f;font-weight:700">${escapeHtml(project.programme)} · ${escapeHtml(project.status)}</span><div data-satellite-verify-slot="${escapeHtml(project.id)}" style="margin-top:6px">${verifyButtonHtml()}</div></div>`,
+              `<div style="min-width:200px;font-family:system-ui,sans-serif"><strong>${escapeHtml(project.name)}</strong><br/><span style="font-size:11px;color:#64748b">${escapeHtml(project.community || project.lga || project.state)}</span><br/><span style="font-size:11px;color:#08733f;font-weight:700">${escapeHtml(project.programme)} · ${escapeHtml(project.status)}</span><div data-satellite-verify-slot="${escapeHtml(project.id)}" style="margin-top:6px">${verifyButtonHtml()}${geospatialCompareHtml()}</div></div>`,
             )
             .on("click", () => map.setView([latitude, longitude], PROJECT_FOCUS_ZOOM))
             .addTo(map);

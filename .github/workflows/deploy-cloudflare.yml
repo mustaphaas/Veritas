@@ -73,6 +73,14 @@ jobs:
           node --check worker/entry.js
           node --check worker/claims-api.js
           node --check worker/field-api.js
+          node --check worker/geospatial-compare.js
+          node --check worker/satellite-analysis.js
+
+      - name: Validate geospatial comparison contracts
+        run: node --test tests/geospatial-compare.test.mjs
+
+      - name: Validate satellite analysis contracts
+        run: node --test tests/satellite-analysis.test.mjs tests/satellite-verify.test.mjs
 
       - name: Validate Claims contracts
         run: node --test tests/claims-api-contract.test.mjs tests/claims-immutable-assignment.test.mjs tests/claims-migration.test.mjs tests/claims-dares-template-import.test.mjs
