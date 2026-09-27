@@ -1,6 +1,7 @@
 import { handleFieldApi } from "./field-api.js";
 import { analyticsCatalog, analyticsAnswerPrompt, deterministicAnalyticsPlan, executeAnalyticsPlan, parsePlannerJson, plannerPrompt, validateAnalyticsPlan } from "./analytics.js";
 import { handleSatelliteVerify } from "./satellite-verify.js";
+import { isSatelliteAnalysisQuestion, runSatelliteAnalysis, satelliteAnalysisAnswer } from "./satellite-analysis.js";
 
 const BUILD_ID = "veritas-2026-09-11-public-rea-team-r4";
 const encoder = new TextEncoder();
@@ -1044,6 +1045,41 @@ async function veritasResponse(request, env) {
   if (!env.OPENROUTER_API_KEY && !env.GEMINI_API_KEY) {
     console.error(JSON.stringify({ event: "veritas_provider_unconfigured", provider: "veritas-ai", build: BUILD_ID }));
     return json({ error: "Veritas AI service is currently unavailable.", build: BUILD_ID }, 503);
+  }
+
+  // Satellite questions must be routed to the geospatial/vision pipeline before
+  // generic D1 analytics or portfolio-context generation. Otherwise the generic
+  // path can incorrectly report that GPS/imagery data is unavailable.
+  if (isSatelliteAnalysisQuestion(question)) {
+    try {
+      const satelliteResult = await runSatelliteAnalysis(request, env, question);
+      if (!satelliteResult?.ok) {
+        return json({
+          answer: satelliteResult?.reason || "Satellite analysis could not be completed.",
+          sources: [],
+          mode: "veritas-satellite-analysis",
+          build: BUILD_ID,
+        }, 503);
+      }
+      return json({
+        answer: satelliteAnalysisAnswer(satelliteResult),
+        sources: [],
+        mode: "veritas-satellite-analysis",
+        build: BUILD_ID,
+      });
+    } catch (error) {
+      console.error(JSON.stringify({
+        event: "veritas_satellite_analysis_failure",
+        message: error instanceof Error ? error.message : "Unknown error",
+        build: BUILD_ID,
+      }));
+      return json({
+        answer: "Veritas could not complete the satellite analysis from the live project geospatial evidence.",
+        sources: [],
+        mode: "veritas-satellite-analysis",
+        build: BUILD_ID,
+      }, 503);
+    }
   }
 
   if (isPublicReaQuestion(question)) {
