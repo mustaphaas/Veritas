@@ -51,6 +51,7 @@ const ESRI_EXPORT_URL =
 const METRES_PER_DEGREE_LAT = 111320;
 const MIN_RADIUS_METRES = 80;
 const MAX_RADIUS_METRES = 400;
+const SATELLITE_ANALYSIS_VERSION = "1";
 
 export function bboxAround(lat, lon, radiusMetres) {
   const dLat = radiusMetres / METRES_PER_DEGREE_LAT;
@@ -286,10 +287,14 @@ export async function handleSatelliteVerify(request, env) {
   }
 
   const checkedAt = new Date().toISOString();
+  const imagerySource = "Esri World Imagery (World_Imagery/MapServer export)";
+  const analysisMethod = `gemini-vision:${geminiResult.model}`;
   await env.DB.prepare(
     `UPDATE projects SET
        satellite_verification_status=?, satellite_image_quality=?, satellite_verification_confidence=?,
-       satellite_house_estimate=?, satellite_verification_notes=?, satellite_verification_checked_at=?
+       satellite_house_estimate=?, satellite_verification_notes=?, satellite_verification_checked_at=?,
+       satellite_imagery_source=?, satellite_imagery_date=?, satellite_analysis_radius_metres=?,
+       satellite_analysis_method=?, satellite_analysis_image_url=?, satellite_analysis_version=?
      WHERE id=?`,
   )
     .bind(
@@ -299,6 +304,12 @@ export async function handleSatelliteVerify(request, env) {
       verdict.estimatedNearbyHouses,
       verdict.notes,
       checkedAt,
+      imagerySource,
+      null,
+      radius,
+      analysisMethod,
+      imageUrl,
+      SATELLITE_ANALYSIS_VERSION,
       projectId,
     )
     .run();
@@ -318,5 +329,15 @@ export async function handleSatelliteVerify(request, env) {
     )
     .run();
 
-  return response({ projectId, imageUrl, checkedAt, verdict });
+  return response({
+    projectId,
+    imageUrl,
+    checkedAt,
+    verdict,
+    imagerySource,
+    imageryDate: null,
+    radiusMetres: radius,
+    analysisMethod,
+    analysisVersion: SATELLITE_ANALYSIS_VERSION,
+  });
 }

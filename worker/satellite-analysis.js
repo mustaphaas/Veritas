@@ -108,6 +108,8 @@ export function satelliteAnalysisAnswer(result) {
     `- **Reported component:** ${project.programme || "—"} / ${project.component || "—"}`,
     `- **Imagery source:** ${analysis.imagerySource || "Esri World Imagery"}`,
     `- **Imagery date:** ${analysis.imageryDate || "Not supplied by the imagery export"}`,
+    `- **Analysis radius:** ${typeof analysis.radiusMetres === "number" ? `${analysis.radiusMetres}m` : "not recorded"}`,
+    `- **Analysis method:** ${analysis.analysisMethod || "not recorded"}${analysis.analysisVersion ? ` (v${analysis.analysisVersion})` : ""}`,
     `- **Image quality:** ${quality}`,
     `- **Satellite interpretation:** **${status}**`,
     `- **AI confidence:** ${confidence}`,
