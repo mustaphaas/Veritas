@@ -24,8 +24,12 @@ async function currentUser(request, env) {
   if (!bearer || !env.DB) return null;
   const tokenHash = await digest(bearer);
   return env.DB.prepare(
-    `SELECT u.id,u.name,u.role,u.consultant_firm AS consultantFirm
+    `SELECT u.id,u.name,
+       CASE WHEN u.role='rea_admin' AND COALESCE(r.staff_role,'REA Administrator')<>'REA Administrator'
+         THEN 'rea_staff' ELSE u.role END AS role,
+       u.consultant_firm AS consultantFirm
      FROM sessions s JOIN users u ON u.id=s.user_id
+     LEFT JOIN rea_staff_accounts r ON r.user_id=u.id
      WHERE s.token_hash=? AND s.expires_at>? AND u.status='active'`,
   ).bind(tokenHash, new Date().toISOString()).first();
 }
