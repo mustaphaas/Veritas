@@ -144,10 +144,7 @@ export default function ReaFieldInspections() {
         : item
       ));
       setSectionAssignModal(false);
-      setSelectedSection("project");
       setShowSectionList(true);
-      setSelectedInspection("");
-      setSelectedTeamId("");
       setMessage("Section assignments saved");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to save section assignments");
@@ -244,11 +241,7 @@ export default function ReaFieldInspections() {
                       const assignee = selectedTeam?.members.find((member) => member.id === assigned);
                       const status = done ? "Completed" : filled > 0 ? "In Progress" : assigned ? "Not Started" : "Unassigned";
                       const openSection = () => { setSelectedSection(section.id); setShowSectionList(false); };
-                      const editAssignment = () => {
-                        setDraftSectionAssignments({ ...(selected.sectionAssignments || {}) });
-                        setSectionAssignModal(true);
-                      };
-                      return <div key={section.id} onClick={canAssignSections ? editAssignment : openSection} className={`mb-2 w-full cursor-pointer rounded-lg border p-3 text-left ${selectedSection === section.id ? "border-[#9ed1ae] bg-[#edf9f0]" : "border-slate-100 hover:bg-slate-50"}`}>
+                      return <div key={section.id} onClick={openSection} className={`mb-2 w-full cursor-pointer rounded-lg border p-3 text-left ${selectedSection === section.id ? "border-[#9ed1ae] bg-[#edf9f0]" : "border-slate-100 hover:bg-slate-50"}`}>
                         <div className="flex items-center gap-2">
                           <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${done ? "bg-[#08733f] text-white" : assigned ? "bg-[#eaf8ef] text-[#08733f]" : "bg-slate-100 text-slate-400"}`}>{done ? <Check className="h-3.5 w-3.5" /> : <span className="text-[10px] font-bold">{sections.indexOf(section)+1}</span>}</span>
                           <span className="min-w-0 flex-1 truncate text-xs font-bold text-[#173b2a]">{section.title}</span>
@@ -256,8 +249,7 @@ export default function ReaFieldInspections() {
                         </div>
                         <div className="mt-1 pl-9 text-[9px] text-slate-500">{assignee ? assignee.name : "Not assigned"}</div>
                         <div className="mt-1 pl-9 text-[9px] font-semibold text-slate-400">{status}</div>
-                        {canAssignSections && <div className="mt-2 pl-9 text-[9px] font-semibold text-[#08733f]">Click to change assignment</div>}
-                        {!isTeamLead && <div className="mt-2 pl-9 text-[9px] font-semibold text-slate-400">Tap to open section</div>}
+                        <div className="mt-2 pl-9 text-[9px] font-semibold text-slate-400">{canAssignSections ? "Tap to open section · use Assign Sections above to reassign" : "Tap to open section"}</div>
                       </div>;
                     })}
                   </div>
