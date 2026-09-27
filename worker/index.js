@@ -1415,6 +1415,20 @@ export default {
       return fieldOfficerLifecycleResponse(request, env, decodeURIComponent(officerLifecycleMatch[1]), action);
     }
 
+    if (/^\/api\/projects\/[^/]+\/geospatial-compare$/.test(url.pathname)) {
+      try {
+        const geospatialResponse = await handleGeospatialCompare(request, env);
+        if (geospatialResponse) return geospatialResponse;
+      } catch (error) {
+        console.error(JSON.stringify({
+          event: "geospatial_compare_failure",
+          message: error instanceof Error ? error.message : "Unknown error",
+          build: BUILD_ID,
+        }));
+        return json({ error: "Geospatial comparison failed. Please try again shortly." }, 503);
+      }
+    }
+
     if (/^\/api\/projects\/[^/]+\/satellite-verify$/.test(url.pathname)) {
       try {
         const satelliteResponse = await handleSatelliteVerify(request, env);
