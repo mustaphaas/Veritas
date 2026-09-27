@@ -458,7 +458,6 @@ export default function Index() {
             ) : resolvedActiveNav === "Verification" ? (
             <ReaVerificationManagement />
           ) : (
-          ) : (
             <>
           {portfolioLoadError && <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-semibold text-amber-800">{portfolioLoadError}</div>}
           <section className="rounded-b-xl border border-t-0 border-[#d6e9da] bg-[#f7fcf8] p-4"><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 xl:items-end">{(Object.keys(filterDefaults) as FilterKey[]).map((key) => <div key={key} className="min-w-0"><FilterSelect label={filterLabels[key]} value={filters[key]} options={getFilterOptions(filters, key, portfolioProjects)} onChange={(value) => updateFilterWithDependencies(key, value)} /></div>)}<div><button onClick={() => { setFilters(defaultFilters); setSelectedState("Kano"); resetMapView(); }} className="flex h-10 w-full items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-[#76bd91] bg-white px-4 text-xs font-bold text-[#08733f] transition-all hover:border-[#08733f] hover:bg-[#edf9f0]"><LocateFixed className="h-4 w-4" /> Reset filters</button></div></div></section>
