@@ -66,7 +66,7 @@ jobs:
 
       - name: Validate restored satellite click zoom
         run: npx vitest run client/components/ProjectMapSatelliteEnhancer.spec.ts
-
+\n      - name: Validate satellite analysis pipeline\n        run: |\n          node --check worker/satellite-analysis.js\n          node --check worker/satellite-verify.js\n          node --test tests/satellite-analysis.test.mjs tests/geospatial-compare.test.mjs\n
       - name: Validate worker and Claims syntax
         run: |
           node --check worker/index.js
