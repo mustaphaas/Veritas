@@ -1,6 +1,9 @@
 export type Project = {
+  id?: string;
   name: string;
   state: string;
+  lga?: string;
+  community?: string;
   programme: string;
   component: string;
   contractor: string;
