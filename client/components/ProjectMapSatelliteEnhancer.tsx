@@ -222,6 +222,10 @@ function SatelliteCanvas({ projects, apiToken }: { projects: ReaMapProjectRecord
             const slot = button?.closest<HTMLElement>("[data-satellite-verify-slot]");
             const projectId = slot?.getAttribute("data-satellite-verify-slot");
             if (!button || !slot || !projectId) return;
+            // Swapping slot.innerHTML below detaches the clicked button, so
+            // Leaflet can no longer tell the click came from inside the popup
+            // and would close it as a map click before the result arrives.
+            clickEvent.stopPropagation();
 
             if (!apiToken) {
               slot.innerHTML = errorHtml("Sign in again to run a satellite check.");
