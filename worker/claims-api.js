@@ -6,7 +6,7 @@ async function digest(value) { return hex(await crypto.subtle.digest('SHA-256', 
 async function currentUser(request, env) {
   const bearer = request.headers.get('Authorization')?.match(/^Bearer\s+(.+)$/i)?.[1];
   if (!bearer || !env.DB) return null;
-  return env.DB.prepare(`SELECT u.id,u.role,u.consultant_firm AS consultantFirm,(SELECT c.id FROM consultants c WHERE lower(trim(c.firm_name))=lower(trim(u.consultant_firm)) LIMIT 1) AS consultantId FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? AND u.status='active'`)
+  return env.DB.prepare(`SELECT u.id,u.role,u.consultant_firm AS consultantFirm FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? AND u.status='active'`)
     .bind(await digest(bearer), new Date().toISOString()).first();
 }
 
@@ -47,14 +47,7 @@ async function consultantProjectsFromClaims(request, env) {
   if (user.role !== 'consultant_admin' && user.role !== 'rea_admin') return json({ error: 'Consultant or REA access required.' }, 403);
 
   let consultantFirm = user.consultantFirm;
-  let consultantId = user.consultantId || null;
-  if (user.role === 'rea_admin') {
-    consultantFirm = new URL(request.url).searchParams.get('consultantFirm') || consultantFirm;
-    if (consultantFirm) {
-      const consultant = await env.DB.prepare(`SELECT id,firm_name AS firmName FROM consultants WHERE lower(trim(firm_name))=lower(trim(?)) LIMIT 1`).bind(consultantFirm).first();
-      if (consultant) { consultantId = consultant.id; consultantFirm = consultant.firmName; }
-    }
-  }
+  if (user.role === 'rea_admin') consultantFirm = new URL(request.url).searchParams.get('consultantFirm') || consultantFirm;
   if (!consultantFirm) return json({ error: 'Consultant firm is required.' }, 400);
 
   const [projectResult, claimResult] = await Promise.all([
@@ -62,10 +55,10 @@ async function consultantProjectsFromClaims(request, env) {
       reporting_month AS reportingMonth,portfolio_status AS status,installed_capacity_kw AS installedCapacityKw,
       households,verified,latitude,longitude,geofence_radius_metres AS geofenceRadiusMetres,
       data_source AS dataSource,updated_at AS updatedAt
-      FROM projects WHERE lower(trim(consultant_firm))=lower(trim(?)) ORDER BY state,name`).bind(consultantFirm).all(),
+      FROM projects WHERE consultant_firm=? ORDER BY state,name`).bind(consultantFirm).all(),
     env.DB.prepare(`SELECT id,claim_id AS claimId,project_id AS projectId,programme,state,lga,community,latitude,longitude,contractor,
       claim_date AS claimDate,verification_status AS verificationStatus,consultant_firm AS consultantFirm,updated_at AS updatedAt
-      FROM claims WHERE allocation_status='Assigned' AND (consultant_id=? OR lower(trim(consultant_firm))=lower(trim(?))) ORDER BY state,claim_id`).bind(consultantId, consultantFirm).all(),
+      FROM claims WHERE consultant_firm=? AND allocation_status='Assigned' ORDER BY state,claim_id`).bind(consultantFirm).all(),
   ]);
 
   const projects = (projectResult.results || []).map((project) => ({
