@@ -1,9 +1,9 @@
 import { handleFieldApi } from "./field-api.js";
 import { analyticsCatalog, analyticsAnswerPrompt, deterministicAnalyticsPlan, executeAnalyticsPlan, parsePlannerJson, plannerPrompt, validateAnalyticsPlan } from "./analytics.js";
 import { handleSatelliteVerify } from "./satellite-verify.js";
-import { isSatelliteAnalysisQuestion, isSatelliteFollowUp, runSatelliteAnalysis, satelliteAnalysisAnswer } from "./satellite-analysis.js";
+import { isSatelliteAnalysisQuestion, runSatelliteAnalysis, satelliteAnalysisAnswer } from "./satellite-analysis.js";
 
-const BUILD_ID = "veritas-2026-09-28-project-lookup-r1";
+const BUILD_ID = "veritas-2026-09-11-public-rea-team-r4";
 const encoder = new TextEncoder();
 const managementB64 = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes)));
 
@@ -1118,149 +1118,6 @@ function deterministicAnalyticsAnswer(result) {
   return `Authoritative Veritas production database result (${rows.length} row${rows.length === 1 ? "" : "s"}):\n\n${lines.join("\n")}${limitNote}`;
 }
 
-
-function normalizeProjectSearchText(value) {
-  return String(value || "")
-    .toLowerCase()
-    .replace(/[“”‘’"'`]/g, " ")
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function quotedProjectCandidates(question) {
-  return [...String(question || "").matchAll(/["“”]([^"“”]{4,200})["“”]/g)]
-    .map((match) => String(match[1] || "").trim())
-    .filter(Boolean);
-}
-
-async function projectLookupForQuestion(env, question) {
-  if (!env.DB || !/\bproject\b/i.test(String(question || ""))) return null;
-
-  const result = await env.DB.prepare(`SELECT id,name,programme,component,contractor,consultant_firm AS consultantFirm,
-    state,lga,community,portfolio_status AS status,installed_capacity_kw AS installedCapacityKw,
-    households,verified,latitude,longitude,updated_at AS updatedAt
-    FROM projects ORDER BY state,name`).all();
-
-  const projects = result.results || [];
-  const normalizedQuestion = normalizeProjectSearchText(question);
-  const quoted = quotedProjectCandidates(question);
-
-  let project = null;
-
-  // Prefer an exact quoted project name, then an exact project-name mention in the question.
-  for (const candidate of quoted) {
-    const normalizedCandidate = normalizeProjectSearchText(candidate);
-    project = projects.find((row) => normalizeProjectSearchText(row.name) === normalizedCandidate);
-    if (project) break;
-  }
-
-  if (!project) {
-    project = projects
-      .filter((row) => {
-        const normalizedName = normalizeProjectSearchText(row.name);
-        return normalizedName.length >= 8 && normalizedQuestion.includes(normalizedName);
-      })
-      .sort((a, b) => normalizeProjectSearchText(b.name).length - normalizeProjectSearchText(a.name).length)[0] || null;
-  }
-
-  if (!project) return null;
-
-  const [assignmentResult, inspectionResult] = await Promise.all([
-    env.DB.prepare(`SELECT a.id,a.status,a.due_date AS dueDate,a.submitted_at AS submittedAt,
-      a.approved_at AS approvedAt,a.verified_at AS verifiedAt,a.updated_at AS updatedAt,u.name AS officer
-      FROM assignments a LEFT JOIN users u ON u.id=a.officer_id
-      WHERE a.project_id=? ORDER BY a.updated_at DESC LIMIT 10`).bind(project.id).all(),
-    env.DB.prepare(`SELECT ci.id,ci.status,ci.due_date AS dueDate,ci.submitted_at AS submittedAt,
-      ci.updated_at AS updatedAt,it.name AS teamName
-      FROM collaborative_inspections ci LEFT JOIN inspection_teams it ON it.id=ci.team_id
-      WHERE ci.project_id=? ORDER BY ci.updated_at DESC LIMIT 10`).bind(project.id).all(),
-  ]);
-
-  const assignments = assignmentResult.results || [];
-  const inspections = inspectionResult.results || [];
-  const latestAssignment = assignments[0] || null;
-  const latestInspection = inspections[0] || null;
-  const verified = Number(project.verified) === 1;
-
-  return {
-    project: {
-      id: project.id,
-      name: project.name,
-      programme: project.programme,
-      component: project.component,
-      contractor: project.contractor,
-      consultantFirm: project.consultantFirm,
-      state: project.state,
-      lga: project.lga,
-      community: project.community,
-      status: project.status,
-      installedCapacityKw: Number(project.installedCapacityKw || 0),
-      households: Number(project.households || 0),
-      verified,
-      coordinatesAvailable: project.latitude != null && project.longitude != null,
-      updatedAt: project.updatedAt,
-    },
-    verification: {
-      fieldInspection: latestInspection
-        ? {
-            status: latestInspection.status,
-            submittedAt: latestInspection.submittedAt,
-            updatedAt: latestInspection.updatedAt,
-            teamName: latestInspection.teamName || "",
-          }
-        : null,
-      consultantAssignment: latestAssignment
-        ? {
-            status: latestAssignment.status,
-            submittedAt: latestAssignment.submittedAt,
-            approvedAt: latestAssignment.approvedAt,
-            verifiedAt: latestAssignment.verifiedAt,
-            updatedAt: latestAssignment.updatedAt,
-            officer: latestAssignment.officer || "",
-          }
-        : null,
-      evidenceComplete: verified,
-      evidenceIncompleteReason: verified
-        ? null
-        : !latestInspection && !latestAssignment
-          ? "No field inspection or consultant assignment record is currently linked to this project."
-          : "The project is not yet marked verified in the live Veritas database.",
-    },
-  };
-}
-
-function projectLookupAnswer(lookup) {
-  const p = lookup.project;
-  const v = lookup.verification;
-  const inspection = v.fieldInspection;
-  const assignment = v.consultantAssignment;
-
-  const lines = [
-    `Project found: ${p.name}`,
-    `Location: ${[p.community, p.lga, p.state].filter(Boolean).join(", ") || "Not recorded"}`,
-    `Component: ${p.component || "Not recorded"}`,
-    `Programme: ${p.programme || "Not recorded"}`,
-    `Portfolio status: ${p.status || "Not recorded"}`,
-    `Verification status: ${p.verified ? "Verified" : "Not yet verified"}`,
-    `Field inspection: ${inspection ? inspection.status : "No inspection record linked"}`,
-    `Consultant verification: ${assignment ? assignment.status : "No consultant assignment linked"}`,
-    `Geospatial evidence: ${p.coordinatesAvailable ? "Project coordinates are available for geospatial verification." : "Project coordinates are not recorded, so satellite verification cannot be run yet."}`,
-  ];
-
-  if (!p.verified) {
-    lines.push("");
-    lines.push("Verification evidence is incomplete.");
-    lines.push(v.evidenceIncompleteReason);
-    lines.push("The project record itself is present in the live Veritas database; missing inspection or verification evidence should not be interpreted as the project being absent.");
-  } else {
-    lines.push("");
-    lines.push("The live Veritas database currently marks this project as verified.");
-  }
-
-  return lines.join("\n");
-}
-
 async function veritasResponse(request, env) {
   let body;
   try {
@@ -1276,45 +1133,15 @@ async function veritasResponse(request, env) {
     return json({ error: "Veritas AI service is currently unavailable.", build: BUILD_ID }, 503);
   }
 
-  // Resolve named projects directly from D1 before analytics/LLM routing. A project
-  // can exist in the portfolio even when no inspection or consultant verification
-  // record exists yet; those are separate evidence states.
-  try {
-    const projectLookup = await projectLookupForQuestion(env, question);
-    if (projectLookup) {
-      return json({
-        answer: projectLookupAnswer(projectLookup),
-        project: projectLookup.project,
-        verification: projectLookup.verification,
-        sources: [],
-        mode: "veritas-live-d1-project-lookup",
-        build: BUILD_ID,
-      });
-    }
-  } catch (error) {
-    console.error(JSON.stringify({
-      event: "veritas_project_lookup_failure",
-      message: error instanceof Error ? error.message : "Unknown error",
-      build: BUILD_ID,
-    }));
-  }
-
   // Satellite questions must be routed to the geospatial/vision pipeline before
   // generic D1 analytics or portfolio-context generation. Otherwise the generic
   // path can incorrectly report that GPS/imagery data is unavailable.
-  if (isSatelliteAnalysisQuestion(question) || isSatelliteFollowUp(body?.messages)) {
+  if (isSatelliteAnalysisQuestion(question)) {
     try {
       const satelliteResult = await runSatelliteAnalysis(request, env, question);
-      if (!satelliteResult?.ok && satelliteResult?.needsInput) {
-        return json({ answer: satelliteResult.reason, sources: [], mode: "veritas-satellite-analysis", build: BUILD_ID });
-      }
       if (!satelliteResult?.ok) {
-        const reason = satelliteResult?.reason || "Satellite analysis could not be completed.";
-        // The chat client only surfaces `error` on non-OK responses, so include the
-        // real reason there instead of letting it fall back to a generic message.
         return json({
-          error: reason,
-          answer: reason,
+          answer: satelliteResult?.reason || "Satellite analysis could not be completed.",
           sources: [],
           mode: "veritas-satellite-analysis",
           build: BUILD_ID,
