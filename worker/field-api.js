@@ -59,7 +59,7 @@ async function audit(env, request, user, assignmentId, action, details = {}) {
 }
 
 async function assignedRecord(env, id, user) {
-  const scope = user.role === "field_officer" ? "AND a.officer_id=?" : user.role === "consultant_admin" ? "AND lower(trim(p.consultant_firm))=lower(trim(?))" : "";
+  const scope = user.role === "field_officer" ? "AND a.officer_id=?" : user.role === "consultant_admin" ? "AND p.consultant_firm=?" : "";
   const value = user.role === "field_officer" ? user.id : user.consultantFirm;
   const sql = `SELECT a.*,p.name AS project_name,p.programme,p.component,p.contractor,p.consultant_firm,p.state,p.lga,p.community,p.latitude,p.longitude,p.geofence_radius_metres,u.name AS officer_name
     FROM assignments a JOIN projects p ON p.id=a.project_id JOIN users u ON u.id=a.officer_id WHERE a.id=? ${scope}`;
@@ -105,7 +105,7 @@ async function listAssignments(env, user, url) {
     FROM assignments a JOIN projects p ON p.id=a.project_id JOIN users u ON u.id=a.officer_id WHERE a.updated_at>?`;
   const args = [since];
   if (user.role === "field_officer") { sql += " AND a.officer_id=?"; args.push(user.id); }
-  if (user.role === "consultant_admin") { sql += " AND lower(trim(p.consultant_firm))=lower(trim(?))"; args.push(user.consultantFirm); }
+  if (user.role === "consultant_admin") { sql += " AND p.consultant_firm=?"; args.push(user.consultantFirm); }
   sql += " ORDER BY a.updated_at DESC";
   const result = await env.DB.prepare(sql).bind(...args).all();
   return response({ assignments: result.results.map(assignmentJson), serverTime: now() });
