@@ -656,7 +656,6 @@ function ConsultantWorkspace({
   view,
   assignments,
   fieldOfficers,
-  unallocatedProjects,
   onAssign,
   onCreateOfficer,
   onOfficerStatus,
@@ -667,7 +666,6 @@ function ConsultantWorkspace({
   view: string;
   assignments: InspectionAssignment[];
   fieldOfficers: FieldOfficerAccount[];
-  unallocatedProjects: Project[];
   onAssign: () => void;
   onCreateOfficer: () => void;
   onOfficerStatus: (id: string, status: FieldOfficerAccount["status"]) => void;
@@ -815,9 +813,7 @@ function ConsultantWorkspace({
     );
   }
   const rows =
-    view === "Projects"
-      ? assignments.filter((item) => item.status !== "Draft")
-      : view === "Verification"
+    view === "Verification"
       ? assignments.filter((item) =>
           ["Submitted", "Approved", "Verified", "Re-inspection"].includes(
             item.status,
@@ -853,30 +849,6 @@ function ConsultantWorkspace({
         )}
       </div>
       <div className="divide-y divide-slate-100">
-        {view === "Projects" && unallocatedProjects.map((project) => (
-          <div
-            key={`rea-project-${project.name}`}
-            className="grid gap-3 px-5 py-4 sm:grid-cols-[1fr_auto] sm:items-center"
-          >
-            <div>
-              <p className="text-xs font-bold text-[#173b2a]">{project.name}</p>
-              <p className="mt-1 text-[10px] text-slate-500">
-                {project.programme} · {project.contractor} · {project.community}, {project.state}
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="rounded-full border border-[#f0d88d] bg-[#fff8e5] px-2.5 py-1 text-[10px] font-bold text-[#956300]">
-                Awaiting field officer
-              </span>
-              <button
-                onClick={onAssign}
-                className="rounded-md border border-[#8bcba0] px-3 py-2 text-[10px] font-bold text-[#08733f]"
-              >
-                Assign field officer
-              </button>
-            </div>
-          </div>
-        ))}
         {rows.map((item) => (
           <div
             key={item.id}
@@ -917,7 +889,7 @@ function ConsultantWorkspace({
             </div>
           </div>
         ))}
-        {!rows.length && !(view === "Projects" && unallocatedProjects.length) && (
+        {!rows.length && (
           <p className="p-8 text-center text-xs text-slate-500">
             No records in this workspace.
           </p>
@@ -941,10 +913,11 @@ export default function ConsultantAdminDashboard() {
   const location = useLocation();
   const navigate = useNavigate();
   const activeView = consultantPathViews[location.pathname] ?? "Overview";
-  const [selectedMapProjectId, setSelectedMapProjectId] = useState<string>("");
+  const [mapAssignment, setMapAssignment] =
+    useState<InspectionAssignment | null>(assignments[0] ?? null);
   useEffect(() => {
     setProgrammeFilter("All Programmes"); setStateFilter("All States"); setOfficerFilter("All Field Officers");
-    setSelectedMapProjectId(""); setReviewing(null); setAssignOpen(false); setCreateOfficerOpen(false);
+    setMapAssignment(null); setReviewing(null); setAssignOpen(false); setCreateOfficerOpen(false);
   }, [consultant?.id]);
   const filtered = useMemo(
     () =>
@@ -958,7 +931,6 @@ export default function ConsultantAdminDashboard() {
       ),
     [assignments, programmeFilter, stateFilter, officerFilter],
   );
-  const portfolioProjectCount = filtered.filter((item) => item.status !== "Draft").length + unallocatedProjects.length;
   const approved = filtered.filter((item) =>
     ["Approved", "Verified"].includes(item.status),
   ).length;
@@ -994,32 +966,10 @@ export default function ConsultantAdminDashboard() {
       ).length,
     };
   });
-  const mapPortfolio = useMemo(() => {
-    const assigned = filtered.map((item) => ({
-      id: item.id,
-      projectName: item.projectName,
-      community: item.community,
-      state: item.state,
-      latitude: item.latitude,
-      longitude: item.longitude,
-      status: getAssignmentDisplayStatus(item.status),
-    }));
-    const allocated = unallocatedProjects.map((project) => ({
-      id: project.id || project.name,
-      projectName: project.name,
-      community: project.community,
-      state: project.state,
-      latitude: project.latitude,
-      longitude: project.longitude,
-      status: "Awaiting field officer",
-    }));
-    return [...allocated, ...assigned].filter(
-      (item) => Number.isFinite(item.latitude) && Number.isFinite(item.longitude),
-    );
-  }, [filtered, unallocatedProjects]);
   const mapTarget =
-    mapPortfolio.find((item) => item.id === selectedMapProjectId) ||
-    mapPortfolio[0];
+    (mapAssignment &&
+      assignments.find((item) => item.id === mapAssignment.id)) ||
+    filtered[0];
   const mapUrl = mapTarget
     ? `https://www.openstreetmap.org/export/embed.html?bbox=${mapTarget.longitude - 0.045}%2C${mapTarget.latitude - 0.035}%2C${mapTarget.longitude + 0.045}%2C${mapTarget.latitude + 0.035}&layer=mapnik&marker=${mapTarget.latitude}%2C${mapTarget.longitude}`
     : "";
@@ -1040,14 +990,13 @@ export default function ConsultantAdminDashboard() {
           view={activeView}
           assignments={filtered}
           fieldOfficers={fieldOfficers}
-          unallocatedProjects={unallocatedProjects}
           onAssign={() => setAssignOpen(true)}
           onCreateOfficer={() => setCreateOfficerOpen(true)}
           onOfficerStatus={handleOfficerStatus}
           onDeleteOfficer={handleDeleteOfficer}
           onReview={setReviewing}
           onMap={(assignment) => {
-            setSelectedMapProjectId(assignment.id);
+            setMapAssignment(assignment);
             navigate("/consultant-admin");
           }}
         />
@@ -1109,7 +1058,7 @@ export default function ConsultantAdminDashboard() {
         <section className="mt-3 flex gap-3 overflow-x-auto pb-1">
           <MetricCard
             label="Assigned Projects"
-            value={portfolioProjectCount}
+            value={filtered.length}
             detail="Consultant-managed portfolio"
             icon={FolderKanban}
           />
@@ -1144,11 +1093,7 @@ export default function ConsultantAdminDashboard() {
                   Select an assignment to inspect its field location
                 </p>
               </div>
-              {mapTarget && (
-                <span className="rounded-full border border-[#d6e9da] bg-[#f3faf5] px-2.5 py-1 text-[9px] font-bold text-[#08733f]">
-                  {mapTarget.status}
-                </span>
-              )}
+              {mapTarget && <StatusPill status={mapTarget.status} />}
             </div>
             {mapTarget ? (
               <div className="grid lg:grid-cols-[1fr_230px]">
@@ -1160,12 +1105,12 @@ export default function ConsultantAdminDashboard() {
                 />
                 <div className="max-h-[350px] overflow-y-auto border-l border-slate-100 p-3">
                   <p className="mb-2 text-[9px] font-bold uppercase tracking-wide text-slate-500">
-                    Consultant project portfolio
+                    Filtered assignments
                   </p>
-                  {mapPortfolio.slice(0, 12).map((item) => (
+                  {filtered.slice(0, 12).map((item) => (
                     <button
                       key={item.id}
-                      onClick={() => setSelectedMapProjectId(item.id)}
+                      onClick={() => setMapAssignment(item)}
                       className={`mb-2 w-full rounded-md border p-2.5 text-left ${mapTarget.id === item.id ? "border-[#8bcba0] bg-[#eff9f2]" : "border-slate-100 hover:bg-slate-50"}`}
                     >
                       <p className="truncate text-[10px] font-bold text-[#173b2a]">
@@ -1181,7 +1126,7 @@ export default function ConsultantAdminDashboard() {
               </div>
             ) : (
               <div className="p-10 text-center text-sm text-slate-500">
-                No consultant projects with coordinates match these filters.
+                No assigned projects match these filters.
               </div>
             )}
           </section>
