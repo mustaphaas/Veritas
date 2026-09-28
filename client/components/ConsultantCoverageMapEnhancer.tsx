@@ -140,6 +140,9 @@ function resolveCoordinate(item: InspectionAssignment): ResolvedCoordinate | nul
   }
   return null;
 }
+function assignmentStatusLabel(item: InspectionAssignment) {
+  return (item as InspectionAssignment & { mapDisplayStatus?: string }).mapDisplayStatus ?? getAssignmentDisplayStatus(item.status);
+}
 function statusColor(assignment: InspectionAssignment) {
   const status = getAssignmentDisplayStatus(assignment.status);
   if (status === "Verified") return "#08733f";
@@ -464,7 +467,7 @@ function ConsultantCoverageMap({ assignments }: { assignments: InspectionAssignm
                   <div className="mt-2 flex items-center justify-between gap-2 text-[8px]">
                     <span className="truncate text-slate-400">{coordinate ? `${coordinate.latitude.toFixed(5)}, ${coordinate.longitude.toFixed(5)}` : "GPS unavailable"}</span>
                     <span className="rounded-full px-2 py-0.5 font-bold text-white" style={{ backgroundColor: statusColor(item) }}>
-                      {getAssignmentDisplayStatus(item.status)}
+                      {assignmentStatusLabel(item)}
                     </span>
                   </div>
                 </button>
@@ -496,7 +499,34 @@ function ConsultantCoverageMap({ assignments }: { assignments: InspectionAssignm
 
 export default function ConsultantCoverageMapEnhancer() {
   const location = useLocation();
-  const { visibleAssignments: assignments } = useConsultantPortfolio();
+  const { ownedAssignments, unallocatedProjects } = useConsultantPortfolio();
+  const assignments = useMemo(
+    () => ownedAssignments.filter((item) => item.status !== "Draft"),
+    [ownedAssignments],
+  );
+  const mapAssignments = useMemo<Array<InspectionAssignment & { mapDisplayStatus?: string }>>(() => {
+    const allocated = unallocatedProjects
+      .map((project) => ({
+        id: project.id || `allocated-${project.name}`,
+        projectName: project.name,
+        programme: project.programme,
+        component: project.component,
+        contractor: project.contractor,
+        state: project.state,
+        lga: project.lga || "",
+        community: project.community || "",
+        latitude: Number(project.latitude),
+        longitude: Number(project.longitude),
+        geofenceRadius: 250,
+        officer: "Awaiting field officer",
+        dueDate: "",
+        status: "Assigned" as const,
+        syncStatus: "synced" as const,
+        mapDisplayStatus: "Awaiting field officer",
+        audit: [],
+      }));
+    return [...allocated, ...assignments];
+  }, [assignments, unallocatedProjects]);
   const [target, setTarget] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -574,5 +604,5 @@ export default function ConsultantCoverageMapEnhancer() {
   }, [location.pathname]);
 
   if (location.pathname !== "/consultant-admin" || !target) return null;
-  return createPortal(<ConsultantCoverageMap assignments={assignments} />, target);
+  return createPortal(<ConsultantCoverageMap assignments={mapAssignments} />, target);
 }
