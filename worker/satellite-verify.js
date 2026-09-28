@@ -51,7 +51,7 @@ const ESRI_EXPORT_URL =
 const METRES_PER_DEGREE_LAT = 111320;
 const MIN_RADIUS_METRES = 80;
 const MAX_RADIUS_METRES = 400;
-const SATELLITE_ANALYSIS_VERSION = "1";
+const SATELLITE_ANALYSIS_VERSION = "2";
 
 export function bboxAround(lat, lon, radiusMetres) {
   const dLat = radiusMetres / METRES_PER_DEGREE_LAT;
@@ -70,6 +70,68 @@ export function esriExportUrl(lat, lon, radiusMetres) {
     f: "image",
   });
   return `${ESRI_EXPORT_URL}?${params.toString()}`;
+}
+
+const SATELLITE_RADIUS_ATTEMPTS = [150, 150, 250, 400];
+
+export async function fetchSatelliteImage(lat, lon, requestedRadius) {
+  const radii = [...new Set([requestedRadius, ...SATELLITE_RADIUS_ATTEMPTS])].filter(
+    (value) => Number.isFinite(value) && value >= MIN_RADIUS_METRES && value <= MAX_RADIUS_METRES,
+  );
+  let lastStatus = 0;
+  let lastReason = "No imagery response received.";
+
+  for (let attempt = 0; attempt < radii.length; attempt += 1) {
+    const radius = radii[attempt];
+    const imageUrl = esriExportUrl(lat, lon, radius);
+    try {
+      const imageResponse = await fetch(imageUrl, {
+        headers: { Accept: "image/png,image/*;q=0.9,*/*;q=0.1" },
+        signal: AbortSignal.timeout(12000),
+      });
+      const contentType = imageResponse.headers.get("content-type") || "";
+      if (!imageResponse.ok) {
+        lastStatus = imageResponse.status;
+        lastReason = `Esri export returned HTTP ${imageResponse.status}`;
+      } else if (!contentType.toLowerCase().includes("image/")) {
+        lastStatus = imageResponse.status;
+        lastReason = `Esri returned an unexpected content type: ${contentType || "unknown"}`;
+      } else {
+        const bytes = new Uint8Array(await imageResponse.arrayBuffer());
+        if (!bytes.length) {
+          lastStatus = imageResponse.status;
+          lastReason = "Esri returned an empty image.";
+        } else {
+          let binary = "";
+          const chunkSize = 0x8000;
+          for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+            binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+          }
+          return {
+            ok: true,
+            imageBase64: btoa(binary),
+            imageUrl,
+            radius,
+            attempts: attempt + 1,
+          };
+        }
+      }
+    } catch (error) {
+      lastStatus = 0;
+      lastReason = error instanceof Error ? error.message : "Network or timeout error";
+    }
+
+    if (attempt < radii.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+    }
+  }
+
+  return {
+    ok: false,
+    attempts: radii.length,
+    status: lastStatus,
+    reason: lastReason,
+  };
 }
 
 function verificationPrompt(project) {
@@ -255,23 +317,26 @@ export async function handleSatelliteVerify(request, env) {
     return response({ error: "Project has no usable GPS coordinates on file." }, 422);
   }
 
-  const radius = Math.max(
+  const requestedRadius = Math.max(
     MIN_RADIUS_METRES,
     Math.min(MAX_RADIUS_METRES, Number(project.geofenceRadiusMetres) || 150),
   );
-  const imageUrl = esriExportUrl(latitude, longitude, radius);
-
-  let imageBase64;
-  try {
-    const imageResponse = await fetch(imageUrl, { signal: AbortSignal.timeout(15000) });
-    if (!imageResponse.ok) throw new Error(`Esri export returned HTTP ${imageResponse.status}`);
-    const bytes = new Uint8Array(await imageResponse.arrayBuffer());
-    let binary = "";
-    for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
-    imageBase64 = btoa(binary);
-  } catch {
-    return response({ error: "Could not fetch satellite imagery for this project right now." }, 502);
+  const imageryResult = await fetchSatelliteImage(latitude, longitude, requestedRadius);
+  if (!imageryResult.ok) {
+    return response(
+      {
+        error: "Satellite imagery is temporarily unavailable for this project.",
+        code: "imagery_unavailable",
+        provider: "Esri World Imagery",
+        attempts: imageryResult.attempts,
+        lastStatus: imageryResult.status || null,
+        reason: imageryResult.reason,
+      },
+      imageryResult.status === 429 ? 429 : 502,
+    );
   }
+
+  const { imageBase64, imageUrl, radius } = imageryResult;
 
   const geminiResult = await callGeminiVision(env, imageBase64, verificationPrompt(project));
   if (!geminiResult.ok) {
