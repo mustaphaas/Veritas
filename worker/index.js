@@ -1,7 +1,7 @@
 import { handleFieldApi } from "./field-api.js";
 import { analyticsCatalog, analyticsAnswerPrompt, deterministicAnalyticsPlan, executeAnalyticsPlan, parsePlannerJson, plannerPrompt, validateAnalyticsPlan } from "./analytics.js";
 import { handleSatelliteVerify } from "./satellite-verify.js";
-import { isSatelliteAnalysisQuestion, runSatelliteAnalysis, satelliteAnalysisAnswer } from "./satellite-analysis.js";
+import { isSatelliteAnalysisQuestion, isSatelliteFollowUp, runSatelliteAnalysis, satelliteAnalysisAnswer } from "./satellite-analysis.js";
 
 const BUILD_ID = "veritas-2026-09-11-public-rea-team-r4";
 const encoder = new TextEncoder();
@@ -1136,9 +1136,12 @@ async function veritasResponse(request, env) {
   // Satellite questions must be routed to the geospatial/vision pipeline before
   // generic D1 analytics or portfolio-context generation. Otherwise the generic
   // path can incorrectly report that GPS/imagery data is unavailable.
-  if (isSatelliteAnalysisQuestion(question)) {
+  if (isSatelliteAnalysisQuestion(question) || isSatelliteFollowUp(body?.messages)) {
     try {
       const satelliteResult = await runSatelliteAnalysis(request, env, question);
+      if (!satelliteResult?.ok && satelliteResult?.needsInput) {
+        return json({ answer: satelliteResult.reason, sources: [], mode: "veritas-satellite-analysis", build: BUILD_ID });
+      }
       if (!satelliteResult?.ok) {
         const reason = satelliteResult?.reason || "Satellite analysis could not be completed.";
         // The chat client only surfaces `error` on non-OK responses, so include the
