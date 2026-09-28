@@ -1140,8 +1140,12 @@ async function veritasResponse(request, env) {
     try {
       const satelliteResult = await runSatelliteAnalysis(request, env, question);
       if (!satelliteResult?.ok) {
+        const reason = satelliteResult?.reason || "Satellite analysis could not be completed.";
+        // The chat client only surfaces `error` on non-OK responses, so include the
+        // real reason there instead of letting it fall back to a generic message.
         return json({
-          answer: satelliteResult?.reason || "Satellite analysis could not be completed.",
+          error: reason,
+          answer: reason,
           sources: [],
           mode: "veritas-satellite-analysis",
           build: BUILD_ID,

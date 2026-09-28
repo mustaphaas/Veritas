@@ -3,43 +3,58 @@ import { handleSatelliteVerify } from "./satellite-verify.js";
 const SATELLITE_QUERY = /\b(satellite|imagery|image|aerial|earth observation|remote sensing|geospatial verification|verify .*location|visible infrastructure)\b/i;
 
 export function isSatelliteAnalysisQuestion(question) {
-  return SATELLITE_QUERY.test(String(question || ""));
+  const text = String(question || "");
+  if (SATELLITE_QUERY.test(text)) return true;
+  // Imperative "verify/check <project>" requests, without hijacking questions
+  // such as "how do I verify a project?".
+  return /^\s*(?:please\s+)?(?:can you\s+|could you\s+)?(?:verify|check)\b/i.test(text)
+    && /\b(project|site|installation|mini-?grid|street ?lights?)\b/i.test(text);
 }
+
+const STOP_WORDS = /\b(check|verify|analyse|analyze|analysis|using|with|from|the|satellite|imagery|image|images|aerial|project|projects|location|coordinates?|at|whether|appears?|to|be|look|show|me|select|a|an|for|of|on|in|it|is|are|there|does|do|this|that|please|can|could|you|any|visible|infrastructure|installed|exists?|exist|really|actually)\b/gi;
 
 function cleanSearchText(question) {
   return String(question || "")
-    .replace(/\b(check|verify|analyse|analyze|analysis|using|with|from|the|satellite|imagery|image|aerial|project|location|coordinates?|at|whether|appears|appears to be|look at|show me|show|select|a)\b/gi, " ")
+    .replace(STOP_WORDS, " ")
     .replace(/[^a-zA-Z0-9\- ]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
 
+const PROJECT_COLUMNS = `id,name,programme,component,state,lga,community,installed_capacity_kw AS installedCapacityKw,
+        households,latitude,longitude,geofence_radius_metres AS geofenceRadiusMetres`;
+
+// Never guess: analysing an unrelated project and presenting it as the answer is
+// worse than asking which project was meant.
 async function findProject(env, question) {
   const q = String(question || "");
   const explicit = q.match(/(?:project)\s+["']?([^"'?.]+)["']?/i)?.[1]?.trim() || "";
-  const search = explicit || cleanSearchText(q);
-
-  if (search && search.length >= 3) {
-    const result = await env.DB.prepare(
-      `SELECT id,name,programme,component,state,lga,community,installed_capacity_kw AS installedCapacityKw,
-        households,latitude,longitude,geofence_radius_metres AS geofenceRadiusMetres
-       FROM projects
-       WHERE (lower(name) LIKE lower(?) OR lower(id) LIKE lower(?))
-         AND latitude IS NOT NULL AND longitude IS NOT NULL
-       ORDER BY name
-       LIMIT 1`,
-    ).bind(`%${search}%`, `%${search}%`).first();
-    if (result) return result;
+  const search = cleanSearchText(explicit) || cleanSearchText(q);
+  if (search.length < 3) {
+    return { reason: "Tell me which project to check, for example: \"Verify the satellite image for <project name>\"." };
   }
 
-  return env.DB.prepare(
-    `SELECT id,name,programme,component,state,lga,community,installed_capacity_kw AS installedCapacityKw,
-      households,latitude,longitude,geofence_radius_metres AS geofenceRadiusMetres
-     FROM projects
-     WHERE latitude IS NOT NULL AND longitude IS NOT NULL
-     ORDER BY state,name
-     LIMIT 1`,
-  ).first();
+  const whole = await env.DB.prepare(
+    `SELECT ${PROJECT_COLUMNS} FROM projects
+     WHERE (lower(name) LIKE lower(?) OR lower(id) LIKE lower(?))
+       AND latitude IS NOT NULL AND longitude IS NOT NULL
+     ORDER BY name LIMIT 1`,
+  ).bind(`%${search}%`, `%${search}%`).first();
+  if (whole) return { project: whole };
+
+  const tokens = search.split(" ").filter((token) => token.length >= 3).slice(0, 6);
+  if (tokens.length) {
+    const clauses = tokens.map(() => "(lower(name) LIKE ? OR lower(id) LIKE ? OR lower(community) LIKE ? OR lower(lga) LIKE ?)").join(" AND ");
+    const binds = tokens.flatMap((token) => Array(4).fill(`%${token.toLowerCase()}%`));
+    const byTokens = await env.DB.prepare(
+      `SELECT ${PROJECT_COLUMNS} FROM projects
+       WHERE ${clauses} AND latitude IS NOT NULL AND longitude IS NOT NULL
+       ORDER BY name LIMIT 1`,
+    ).bind(...binds).first();
+    if (byTokens) return { project: byTokens };
+  }
+
+  return { reason: `I couldn't find a project matching "${search}" that has GPS coordinates. Check the name against the Project Map and try again.` };
 }
 
 function parseResponse(response) {
@@ -50,8 +65,9 @@ export async function runSatelliteAnalysis(request, env, question) {
   if (!env.DB) throw new Error("D1 database binding is unavailable.");
   if (!env.GEMINI_API_KEY) return { ok: false, reason: "Satellite vision is not configured." };
 
-  const project = await findProject(env, question);
-  if (!project) return { ok: false, reason: "No project with usable coordinates is available for satellite analysis." };
+  const found = await findProject(env, question);
+  if (!found.project) return { ok: false, reason: found.reason };
+  const project = found.project;
 
   // Reuse the same authenticated, point-centred satellite pipeline used by
   // Project Map. This guarantees Ask Veritas and the map analyse the same image.
