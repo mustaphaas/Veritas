@@ -13,6 +13,8 @@
 // Route: POST /api/projects/:id/satellite-verify
 // Auth: rea_admin (any project) or consultant_admin (own consultant_firm only)
 
+import { applyEvidencePolicy, classifyComponent } from "./satellite-evidence-policy.js";
+
 const encoder = new TextEncoder();
 const hex = (bytes) =>
   [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -134,7 +136,23 @@ export async function fetchSatelliteImage(lat, lon, requestedRadius) {
   };
 }
 
-function verificationPrompt(project) {
+// What each component looks like from above, in the terms a reviewer would
+// accept as confirmation. "Strong" is deliberately demanding: a cleared corridor
+// is not a line, and a handful of panels is not a mini-grid.
+const SIGNATURE_BRIEF = {
+  mini_grid:
+    "a mini-grid generation site shows as a large contiguous block of solar panels: many rows of ground-mounted or clustered arrays, typically tens of metres across, often fenced and beside a small building. A few panels, a small cluster, or panels on ordinary rooftops do not amount to a mini-grid.",
+  grid_extension:
+    "a grid extension shows as a continuous run of distribution poles (regularly spaced poles or their shadows, cross-arms, or conductors) along a road or across open ground. A cleared corridor through vegetation shows a way-leave and is NOT a line on its own.",
+  street_light:
+    "solar street lights show as regularly spaced poles along a road or path, each with a small panel and luminaire head; pole shadows often make them visible. One or two possible poles do not amount to a lighting scheme.",
+  unknown:
+    "the claimed equipment should be clearly identifiable as its type. Count it as strong only if it is unmistakable.",
+};
+
+export function verificationPrompt(project, radiusMetres) {
+  const kind = classifyComponent(project.programme, project.component);
+  const centreZone = Math.max(15, Math.round((Number(radiusMetres) || 150) / 6));
   return [
     "You are assisting a Rural Electrification Agency (REA) verification reviewer in Nigeria.",
     "You are shown a satellite image centered on a claimed rural electrification project.",
@@ -154,11 +172,29 @@ function verificationPrompt(project) {
     "",
     "CONFIDENCE CALIBRATION: use 0.8-1.0 only when the claimed infrastructure's distinctive shape is unambiguous. Use 0.4-0.7 when something is visible but doesn't clearly match the claimed type, or the match is plausible but not certain. Use below 0.4 when the image gives little to go on.",
     "",
+    "ATTRIBUTION: the claimed project sits at the exact centre of the image. Solar panels, poles or arrays elsewhere in the frame - on institutional buildings, businesses, or other people's homes - are NOT evidence for this project. Set evidenceLocation to:",
+    `- "at_project_point" only if the claimed component type is visible within about ${centreZone} m of the image centre;`,
+    '- "elsewhere_in_frame" if solar equipment is visible but not at the centre;',
+    '- "none" if no solar equipment is visible.',
+    "",
+    ...(SIGNATURE_BRIEF[kind]
+      ? [
+          `SIGNATURE: ${SIGNATURE_BRIEF[kind]}`,
+          `Set signatureStrength to "strong" only if you can see that within about ${centreZone} m of the image centre; "partial" if you see only some of it; "none" if you see none of it.`,
+          "",
+        ]
+      : []),
+    ...(kind === "distributed"
+      ? [
+          "COMPONENT LIMIT: this project is household-scale. Individual household panels cannot be reliably resolved from overhead imagery or tied to one project. Do NOT judge whether this project's systems are present: set infrastructureDetected to \"inconclusive\" and treat rooftop panels as unrelated to the claim. Use notes to describe the built-up character of the area instead (for example dense urban, peri-urban, or rural compounds), and still report imageQuality and the rooftop estimate.",
+          "",
+        ]
+      : []),
     "Judge only what is visible in the image. Do not assume infrastructure exists because it is claimed, and do not infer ground-truth status from the imagery date - you are reporting what the archived image shows, not confirming current conditions.",
     "Estimate the number of houses/rooftops within the frame.",
     "",
     "Respond with ONLY minified JSON, no markdown fences and no commentary, matching exactly this shape:",
-    '{"infrastructureDetected":"present"|"absent"|"inconclusive","imageQuality":"clear"|"degraded"|"unusable","confidence":0-1 number,"estimatedNearbyHouses":integer,"notes":"short string, max 40 words"}',
+    '{"infrastructureDetected":"present"|"absent"|"inconclusive","evidenceLocation":"at_project_point"|"elsewhere_in_frame"|"none","signatureStrength":"strong"|"partial"|"none","imageQuality":"clear"|"degraded"|"unusable","confidence":0-1 number,"estimatedNearbyHouses":integer,"notes":"short string, max 40 words"}',
   ].join("\n");
 }
 
@@ -177,12 +213,14 @@ const VERDICT_RESPONSE_SCHEMA = {
   type: "OBJECT",
   properties: {
     infrastructureDetected: { type: "STRING", enum: ["present", "absent", "inconclusive"] },
+    evidenceLocation: { type: "STRING", enum: ["at_project_point", "elsewhere_in_frame", "none"] },
+    signatureStrength: { type: "STRING", enum: ["strong", "partial", "none"] },
     imageQuality: { type: "STRING", enum: ["clear", "degraded", "unusable"] },
     confidence: { type: "NUMBER" },
     estimatedNearbyHouses: { type: "INTEGER" },
     notes: { type: "STRING" },
   },
-  required: ["infrastructureDetected", "imageQuality", "confidence", "estimatedNearbyHouses", "notes"],
+  required: ["infrastructureDetected", "evidenceLocation", "signatureStrength", "imageQuality", "confidence", "estimatedNearbyHouses", "notes"],
 };
 
 // Mirrors the retry behaviour of callGeminiWithFallback in worker/index.js
@@ -274,6 +312,14 @@ export function parseVerdict(text) {
       confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence)) : null,
       estimatedNearbyHouses: Number.isFinite(houses) ? Math.max(0, Math.round(houses)) : null,
       notes: typeof parsed.notes === "string" ? parsed.notes.slice(0, 400) : "",
+      // Only present when the model supplied a valid value; applyEvidencePolicy
+      // treats absence as "not localised" rather than assuming the best.
+      ...(["at_project_point", "elsewhere_in_frame", "none"].includes(parsed.evidenceLocation)
+        ? { evidenceLocation: parsed.evidenceLocation }
+        : {}),
+      ...(["strong", "partial", "none"].includes(parsed.signatureStrength)
+        ? { signatureStrength: parsed.signatureStrength }
+        : {}),
     };
   } catch {
     return null;
@@ -338,7 +384,7 @@ export async function handleSatelliteVerify(request, env) {
 
   const { imageBase64, imageUrl, radius } = imageryResult;
 
-  const geminiResult = await callGeminiVision(env, imageBase64, verificationPrompt(project));
+  const geminiResult = await callGeminiVision(env, imageBase64, verificationPrompt(project, radius));
   if (!geminiResult.ok) {
     return response(
       { error: "Veritas could not complete the satellite check. Please try again shortly." },
@@ -346,10 +392,17 @@ export async function handleSatelliteVerify(request, env) {
     );
   }
 
-  const verdict = parseVerdict(geminiResult.text);
-  if (!verdict) {
+  const modelVerdict = parseVerdict(geminiResult.text);
+  if (!modelVerdict) {
     return response({ error: "Veritas returned an unreadable satellite verdict. Please retry." }, 502);
   }
+  // What the model saw is not yet what may be reported: the policy decides
+  // whether that evidence can stand for THIS project at THIS point.
+  const verdict = applyEvidencePolicy(modelVerdict, project, radius);
+  const storedNotes = [verdict.limitation?.message, verdict.houseEstimateNote, verdict.notes]
+    .filter(Boolean)
+    .join(" ")
+    .slice(0, 700);
 
   const checkedAt = new Date().toISOString();
   const imagerySource = "Esri World Imagery (World_Imagery/MapServer export)";
@@ -367,7 +420,7 @@ export async function handleSatelliteVerify(request, env) {
       verdict.imageQuality,
       verdict.confidence,
       verdict.estimatedNearbyHouses,
-      verdict.notes,
+      storedNotes,
       checkedAt,
       imagerySource,
       null,
@@ -388,7 +441,14 @@ export async function handleSatelliteVerify(request, env) {
       null,
       user.id,
       "project-satellite-verified",
-      JSON.stringify({ projectId, status: verdict.status, confidence: verdict.confidence }),
+      JSON.stringify({
+        projectId,
+        status: verdict.status,
+        modelStatus: verdict.modelStatus,
+        limitation: verdict.limitation?.code || null,
+        evidenceLocation: verdict.evidenceLocation,
+        confidence: verdict.confidence,
+      }),
       request.headers.get("CF-Connecting-IP"),
       checkedAt,
     )

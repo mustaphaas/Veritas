@@ -13,9 +13,13 @@ const DATASETS = {
       reportingMonth: "p.reporting_month",
       dataSource: "p.data_source",
       verified: "p.verified",
+      onMap: "CASE WHEN p.latitude IS NOT NULL AND p.longitude IS NOT NULL THEN 'yes' ELSE 'no' END",
+      satelliteStatus: "COALESCE(p.satellite_verification_status,'not checked')",
     },
     measures: {
       projectCount: "COUNT(*)",
+      mappedProjects: "SUM(CASE WHEN p.latitude IS NOT NULL AND p.longitude IS NOT NULL THEN 1 ELSE 0 END)",
+      satelliteCheckedProjects: "SUM(CASE WHEN p.satellite_verification_status IS NOT NULL THEN 1 ELSE 0 END)",
       installedCapacityKw: "SUM(COALESCE(p.installed_capacity_kw,0))",
       households: "SUM(COALESCE(p.households,0))",
       verifiedProjects: "SUM(CASE WHEN p.verified=1 THEN 1 ELSE 0 END)",
@@ -228,7 +232,7 @@ export async function executeAnalyticsPlan(env, plan) {
 }
 
 export function plannerPrompt(question, catalog) {
-  return `You are the Veritas analytics query planner. Convert the user's data question into ONE structured read-only analytics plan.\n\nYou are NOT allowed to write SQL. Use only this catalog:\n${JSON.stringify(catalog)}\n\nReturn JSON only with this shape:\n{\"mode\":\"analytics\",\"dataset\":\"projects\",\"dimensions\":[],\"measures\":[],\"filters\":[{\"field\":\"component\",\"op\":\"eq\",\"value\":\"Mini Grid\"}],\"orderBy\":[],\"limit\":100}\n\nRules:\n- Use mode \"analytics\" only for questions answerable from the catalog. Otherwise return {\"mode\":\"general\"}.\n- Never request personal contact information, credentials, secrets, precise coordinates, signatures, evidence contents, hashes, or tokens.\n- Prefer exact aggregates rather than record listings.\n- For \"by X\" questions put X in dimensions.\n- projectCount counts projects; assignmentCount counts assignments.\n- verified is a project dimension stored as 1 or 0.\n- Use filters for named states, programmes, components, contractors, consultants, statuses, officers, or reporting periods.\n- If a question asks about multiple subject areas that cannot be represented faithfully in one dataset, choose the dataset that answers the primary requested comparison and do not imply the plan covers the other subject area.\n- limit must be 200 or less.\n\nUSER QUESTION:\n${question}`;
+  return `You are the Veritas analytics query planner. Convert the user's data question into ONE structured read-only analytics plan.\n\nYou are NOT allowed to write SQL. Use only this catalog:\n${JSON.stringify(catalog)}\n\nReturn JSON only with this shape:\n{\"mode\":\"analytics\",\"dataset\":\"projects\",\"dimensions\":[],\"measures\":[],\"filters\":[{\"field\":\"component\",\"op\":\"eq\",\"value\":\"Mini Grid\"}],\"orderBy\":[],\"limit\":100}\n\nRules:\n- Use mode \"analytics\" only for questions answerable from the catalog. Otherwise return {\"mode\":\"general\"}.\n- Never request personal contact information, credentials, secrets, precise coordinates, signatures, evidence contents, hashes, or tokens.\n- Prefer exact aggregates rather than record listings.\n- For \"by X\" questions put X in dimensions.\n- projectCount counts projects; assignmentCount counts assignments.\n- verified is a project dimension stored as 1 or 0.\n- Projects shown on the Project Map are those with coordinates: use the onMap dimension or the mappedProjects measure for questions about what is on the map. satelliteStatus is present, absent, inconclusive or not checked, and only reflects satellite checks that have actually been run.\n- Use filters for named states, programmes, components, contractors, consultants, statuses, officers, or reporting periods.\n- If a question asks about multiple subject areas that cannot be represented faithfully in one dataset, choose the dataset that answers the primary requested comparison and do not imply the plan covers the other subject area.\n- limit must be 200 or less.\n\nUSER QUESTION:\n${question}`;
 }
 
 export function analyticsAnswerPrompt(question, result) {
@@ -258,4 +262,72 @@ FINAL ANSWER CONTRACT:
 - Inside the markers, begin immediately with the professional management answer.
 
 `;
+}
+
+
+const MEASURE_LABELS = {
+  projectCount: "Projects",
+  mappedProjects: "On the map",
+  satelliteCheckedProjects: "Satellite-checked",
+  installedCapacityKw: "Installed capacity (kW)",
+  households: "Households",
+  verifiedProjects: "Verified",
+  pendingProjects: "Pending",
+  averageCapacityKw: "Average capacity (kW)",
+  averageHouseholds: "Average households",
+  assignmentCount: "Assignments",
+  submittedAssignments: "Submitted",
+  approvedAssignments: "Approved",
+  verifiedAssignments: "Verified",
+  consultantCount: "Consultants",
+  userCount: "Users",
+};
+
+const DIMENSION_LABELS = {
+  onMap: "On map",
+  satelliteStatus: "Satellite status",
+  consultantFirm: "Consultant firm",
+  reportingMonth: "Reporting month",
+  dataSource: "Data source",
+  dueDate: "Due date",
+  firmName: "Firm",
+  engagementStart: "Engagement start",
+  engagementEnd: "Engagement end",
+};
+
+function humanLabel(key) {
+  return MEASURE_LABELS[key] || DIMENSION_LABELS[key]
+    || String(key).replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
+}
+
+function humanValue(value) {
+  if (value === null || value === undefined || value === "") return "—";
+  if (typeof value === "number") return Number.isInteger(value) ? value.toLocaleString("en-GB") : value.toLocaleString("en-GB", { maximumFractionDigits: 1 });
+  return String(value);
+}
+
+// Exact figures from D1, worded as a colleague would state them rather than
+// dumped as key: value pairs. Nothing here estimates or rounds beyond one
+// decimal place: the numbers are the database's numbers.
+export function formatAnalyticsAnswer(result) {
+  const rows = Array.isArray(result?.rows) ? result.rows : [];
+  if (!rows.length) return "Nothing in the live production data matches that.";
+  const limitNote = result.truncated
+    ? "\n\nThe result hit its row limit, so it may not list every group."
+    : "";
+
+  if (rows.length === 1) {
+    const lines = Object.entries(rows[0]).map(([key, value]) => `**${humanLabel(key)}:** ${humanValue(value)}`);
+    return `${lines.join("\n")}\n\nThese are exact figures from the live production database.${limitNote}`;
+  }
+
+  const lines = rows.map((row) => {
+    const entries = Object.entries(row);
+    const measures = entries.filter(([key]) => key in MEASURE_LABELS);
+    const dimensions = entries.filter(([key]) => !(key in MEASURE_LABELS));
+    const heading = dimensions.map(([, value]) => humanValue(value)).join(" · ") || "All";
+    const figures = measures.map(([key, value]) => `${humanLabel(key)} ${humanValue(value)}`).join(" · ");
+    return `- **${heading}**${figures ? `: ${figures}` : ""}`;
+  });
+  return `Across ${rows.length} groups in the live production database:\n\n${lines.join("\n")}${limitNote}`;
 }

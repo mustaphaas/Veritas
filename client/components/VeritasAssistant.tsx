@@ -40,10 +40,25 @@ import {
   type FieldOfficerAccount,
 } from "../lib/inspection-workflow";
 import type { VeritasMessage, VeritasSource } from "../../shared/veritas-ai";
+import {
+  SatelliteChoiceList,
+  SatelliteVerdictCard,
+  type SatelliteCardData,
+  type SatelliteChoice,
+} from "./SatelliteVerdictCard";
+
+// The Project Map records the pin whose popup is open, so "verify this project"
+// in chat can mean the site the person is looking at.
+function openMapProjectId(): string | undefined {
+  const value = (window as unknown as { __veritasMapSelectedProjectId?: unknown }).__veritasMapSelectedProjectId;
+  return typeof value === "string" && value ? value : undefined;
+}
 
 type DisplayMessage = VeritasMessage & {
   id: string;
   sources?: VeritasSource[];
+  satellite?: SatelliteCardData;
+  choices?: SatelliteChoice[];
 };
 
 const welcome: DisplayMessage = {
@@ -362,7 +377,7 @@ export default function VeritasAssistant() {
     if (open) window.setTimeout(() => inputRef.current?.focus(), 120);
   }, [open]);
 
-  const send = async (prompt = question) => {
+  const send = async (prompt = question, projectId?: string) => {
     const text = prompt.trim();
     if (!text || loading) return;
 
@@ -386,13 +401,17 @@ export default function VeritasAssistant() {
           messages: next
             .filter((message) => message.id !== "welcome")
             .slice(-6)
-            .map(({ role, content }) => ({ role, content }))
+            .map(({ role, content }) => ({ role, content })),
+          ...(projectId ? { projectId } : {}),
+          ...(openMapProjectId() ? { mapProjectId: openMapProjectId() } : {}),
         }),
       });
 
       const payload = (await response.json().catch(() => ({}))) as {
         answer?: string;
         sources?: VeritasSource[];
+        satellite?: SatelliteCardData;
+        choices?: SatelliteChoice[];
         error?: string;
       };
 
@@ -407,6 +426,8 @@ export default function VeritasAssistant() {
           role: "assistant",
           content: payload.answer!,
           sources: payload.sources,
+          satellite: payload.satellite,
+          choices: payload.choices,
         },
       ]);
     } catch (error) {
@@ -425,6 +446,15 @@ export default function VeritasAssistant() {
       setLoading(false);
       window.setTimeout(() => inputRef.current?.focus(), 80);
     }
+  };
+
+  // A tapped candidate retires its picker so it cannot be replayed against a
+  // different project, then re-asks with the chosen id as an explicit hint.
+  const chooseProject = (messageId: string, choice: SatelliteChoice) => {
+    setMessages((current) =>
+      current.map((message) => (message.id === messageId ? { ...message, choices: undefined } : message)),
+    );
+    void send(`Verify ${choice.name} by satellite imagery.`, choice.id);
   };
 
   return (
@@ -503,7 +533,18 @@ export default function VeritasAssistant() {
                         Veritas analysis
                       </div>
                     )}
-                    <p className="whitespace-pre-wrap">{message.content}</p>
+                    {message.satellite ? (
+                      <SatelliteVerdictCard data={message.satellite} />
+                    ) : (
+                      <p className="whitespace-pre-wrap">{message.content}</p>
+                    )}
+                    {message.choices?.length ? (
+                      <SatelliteChoiceList
+                        choices={message.choices}
+                        disabled={loading}
+                        onChoose={(choice) => chooseProject(message.id, choice)}
+                      />
+                    ) : null}
                     {message.sources?.length ? (
                       <div className="mt-3 border-t border-slate-100 pt-2">
                         <p className="text-[8px] font-bold uppercase tracking-wide text-slate-400">

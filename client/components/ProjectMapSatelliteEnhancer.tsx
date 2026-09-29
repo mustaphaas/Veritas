@@ -1,3 +1,4 @@
+import { presentVerdict } from "../lib/satellite-verdict-presentation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Layers3, Map as MapIcon, Satellite } from "lucide-react";
@@ -59,6 +60,7 @@ declare global {
   interface Window {
     L?: LeafletApi;
     __veritasLeafletPromise?: Promise<LeafletApi>;
+    __veritasMapSelectedProjectId?: string;
   }
 }
 
@@ -130,18 +132,6 @@ function extractNigeriaRings(data: any) {
   });
 }
 
-const VERDICT_LABEL: Record<SatelliteVerificationVerdict["status"], string> = {
-  present: "Infrastructure detected",
-  absent: "Not detected",
-  inconclusive: "Inconclusive",
-};
-
-const VERDICT_COLOR: Record<SatelliteVerificationVerdict["status"], string> = {
-  present: "#159254",
-  absent: "#c0392b",
-  inconclusive: "#b8860b",
-};
-
 // The project id lives on the enclosing slot (data-satellite-verify-slot),
 // not on the button itself, so swapping the slot's innerHTML between the
 // "verify" button, a loading state, and the verdict never loses track of
@@ -154,17 +144,26 @@ function verifyButtonHtml() {
 }
 
 function verdictHtml(verdict: SatelliteVerificationVerdict) {
-  const confidence = typeof verdict.confidence === "number" ? `${Math.round(verdict.confidence * 100)}%` : "n/a";
-  const houses = typeof verdict.estimatedNearbyHouses === "number" ? verdict.estimatedNearbyHouses : "n/a";
-  const color = VERDICT_COLOR[verdict.status] ?? "#64748b";
+  const confidence = typeof verdict.confidence === "number" ? `confidence ${Math.round(verdict.confidence * 100)}%` : null;
+  const houses = typeof verdict.estimatedNearbyHouses === "number" ? `~${verdict.estimatedNearbyHouses} rooftops in frame` : null;
+  const { label, color } = presentVerdict(verdict);
+  const figures = [confidence, houses].filter(Boolean).join(" · ");
   const qualityNote =
     verdict.imageQuality !== "clear"
       ? `<div style="margin-top:3px;color:#b8860b">Imagery quality: ${escapeHtml(verdict.imageQuality)} — treat this read with extra caution.</div>`
       : "";
+  const limitation = verdict.limitation?.message
+    ? `<div style="margin-top:3px;color:#475569">${escapeHtml(verdict.limitation.message)}</div>`
+    : "";
+  const houseNote = verdict.houseEstimateNote
+    ? `<div style="margin-top:3px;color:#64748b">${escapeHtml(verdict.houseEstimateNote)}</div>`
+    : "";
   return `<div style="font-size:10px;line-height:1.5">
-    <span style="display:inline-block;padding:1px 6px;border-radius:3px;color:#fff;font-weight:700;background:${color}">${escapeHtml(VERDICT_LABEL[verdict.status] ?? verdict.status)}</span>
-    <span style="color:#64748b"> · confidence ${confidence} · ~${escapeHtml(String(houses))} houses nearby</span>
+    <span style="display:inline-block;padding:1px 6px;border-radius:3px;color:#fff;font-weight:700;background:${color}">${escapeHtml(label)}</span>
+    ${figures ? `<span style="color:#64748b"> · ${escapeHtml(figures)}</span>` : ""}
+    ${limitation}
     ${verdict.notes ? `<div style="margin-top:3px;color:#475569">${escapeHtml(verdict.notes)}</div>` : ""}
+    ${houseNote}
     ${qualityNote}
     <button type="button" data-satellite-verify-btn style="margin-top:4px;font-size:9px;font-weight:700;color:#173b2a;background:none;border:1px solid #173b2a;border-radius:4px;padding:2px 6px;cursor:pointer">Re-check</button>
   </div>`;
@@ -211,6 +210,10 @@ function SatelliteCanvas({ projects, apiToken }: { projects: ReaMapProjectRecord
         // state, and the verdict (including its own "Re-check" button), so
         // a listener on the popup container (which persists across those
         // swaps) is what keeps clicks working after the first check.
+        map.on("popupclose", () => {
+          delete window.__veritasMapSelectedProjectId;
+        });
+
         map.on("popupopen", (event) => {
           const container = event.popup?.getElement();
           if (!container || container.dataset.veritasVerifyBound === "true") return;
@@ -276,7 +279,10 @@ function SatelliteCanvas({ projects, apiToken }: { projects: ReaMapProjectRecord
             .bindPopup(
               `<div style="min-width:200px;font-family:system-ui,sans-serif"><strong>${escapeHtml(project.name)}</strong><br/><span style="font-size:11px;color:#64748b">${escapeHtml(project.community || project.lga || project.state)}</span><br/><span style="font-size:11px;color:#08733f;font-weight:700">${escapeHtml(project.programme)} · ${escapeHtml(project.status)}</span><div data-satellite-verify-slot="${escapeHtml(project.id)}" style="margin-top:6px">${verifyButtonHtml()}</div></div>`,
             )
-            .on("click", () => map.setView([latitude, longitude], PROJECT_FOCUS_ZOOM))
+            .on("click", () => {
+              window.__veritasMapSelectedProjectId = project.id;
+              map.setView([latitude, longitude], PROJECT_FOCUS_ZOOM);
+            })
             .addTo(map);
         });
 
@@ -289,6 +295,7 @@ function SatelliteCanvas({ projects, apiToken }: { projects: ReaMapProjectRecord
 
     return () => {
       cancelled = true;
+      delete window.__veritasMapSelectedProjectId;
       mapRef.current?.remove();
       mapRef.current = null;
     };

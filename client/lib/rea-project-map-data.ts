@@ -69,6 +69,12 @@ export type SatelliteVerificationVerdict = {
   confidence: number | null;
   estimatedNearbyHouses: number | null;
   notes: string;
+  // Added by the backend evidence policy; absent on older cached responses.
+  evidenceClass?: "direct" | "limited" | "settlement_only";
+  evidenceLocation?: "at_project_point" | "elsewhere_in_frame" | "none" | null;
+  modelStatus?: "present" | "absent" | "inconclusive";
+  limitation?: { code: string; message: string } | null;
+  houseEstimateNote?: string | null;
 };
 
 export type SatelliteVerificationResult = {

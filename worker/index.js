@@ -1,7 +1,7 @@
 import { handleFieldApi } from "./field-api.js";
-import { analyticsCatalog, analyticsAnswerPrompt, deterministicAnalyticsPlan, executeAnalyticsPlan, parsePlannerJson, plannerPrompt, validateAnalyticsPlan } from "./analytics.js";
+import { analyticsCatalog, analyticsAnswerPrompt, deterministicAnalyticsPlan, executeAnalyticsPlan, formatAnalyticsAnswer, parsePlannerJson, plannerPrompt, validateAnalyticsPlan } from "./analytics.js";
 import { handleSatelliteVerify } from "./satellite-verify.js";
-import { isSatelliteAnalysisQuestion, runSatelliteAnalysis, satelliteAnalysisAnswer } from "./satellite-analysis.js";
+import { runSatelliteAnalysis, satelliteAnalysisAnswer, satelliteCardPayload, shouldRunSatelliteAnalysis } from "./satellite-analysis.js";
 
 const BUILD_ID = "veritas-2026-09-11-public-rea-team-r4";
 const encoder = new TextEncoder();
@@ -786,6 +786,7 @@ OPENING VOICE STANDARD:
 - Make the opening persuasive through evidence, not exaggeration. Pair the main conclusion with the most relevant figure or contrast when one is available.
 - The opening should feel human and executive-ready, not formulaic. Avoid announcing sections before giving the answer.
 - Never use confidence to overstate causation, policy, authority, or facts that the evidence does not establish.
+- Confidence belongs in the delivery, calibration in the claim: state what the evidence establishes plainly and without filler hedges, and say precisely what it does not establish instead of softening everything.
 
 The CURRENT VERITAS CONTEXT below is generated directly from the live Cloudflare D1 production database for this request and is authoritative for internal Veritas questions. Never substitute browser state or invent an internal figure. Authoritative aggregate summaries and multidimensional production analytics cover the full live dataset even when the project list is sampled. For counts, totals, percentages, rankings, and comparisons, use the exact full-database aggregates whenever available. For questions that combine multiple dimensions such as component, state, and programme, use the authoritative full-database aggregate results rather than the sampled project list. Never estimate or extrapolate a portfolio-wide figure from the sampled project list. If an exact aggregate is unavailable, say so rather than estimating from the sample.
 
@@ -806,6 +807,7 @@ EVIDENCE AND CAUSALITY RULES:
 - Do not assume that zero visible evidence records means evidence does not exist elsewhere or that submission is impossible. Say that no evidence records are visible in the available Veritas dataset and recommend checking field activity, evidence capture, sync or recording status as appropriate.
 - When the evidence supports concern but not causation, use disciplined wording such as "may indicate", "creates a management risk", "warrants review", or "the available data does not establish the cause".
 - Recommendations must follow from confirmed findings and should avoid asserting authority, feasibility, resource availability or mandatory workflow conditions that are not explicitly present in the context.
+- Never state that something is or is not visible in satellite imagery unless a Veritas satellite analysis result earlier in the conversation says so. A satellite verdict covers only the claimed component's signature at the project point and a rooftop estimate; what it does not mention has not been checked, so say it was not assessed rather than that it is absent.
 
 NUMERIC POLICY AND RECOMMENDATION RULES:
 - Never invent a target, threshold, deadline, SLA, cutoff, quota, percentage, time window, minimum evidence count, workload share, or escalation interval.
@@ -1111,11 +1113,7 @@ async function analyticsPlannerResponse(question, env) {
 }
 
 function deterministicAnalyticsAnswer(result) {
-  const rows = Array.isArray(result?.rows) ? result.rows : [];
-  if (!rows.length) return "No matching records were found in the current Veritas production database.";
-  const lines = rows.map((row) => Object.entries(row).map(([key, value]) => `${key}: ${value ?? "—"}`).join(" | "));
-  const limitNote = result.truncated ? "\n\nThe result reached the configured row limit, so it may not include every matching group." : "";
-  return `Authoritative Veritas production database result (${rows.length} row${rows.length === 1 ? "" : "s"}):\n\n${lines.join("\n")}${limitNote}`;
+  return formatAnalyticsAnswer(result);
 }
 
 async function veritasResponse(request, env) {
@@ -1136,9 +1134,25 @@ async function veritasResponse(request, env) {
   // Satellite questions must be routed to the geospatial/vision pipeline before
   // generic D1 analytics or portfolio-context generation. Otherwise the generic
   // path can incorrectly report that GPS/imagery data is unavailable.
-  if (isSatelliteAnalysisQuestion(question)) {
+  // A picker choice arrives as body.projectId; the open Project Map pin as
+  // body.mapProjectId. A picker choice is itself the request, so it does not
+  // need satellite wording in the message to reach this pipeline.
+  const satelliteHints = {
+    projectId: typeof body?.projectId === "string" ? body.projectId : "",
+    mapProjectId: typeof body?.mapProjectId === "string" ? body.mapProjectId : "",
+  };
+  if (await shouldRunSatelliteAnalysis(env, question, satelliteHints)) {
     try {
-      const satelliteResult = await runSatelliteAnalysis(request, env, question);
+      const satelliteResult = await runSatelliteAnalysis(request, env, question, satelliteHints);
+      if (satelliteResult?.kind === "choose" || satelliteResult?.kind === "none") {
+        return json({
+          answer: satelliteResult.reason,
+          sources: [],
+          ...(satelliteResult.kind === "choose" ? { choices: satelliteResult.candidates } : {}),
+          mode: satelliteResult.kind === "choose" ? "veritas-satellite-select" : "veritas-satellite-clarify",
+          build: BUILD_ID,
+        });
+      }
       if (!satelliteResult?.ok) {
         return json({
           answer: satelliteResult?.reason || "Satellite analysis could not be completed.",
@@ -1149,6 +1163,7 @@ async function veritasResponse(request, env) {
       }
       return json({
         answer: satelliteAnalysisAnswer(satelliteResult),
+        satellite: satelliteCardPayload(satelliteResult),
         sources: [],
         mode: "veritas-satellite-analysis",
         build: BUILD_ID,
