@@ -4,9 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       limit:
-        description: "Optional number of projects to process (0 = all)"
+        description: "Number of projects to process in this run (0 = all)"
         required: false
-        default: "0"
+        default: "5"
+      project_id:
+        description: "Optional exact project ID to process immediately"
+        required: false
+        default: ""
       force_all:
         description: "Reprocess all eligible projects instead of only missing/stale results"
         required: false
@@ -27,7 +31,7 @@ permissions:
 
 concurrency:
   group: viirs-nightlight-impact
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   refresh:
@@ -65,11 +69,32 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           FORCE_ALL: ${{ github.event.inputs.force_all || 'false' }}
+          PROJECT_ID: ${{ github.event.inputs.project_id || '' }}
+          REQUESTED_LIMIT: ${{ github.event.inputs.limit || '' }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
-          if [ "$FORCE_ALL" = "true" ]; then
-            SQL="SELECT p.id,p.latitude,p.longitude,p.commissioned_at AS commissionedAt,'field completion date' AS dateBasis FROM projects p WHERE p.commissioned_at IS NOT NULL AND p.latitude IS NOT NULL AND p.longitude IS NOT NULL ORDER BY p.id"
+          if [ -n "$PROJECT_ID" ]; then
+            SAFE_PROJECT_ID=${PROJECT_ID//\'/\'\'}
+            SQL="SELECT p.id,p.latitude,p.longitude,p.commissioned_at AS commissionedAt,'field completion date' AS dateBasis FROM projects p WHERE p.id='$SAFE_PROJECT_ID' AND p.commissioned_at IS NOT NULL AND p.latitude IS NOT NULL AND p.longitude IS NOT NULL LIMIT 1"
           else
-            SQL="SELECT p.id,p.latitude,p.longitude,p.commissioned_at AS commissionedAt,'field completion date' AS dateBasis FROM projects p LEFT JOIN project_nightlight_impacts n ON n.project_id=p.id WHERE p.commissioned_at IS NOT NULL AND p.latitude IS NOT NULL AND p.longitude IS NOT NULL AND (n.project_id IS NULL OR (n.data_quality IN ('limited','moderate') AND datetime(n.checked_at) <= datetime('now','-30 days'))) ORDER BY p.id"
+            if [ "$EVENT_NAME" = "push" ]; then
+              BATCH_LIMIT=1
+            elif [ -n "$REQUESTED_LIMIT" ]; then
+              BATCH_LIMIT="$REQUESTED_LIMIT"
+            else
+              BATCH_LIMIT=5
+            fi
+
+            LIMIT_SQL=""
+            if [ "$BATCH_LIMIT" != "0" ]; then
+              LIMIT_SQL=" LIMIT $BATCH_LIMIT"
+            fi
+
+            if [ "$FORCE_ALL" = "true" ]; then
+              SQL="SELECT p.id,p.latitude,p.longitude,p.commissioned_at AS commissionedAt,'field completion date' AS dateBasis FROM projects p WHERE p.commissioned_at IS NOT NULL AND p.latitude IS NOT NULL AND p.longitude IS NOT NULL ORDER BY datetime(COALESCE(p.updated_at,p.created_at)) DESC,p.id$LIMIT_SQL"
+            else
+              SQL="SELECT p.id,p.latitude,p.longitude,p.commissioned_at AS commissionedAt,'field completion date' AS dateBasis FROM projects p LEFT JOIN project_nightlight_impacts n ON n.project_id=p.id WHERE p.commissioned_at IS NOT NULL AND p.latitude IS NOT NULL AND p.longitude IS NOT NULL AND (n.project_id IS NULL OR (n.data_quality IN ('limited','moderate') AND datetime(n.checked_at) <= datetime('now','-30 days'))) ORDER BY CASE WHEN n.project_id IS NULL THEN 0 ELSE 1 END,datetime(COALESCE(p.updated_at,p.created_at)) DESC,p.id$LIMIT_SQL"
+            fi
           fi
 
           npx wrangler@latest d1 execute veritas-production --remote --config wrangler.jsonc --json \
@@ -83,7 +108,7 @@ jobs:
             --projects-json /tmp/viirs-projects.json \
             --output-sql /tmp/viirs-impact.sql \
             --cache-dir /tmp/viirs-cache \
-            --limit "${{ github.event.inputs.limit || '0' }}"
+            --limit "0"
 
       - name: Write VIIRS impact results to production D1
         env:
