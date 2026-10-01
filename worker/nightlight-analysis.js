@@ -69,6 +69,7 @@ function normaliseImpactRow(row) {
     commissioningDate: row.commissioningDate,
     dateBasis: row.dateBasis,
     radiusMetres: Number(row.radiusMetres || 0),
+    coreRadiusMetres: Number(row.coreRadiusMetres || 1000),
     controlInnerMetres: Number(row.controlInnerMetres || 0),
     controlOuterMetres: Number(row.controlOuterMetres || 0),
     beforeStart: row.beforeStart || null,
@@ -79,6 +80,15 @@ function normaliseImpactRow(row) {
     afterRadiance: row.afterRadiance == null ? null : Number(row.afterRadiance),
     radianceDelta: row.radianceDelta == null ? null : Number(row.radianceDelta),
     percentChange: row.percentChange == null ? null : Number(row.percentChange),
+    coreBaselineRadiance: row.coreBaselineRadiance == null ? null : Number(row.coreBaselineRadiance),
+    coreAfterRadiance: row.coreAfterRadiance == null ? null : Number(row.coreAfterRadiance),
+    coreRadianceDelta: row.coreRadianceDelta == null ? null : Number(row.coreRadianceDelta),
+    corePercentChange: row.corePercentChange == null ? null : Number(row.corePercentChange),
+    coreMeanBaselineRadiance: row.coreMeanBaselineRadiance == null ? null : Number(row.coreMeanBaselineRadiance),
+    coreMeanAfterRadiance: row.coreMeanAfterRadiance == null ? null : Number(row.coreMeanAfterRadiance),
+    coreP90BaselineRadiance: row.coreP90BaselineRadiance == null ? null : Number(row.coreP90BaselineRadiance),
+    coreP90AfterRadiance: row.coreP90AfterRadiance == null ? null : Number(row.coreP90AfterRadiance),
+    coreP90PercentChange: row.coreP90PercentChange == null ? null : Number(row.coreP90PercentChange),
     controlBaselineRadiance: row.controlBaselineRadiance == null ? null : Number(row.controlBaselineRadiance),
     controlAfterRadiance: row.controlAfterRadiance == null ? null : Number(row.controlAfterRadiance),
     controlPercentChange: row.controlPercentChange == null ? null : Number(row.controlPercentChange),
@@ -88,6 +98,8 @@ function normaliseImpactRow(row) {
     monthsAfter: Number(row.monthsAfter || 0),
     impactClass: row.impactClass || "insufficient_data",
     dataQuality: row.dataQuality || "insufficient",
+    detectionMetric: row.detectionMetric || "",
+    detectionReason: row.detectionReason || "",
     series: parseJson(row.seriesJson, []),
     beforeGrid: parseJson(row.beforeGridJson, null),
     afterGrid: parseJson(row.afterGridJson, null),
@@ -106,6 +118,7 @@ async function loadNightLightImpact(env, projectId) {
        commissioning_date AS commissioningDate,
        date_basis AS dateBasis,
        radius_metres AS radiusMetres,
+       core_radius_metres AS coreRadiusMetres,
        control_inner_metres AS controlInnerMetres,
        control_outer_metres AS controlOuterMetres,
        before_start AS beforeStart,
@@ -116,6 +129,15 @@ async function loadNightLightImpact(env, projectId) {
        after_radiance AS afterRadiance,
        radiance_delta AS radianceDelta,
        percent_change AS percentChange,
+       core_baseline_radiance AS coreBaselineRadiance,
+       core_after_radiance AS coreAfterRadiance,
+       core_radiance_delta AS coreRadianceDelta,
+       core_percent_change AS corePercentChange,
+       core_mean_baseline_radiance AS coreMeanBaselineRadiance,
+       core_mean_after_radiance AS coreMeanAfterRadiance,
+       core_p90_baseline_radiance AS coreP90BaselineRadiance,
+       core_p90_after_radiance AS coreP90AfterRadiance,
+       core_p90_percent_change AS coreP90PercentChange,
        control_baseline_radiance AS controlBaselineRadiance,
        control_after_radiance AS controlAfterRadiance,
        control_percent_change AS controlPercentChange,
@@ -124,6 +146,8 @@ async function loadNightLightImpact(env, projectId) {
        months_after AS monthsAfter,
        impact_class AS impactClass,
        data_quality AS dataQuality,
+       detection_metric AS detectionMetric,
+       detection_reason AS detectionReason,
        series_json AS seriesJson,
        before_grid_json AS beforeGridJson,
        after_grid_json AS afterGridJson,
@@ -380,7 +404,7 @@ function classLabel(value) {
   if (value === "moderate_increase") return "Moderate increase";
   if (value === "decrease") return "Decrease";
   if (value === "no_clear_change") return "No clear change";
-  return "Insufficient data";
+  return "Inconclusive";
 }
 
 export function nightLightImpactAnswer(result) {
@@ -395,8 +419,9 @@ export function nightLightImpactAnswer(result) {
   return [
     `**${project.name}: ${classLabel(impact.impactClass)} in night-time light**`,
     "",
-    `NASA VIIRS Black Marble monthly radiance within ${impact.radiusMetres.toLocaleString()} m of the stored project point changed from ${fmt(impact.baselineRadiance)} to ${fmt(impact.afterRadiance)} nW/cm²/sr across the before/after windows (${pct}).`,
-    `The comparison area changed by ${control} over the same periods. Veritas used ${impact.monthsBefore} valid pre-project months and ${impact.monthsAfter} valid post-project months; data quality is ${impact.dataQuality}.`,
+    `NASA VIIRS Black Marble was analysed using a ${impact.coreRadiusMetres.toLocaleString()} m project core plus the wider ${impact.radiusMetres.toLocaleString()} m context area. The core 90th-percentile radiance changed from ${fmt(impact.coreP90BaselineRadiance, 4)} to ${fmt(impact.coreP90AfterRadiance, 4)} nW/cm²/sr${typeof impact.coreP90PercentChange === "number" ? ` (${impact.coreP90PercentChange >= 0 ? "+" : ""}${impact.coreP90PercentChange.toFixed(1)}%)` : ""}.`,
+    `The 2 km median changed from ${fmt(impact.baselineRadiance, 4)} to ${fmt(impact.afterRadiance, 4)} nW/cm²/sr (${pct}); the comparison area changed by ${control}. Veritas used ${impact.monthsBefore} valid pre-project months and ${impact.monthsAfter} valid post-project months; data quality is ${impact.dataQuality}.`,
+    impact.detectionReason ? `Detection basis: ${impact.detectionReason}` : "",
     "",
     `Commissioning/completion reference: ${impact.commissioningDate} (${impact.dateBasis}). Source: ${impact.sourceName} ${impact.sourceProduct}.`,
     "",
