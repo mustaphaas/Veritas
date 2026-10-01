@@ -346,13 +346,12 @@ def emit_sql(results, output: Path):
         "data_quality","series_json","before_grid_json","after_grid_json","source_product",
         "source_name","source_url","analysis_method","checked_at"
     ]
-    lines = ["BEGIN;"]
+    lines = []
     for result in results:
         values = ",".join(sql_value(result.get(col)) for col in columns)
         lines.append(
             f"INSERT OR REPLACE INTO project_nightlight_impacts ({','.join(columns)}) VALUES ({values});"
         )
-    lines.append("COMMIT;")
     output.write_text("\n".join(lines) + "\n")
 
 
