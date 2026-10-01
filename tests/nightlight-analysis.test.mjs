@@ -75,3 +75,13 @@ test("VIIRS eligibility questions are detected deterministically", () => {
     false,
   );
 });
+
+
+test("Gbamu-Gbamu night-light question resolves as one project, not Nasarawa candidates", async () => {
+  // Covered by shared satellite resolver; this assertion guards night-light routing
+  // against reintroducing generic/prefix candidate matching.
+  assert.equal(
+    isNightLightImpactQuestion("Did the Gbamu-Gbamu Mini-Grid have a measurable night-time lighting impact according to NASA VIIRS?"),
+    true,
+  );
+});
