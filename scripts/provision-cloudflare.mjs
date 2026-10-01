@@ -30,7 +30,10 @@ const config = {
   compatibility_date: "2026-08-22",
   keep_vars: true,
   build: { command: "npm run build:client" },
-  vars: { GEMINI_MODEL: "gemini-3.6-flash" },
+  vars: {
+    GEMINI_MODEL: "gemini-3.7-flash",
+    GEMINI_MODEL_FALLBACKS: "gemini-3.6-flash,gemini-3.5-flash",
+  },
   assets: { directory: "./dist/spa", binding: "ASSETS", not_found_handling: "single-page-application", run_worker_first: true },
   d1_databases: [{ binding: "DB", database_name: databaseName, database_id: database.uuid ?? database.id, migrations_dir: "migrations" }],
   ...(evidenceStorageEnabled ? { r2_buckets: [{ binding: "EVIDENCE", bucket_name: bucketName }] } : {}),
