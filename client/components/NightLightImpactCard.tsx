@@ -37,8 +37,12 @@ function impactLabel(value: NightLightImpact["impactClass"]) {
 
 export function NightLightImpactCard({ data }: { data: NightLightCardData }) {
   const { project, impact } = data;
-  const hasMeasuredChange = typeof impact.percentChange === "number" && Number.isFinite(impact.percentChange);
-  const increased = hasMeasuredChange && impact.percentChange > 0;
+  const primaryPercentChange =
+    typeof impact.coreP90PercentChange === "number" && Number.isFinite(impact.coreP90PercentChange)
+      ? impact.coreP90PercentChange
+      : impact.percentChange;
+  const hasMeasuredChange = typeof primaryPercentChange === "number" && Number.isFinite(primaryPercentChange);
+  const increased = hasMeasuredChange && primaryPercentChange > 0;
   const TrendIcon = hasMeasuredChange ? (increased ? TrendingUp : TrendingDown) : MoonStar;
   const place = [project.community, project.lga, project.state].filter(Boolean).join(", ");
   return (
@@ -58,14 +62,14 @@ export function NightLightImpactCard({ data }: { data: NightLightCardData }) {
 
         <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
           <div className="rounded-lg bg-slate-50 p-2.5">
-            <p className="text-[8px] font-bold uppercase tracking-wide text-slate-400">Before</p>
-            <p className="mt-1 text-lg font-black text-slate-800">{fmtRadiance(impact.baselineRadiance)}</p>
+            <p className="text-[8px] font-bold uppercase tracking-wide text-slate-400">Before · 1 km core P90</p>
+            <p className="mt-1 text-lg font-black text-slate-800">{fmtRadiance(impact.coreP90BaselineRadiance)}</p>
             <p className="text-[8px] text-slate-500">nW/cm²/sr</p>
           </div>
           <TrendIcon className={`h-4 w-4 ${!hasMeasuredChange ? "text-slate-400" : increased ? "text-emerald-600" : "text-rose-600"}`} />
           <div className="rounded-lg bg-indigo-50 p-2.5">
-            <p className="text-[8px] font-bold uppercase tracking-wide text-indigo-400">After</p>
-            <p className="mt-1 text-lg font-black text-indigo-950">{fmtRadiance(impact.afterRadiance)}</p>
+            <p className="text-[8px] font-bold uppercase tracking-wide text-indigo-400">After · 1 km core P90</p>
+            <p className="mt-1 text-lg font-black text-indigo-950">{fmtRadiance(impact.coreP90AfterRadiance)}</p>
             <p className="text-[8px] text-indigo-500">nW/cm²/sr</p>
           </div>
         </div>
@@ -73,9 +77,15 @@ export function NightLightImpactCard({ data }: { data: NightLightCardData }) {
         <div className="mt-2 flex items-center justify-between rounded-lg border border-slate-100 px-2.5 py-2">
           <span className="text-[9px] font-semibold text-slate-500">Observed change</span>
           <strong className={`text-[11px] ${!hasMeasuredChange ? "text-slate-600" : increased ? "text-emerald-700" : "text-rose-700"}`}>
-            {pct(impact.percentChange)} · {impactLabel(impact.impactClass)}
+            {pct(primaryPercentChange)} · {impactLabel(impact.impactClass)}
           </strong>
         </div>
+
+        {impact.detectionReason && (
+          <div className="mt-2 rounded-lg bg-slate-50 px-2.5 py-2 text-[9px] leading-4 text-slate-600">
+            {impact.detectionReason}
+          </div>
+        )}
 
         <div className="mt-2 grid grid-cols-2 gap-2 text-[9px]">
           <div className="rounded-lg border border-slate-100 p-2">
