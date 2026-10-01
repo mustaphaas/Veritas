@@ -64,8 +64,11 @@ jobs:
       - name: Remove Project Map summary badges
         run: node scripts/patch-project-map-summary-badges.mjs
 
-      - name: Validate restored satellite click zoom
-        run: npx vitest run client/components/ProjectMapSatelliteEnhancer.spec.ts
+      - name: Validate satellite map, cache and provider state
+        run: |
+          npx vitest run client/components/ProjectMapSatelliteEnhancer.spec.ts
+          node --test tests/project-map-satellite-shared-state.test.mjs tests/satellite-cache-provenance.test.mjs
+
       - name: Validate satellite analysis pipeline
         run: |
           node --check worker/satellite-analysis.js
@@ -88,6 +91,8 @@ jobs:
 
       - name: Build client
         run: npm run build:client
+        env:
+          VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
 
       - name: Provision D1 and optional R2 bindings
         run: node scripts/provision-cloudflare.mjs
