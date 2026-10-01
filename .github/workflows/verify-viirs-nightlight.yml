@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'worker/nightlight-analysis.js'
+      - 'worker/satellite-verify.js'
       - 'worker/analytics.js'
       - 'worker/index.js'
       - 'client/components/NightLightImpactCard.tsx'
@@ -13,8 +14,10 @@ on:
       - 'client/components/VeritasAssistant.tsx'
       - 'client/lib/rea-project-map-data.ts'
       - 'migrations/0010_viirs_nightlight_impact.sql'
+      - 'migrations/0015_satellite_verification_history.sql'
       - 'scripts/ingest-viirs-nightlights.py'
       - 'tests/nightlight-analysis.test.mjs'
+      - 'tests/satellite-verification-history.test.mjs'
       - '.github/workflows/refresh-viirs-nightlight.yml'
       - '.github/workflows/verify-viirs-nightlight.yml'
   workflow_dispatch:
@@ -38,10 +41,11 @@ jobs:
       - name: Validate worker syntax
         run: |
           node --check worker/nightlight-analysis.js
+          node --check worker/satellite-verify.js
           node --check worker/index.js
           node --check worker/analytics.js
       - name: Run VIIRS and satellite routing tests
-        run: node --test tests/nightlight-analysis.test.mjs tests/satellite-analysis.test.mjs tests/satellite-project-resolution.test.mjs
+        run: node --test tests/nightlight-analysis.test.mjs tests/satellite-analysis.test.mjs tests/satellite-project-resolution.test.mjs tests/satellite-verification-history.test.mjs
       - name: Validate ingestion script
         run: python -m py_compile scripts/ingest-viirs-nightlights.py
       # Full-repository tsc currently fails on three pre-existing main-branch

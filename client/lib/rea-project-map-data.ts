@@ -126,6 +126,64 @@ export async function verifyProjectSatelliteImagery(
   return satelliteVerificationRequest(projectId, apiToken, "POST");
 }
 
+export type SatelliteVerificationHistoryEntry = {
+  id: string;
+  projectId: string;
+  actorId?: string | null;
+  actorRole?: string | null;
+  actorConsultantFirm?: string | null;
+  runStatus: string;
+  verdictStatus: "present" | "absent" | "inconclusive" | string;
+  modelStatus?: "present" | "absent" | "inconclusive" | string | null;
+  imageQuality?: "clear" | "degraded" | "unusable" | string | null;
+  confidence?: number | null;
+  estimatedNearbyHouses?: number | null;
+  notes?: string | null;
+  evidenceClass?: string | null;
+  evidenceLocation?: string | null;
+  signatureStrength?: string | null;
+  limitationCode?: string | null;
+  limitationMessage?: string | null;
+  houseEstimateNote?: string | null;
+  imagerySource?: string | null;
+  imageryDate?: string | null;
+  radiusMetres?: number | null;
+  analysisMethod?: string | null;
+  analysisVersion?: string | null;
+  imageUrl?: string | null;
+  checkedAt: string;
+};
+
+export type SatelliteVerificationHistoryResult = {
+  project: {
+    id: string;
+    name: string;
+    state: string;
+    lga: string;
+    community: string;
+    programme: string;
+    component: string;
+  };
+  history: SatelliteVerificationHistoryEntry[];
+};
+
+export async function fetchProjectSatelliteVerificationHistory(
+  projectId: string,
+  apiToken: string,
+  limit = 50,
+): Promise<SatelliteVerificationHistoryResult> {
+  const safeLimit = Math.max(1, Math.min(Math.trunc(limit) || 50, 100));
+  const response = await fetch(
+    `/api/projects/${encodeURIComponent(projectId)}/satellite-verification-history?limit=${safeLimit}`,
+    { headers: { Authorization: `Bearer ${apiToken}` } },
+  );
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload?.error || "Unable to load satellite verification history.");
+  }
+  return payload as SatelliteVerificationHistoryResult;
+}
+
 
 export type NightLightImpact = {
   projectId: string;

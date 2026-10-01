@@ -395,6 +395,81 @@ export function parseVerdict(text) {
   }
 }
 
+
+const HISTORY_ROUTE_PATTERN = /^\/api\/projects\/([^/]+)\/satellite-verification-history$/;
+
+export async function handleSatelliteVerificationHistory(request, env) {
+  const url = new URL(request.url);
+  const match = url.pathname.match(HISTORY_ROUTE_PATTERN);
+  if (!match) return null;
+  if (request.method !== "GET") return response({ error: "Method not allowed." }, 405);
+
+  const user = await currentUser(request, env);
+  if (!user) return response({ error: "Authentication required." }, 401);
+  if (user.role !== "rea_admin" && user.role !== "consultant_admin") {
+    return response({ error: "REA or consultant access required." }, 403);
+  }
+
+  const projectId = decodeURIComponent(match[1]);
+  const project = await env.DB.prepare(
+    `SELECT id,name,consultant_firm AS consultantFirm,state,lga,community,programme,component
+     FROM projects WHERE id=?`,
+  ).bind(projectId).first();
+
+  if (!project) return response({ error: "Project not found." }, 404);
+  if (user.role === "consultant_admin" && project.consultantFirm !== user.consultantFirm) {
+    return response({ error: "Project is outside your consultant firm." }, 403);
+  }
+
+  const requestedLimit = Number(url.searchParams.get("limit") || 50);
+  const limit = Math.max(1, Math.min(Number.isFinite(requestedLimit) ? Math.trunc(requestedLimit) : 50, 100));
+  const result = await env.DB.prepare(
+    `SELECT
+       id,
+       project_id AS projectId,
+       actor_id AS actorId,
+       actor_role AS actorRole,
+       actor_consultant_firm AS actorConsultantFirm,
+       run_status AS runStatus,
+       verdict_status AS verdictStatus,
+       model_status AS modelStatus,
+       image_quality AS imageQuality,
+       confidence,
+       estimated_nearby_houses AS estimatedNearbyHouses,
+       notes,
+       evidence_class AS evidenceClass,
+       evidence_location AS evidenceLocation,
+       signature_strength AS signatureStrength,
+       limitation_code AS limitationCode,
+       limitation_message AS limitationMessage,
+       house_estimate_note AS houseEstimateNote,
+       imagery_source AS imagerySource,
+       imagery_date AS imageryDate,
+       radius_metres AS radiusMetres,
+       analysis_method AS analysisMethod,
+       analysis_version AS analysisVersion,
+       image_url AS imageUrl,
+       checked_at AS checkedAt
+     FROM satellite_verification_history
+     WHERE project_id=?
+     ORDER BY checked_at DESC
+     LIMIT ?`,
+  ).bind(projectId, limit).all();
+
+  return response({
+    project: {
+      id: project.id,
+      name: project.name,
+      state: project.state || "",
+      lga: project.lga || "",
+      community: project.community || "",
+      programme: project.programme || "",
+      component: project.component || "",
+    },
+    history: result?.results || [],
+  });
+}
+
 const ROUTE_PATTERN = /^\/api\/projects\/([^/]+)\/satellite-verify$/;
 
 export async function handleSatelliteVerify(request, env) {
@@ -531,15 +606,16 @@ export async function handleSatelliteVerify(request, env) {
     : "Esri World Imagery (World_Imagery/MapServer export)";
   const imageryDate = metadata.imageryDate || null;
   const analysisMethod = `gemini-vision:${geminiResult.model}`;
-  await env.DB.prepare(
-    `UPDATE projects SET
-       satellite_verification_status=?, satellite_image_quality=?, satellite_verification_confidence=?,
-       satellite_house_estimate=?, satellite_verification_notes=?, satellite_verification_checked_at=?,
-       satellite_imagery_source=?, satellite_imagery_date=?, satellite_analysis_radius_metres=?,
-       satellite_analysis_method=?, satellite_analysis_image_url=?, satellite_analysis_version=?
-     WHERE id=?`,
-  )
-    .bind(
+  const historyId = crypto.randomUUID();
+  await env.DB.batch([
+    env.DB.prepare(
+      `UPDATE projects SET
+         satellite_verification_status=?, satellite_image_quality=?, satellite_verification_confidence=?,
+         satellite_house_estimate=?, satellite_verification_notes=?, satellite_verification_checked_at=?,
+         satellite_imagery_source=?, satellite_imagery_date=?, satellite_analysis_radius_metres=?,
+         satellite_analysis_method=?, satellite_analysis_image_url=?, satellite_analysis_version=?
+       WHERE id=?`,
+    ).bind(
       verdict.status,
       verdict.imageQuality,
       verdict.confidence,
@@ -553,20 +629,53 @@ export async function handleSatelliteVerify(request, env) {
       imageUrl,
       SATELLITE_ANALYSIS_VERSION,
       projectId,
-    )
-    .run();
-
-  await env.DB.prepare(
-    `INSERT INTO audit_events(id,assignment_id,actor_id,action,details_json,ip_address,created_at)
-     VALUES(?,?,?,?,?,?,?)`,
-  )
-    .bind(
+    ),
+    env.DB.prepare(
+      `INSERT INTO satellite_verification_history(
+         id,project_id,actor_id,actor_role,actor_consultant_firm,run_status,
+         verdict_status,model_status,image_quality,confidence,estimated_nearby_houses,
+         notes,evidence_class,evidence_location,signature_strength,limitation_code,
+         limitation_message,house_estimate_note,imagery_source,imagery_date,radius_metres,
+         analysis_method,analysis_version,image_url,checked_at
+       ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    ).bind(
+      historyId,
+      projectId,
+      user.id,
+      user.role,
+      user.consultantFirm || null,
+      "completed",
+      verdict.status,
+      verdict.modelStatus || null,
+      verdict.imageQuality || null,
+      verdict.confidence,
+      verdict.estimatedNearbyHouses,
+      verdict.notes || "",
+      verdict.evidenceClass || null,
+      verdict.evidenceLocation || null,
+      verdict.signatureStrength || null,
+      verdict.limitation?.code || null,
+      verdict.limitation?.message || null,
+      verdict.houseEstimateNote || null,
+      imagerySource,
+      imageryDate,
+      radius,
+      analysisMethod,
+      SATELLITE_ANALYSIS_VERSION,
+      imageUrl,
+      checkedAt,
+    ),
+    env.DB.prepare(
+      `INSERT INTO audit_events(id,assignment_id,actor_id,action,details_json,ip_address,created_at)
+       VALUES(?,?,?,?,?,?,?)`,
+    ).bind(
       crypto.randomUUID(),
       null,
       user.id,
       "project-satellite-verified",
       JSON.stringify({
         projectId,
+        historyId,
         status: verdict.status,
         modelStatus: verdict.modelStatus,
         limitation: verdict.limitation?.code || null,
@@ -576,8 +685,8 @@ export async function handleSatelliteVerify(request, env) {
       }),
       request.headers.get("CF-Connecting-IP"),
       checkedAt,
-    )
-    .run();
+    ),
+  ]);
 
   return response({
     projectId,

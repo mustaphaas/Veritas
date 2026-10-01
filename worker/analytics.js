@@ -35,6 +35,35 @@ const DATASETS = {
       averageHouseholds: "AVG(COALESCE(p.households,0))",
     },
   },
+  satelliteVerifications: {
+    from: "satellite_verification_history h JOIN projects p ON p.id=h.project_id",
+    dimensions: {
+      projectId: "p.id",
+      projectName: "p.name",
+      state: "p.state",
+      lga: "p.lga",
+      community: "p.community",
+      programme: "p.programme",
+      component: "p.component",
+      consultantFirm: "p.consultant_firm",
+      verdictStatus: "COALESCE(h.verdict_status,'inconclusive')",
+      modelStatus: "COALESCE(h.model_status,'unknown')",
+      imageQuality: "COALESCE(h.image_quality,'unknown')",
+      evidenceLocation: "COALESCE(h.evidence_location,'unknown')",
+      runStatus: "h.run_status",
+      imageryDate: "COALESCE(h.imagery_date,'unknown')",
+      checkedAt: "h.checked_at",
+      actorRole: "COALESCE(h.actor_role,'unknown')",
+    },
+    measures: {
+      verificationCount: "COUNT(*)",
+      seenCount: "SUM(CASE WHEN h.verdict_status='present' THEN 1 ELSE 0 END)",
+      notSeenCount: "SUM(CASE WHEN h.verdict_status='absent' THEN 1 ELSE 0 END)",
+      inconclusiveCount: "SUM(CASE WHEN h.verdict_status='inconclusive' THEN 1 ELSE 0 END)",
+      averageConfidence: "AVG(h.confidence)",
+      projectsChecked: "COUNT(DISTINCT h.project_id)",
+    },
+  },
   assignments: {
     from: "assignments a JOIN projects p ON p.id=a.project_id JOIN users u ON u.id=a.officer_id",
     dimensions: {
@@ -124,7 +153,13 @@ export function validateAnalyticsPlan(raw) {
   const measures = Array.isArray(raw.measures)
     ? [...new Set(raw.measures.map((v) => cleanString(v, 40)).filter((v) => dataset.measures[v]))].slice(0, 6)
     : [];
-  if (!measures.length) measures.push(datasetName === "assignments" ? "assignmentCount" : datasetName === "consultants" ? "consultantCount" : datasetName === "users" ? "userCount" : "projectCount");
+  if (!measures.length) measures.push(
+    datasetName === "assignments" ? "assignmentCount"
+      : datasetName === "consultants" ? "consultantCount"
+      : datasetName === "users" ? "userCount"
+      : datasetName === "satelliteVerifications" ? "verificationCount"
+      : "projectCount"
+  );
 
   const filters = [];
   if (Array.isArray(raw.filters)) {
@@ -239,8 +274,7 @@ export async function executeAnalyticsPlan(env, plan) {
 }
 
 export function plannerPrompt(question, catalog) {
-  return `You are the Veritas analytics query planner. Convert the user's data question into ONE structured read-only analytics plan.\n\nYou are NOT allowed to write SQL. Use only this catalog:\n${JSON.stringify(catalog)}\n\nReturn JSON only with this shape:\n{\"mode\":\"analytics\",\"dataset\":\"projects\",\"dimensions\":[],\"measures\":[],\"filters\":[{\"field\":\"component\",\"op\":\"eq\",\"value\":\"Mini Grid\"}],\"orderBy\":[],\"limit\":100}\n\nRules:\n- Use mode \"analytics\" only for questions answerable from the catalog. Otherwise return {\"mode\":\"general\"}.\n- Never request personal contact information, credentials, secrets, precise coordinates, signatures, evidence contents, hashes, or tokens.\n- Prefer exact aggregates rather than record listings.\n- For \"by X\" questions put X in dimensions.\n- projectCount counts projects; assignmentCount counts assignments.\n- verified is a project dimension stored as 1 or 0.\n- Projects shown on the Project Map are those with coordinates: use the onMap dimension or the mappedProjects measure for questions about what is on the map. satelliteStatus is present, absent, inconclusive or not checked, and only reflects satellite checks that have actually been run.
-- nightLightImpact is strong_increase, moderate_increase, no_clear_change, decrease, insufficient_data or not analysed. Use the night-light measures for portfolio questions about NASA VIIRS/Black Marble impact; do not confuse these with physical satellite verification.\n- Use filters for named states, programmes, components, contractors, consultants, statuses, officers, or reporting periods.\n- If a question asks about multiple subject areas that cannot be represented faithfully in one dataset, choose the dataset that answers the primary requested comparison and do not imply the plan covers the other subject area.\n- limit must be 200 or less.\n\nUSER QUESTION:\n${question}`;
+  return `You are the Veritas analytics query planner. Convert the user's data question into ONE structured read-only analytics plan.\n\nYou are NOT allowed to write SQL. Use only this catalog:\n${JSON.stringify(catalog)}\n\nReturn JSON only with this shape:\n{\"mode\":\"analytics\",\"dataset\":\"projects\",\"dimensions\":[],\"measures\":[],\"filters\":[{\"field\":\"component\",\"op\":\"eq\",\"value\":\"Mini Grid\"}],\"orderBy\":[],\"limit\":100}\n\nRules:\n- Use mode \"analytics\" only for questions answerable from the catalog. Otherwise return {\"mode\":\"general\"}.\n- Never request personal contact information, credentials, secrets, precise coordinates, signatures, evidence contents, hashes, or tokens.\n- Prefer exact aggregates rather than record listings.\n- For \"by X\" questions put X in dimensions.\n- projectCount counts projects; assignmentCount counts assignments.\n- verified is a project dimension stored as 1 or 0.\n- Projects shown on the Project Map are those with coordinates: use the onMap dimension or the mappedProjects measure for questions about what is on the map. satelliteStatus is present, absent, inconclusive or not checked, and only reflects satellite checks that have actually been run.\n- nightLightImpact is strong_increase, moderate_increase, no_clear_change, decrease, insufficient_data or not analysed. Use the night-light measures for portfolio questions about NASA VIIRS/Black Marble impact; do not confuse these with physical satellite verification.\n- satelliteVerifications is the durable history of every completed satellite imagery check. Use it when the user asks about past checks, re-checks, previously seen/not seen/inconclusive infrastructure, changes over time, or verification history. verdictStatus is present, absent or inconclusive. projectName identifies the project and checkedAt is the verification time.\n- Use filters for named states, programmes, components, contractors, consultants, statuses, officers, or reporting periods.\n- If a question asks about multiple subject areas that cannot be represented faithfully in one dataset, choose the dataset that answers the primary requested comparison and do not imply the plan covers the other subject area.\n- limit must be 200 or less.\n\nUSER QUESTION:\n${question}`;
 }
 
 export function analyticsAnswerPrompt(question, result) {
