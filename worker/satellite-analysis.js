@@ -10,7 +10,7 @@ const SEARCH_STOPWORDS = new Set((
   "check verify verification analyse analyze analysis using with from the satellite imagery image images aerial " +
   "project projects location coordinates coordinate at whether appears appear look show me select selected a an " +
   "please can could you for of on in is are this that it its and houses house rooftops rooftop around near nearby " +
-  "surrounding count infrastructure visible there any do does run tell about what how many"
+  "surrounding count infrastructure visible there any do does did has have had run tell about what how many according"
 ).split(" "));
 
 const MAX_CHOICES = 6;
@@ -21,13 +21,30 @@ const PROJECT_TYPE_WORDS = new Set(
   "mini grid solar street light lights home system systems standalone stand alone extension water pumping pump".split(" "),
 );
 const ANALYSIS_WORDS = new Set(
-  "impact measurable electrification viirs black marble night nighttime lighting radiance increase change before after commissioning completion completed operational energisation energization".split(" "),
+  "impact measurable electrification viirs nasa black marble night nighttime lighting radiance increase change before after commissioning completion completed operational energisation energization".split(" "),
 );
 
 function projectIdentityTokens(question) {
   return extractSearchTokens(question).filter(
     (token) => !PROJECT_TYPE_WORDS.has(token) && !ANALYSIS_WORDS.has(token),
   );
+}
+
+function rowIdentityWords(row) {
+  return new Set(words([
+    row.id,
+    row.name,
+    row.community,
+    row.lga,
+    row.state,
+  ].filter(Boolean).join(" ")));
+}
+
+function relevantProjectIdentityTokens(rows, question) {
+  const raw = projectIdentityTokens(question);
+  if (!raw.length) return [];
+  const identities = rows.map(rowIdentityWords);
+  return raw.filter((token) => identities.some((identity) => identity.has(token)));
 }
 
 // Portfolio-level questions ("how many mini grids are on the map") name a
@@ -65,7 +82,7 @@ export function rankProjects(rows, tokens) {
       let strong = 0;
       for (const token of tokens) {
         const weight = fields.reduce(
-          (best, [w, list]) => (list.some((word) => word.startsWith(token)) ? Math.max(best, w) : best),
+          (best, [w, list]) => (list.includes(token) ? Math.max(best, w) : best),
           0,
         );
         if (weight) {
@@ -130,7 +147,7 @@ export async function resolveSatelliteProject(env, question, hints = {}) {
   if (idMatches.length > 1) return { status: "ambiguous", candidates: idMatches.slice(0, MAX_CHOICES).map(choiceOf) };
 
   const tokens = extractSearchTokens(question);
-  const identityTokens = projectIdentityTokens(question);
+  const identityTokens = relevantProjectIdentityTokens(rows, question);
   const mapId = typeof hints.mapProjectId === "string" ? hints.mapProjectId.trim().slice(0, 120) : "";
   const fromMap = async () => {
     if (!mapId) return null;
@@ -184,7 +201,7 @@ export async function shouldRunSatelliteAnalysis(env, question, hints = {}) {
     if (rows.some((row) => row.id && String(row.id).length >= 4 && lowered.includes(String(row.id).toLowerCase()))) {
       return true;
     }
-    const tokens = extractSearchTokens(question).filter((token) => !PROJECT_TYPE_WORDS.has(token));
+    const tokens = relevantProjectIdentityTokens(rows, question);
     if (!tokens.length) return false;
     const ranked = rankProjects(rows, tokens).filter((entry) => entry.strong > 0);
     if (!ranked.length) return false;
