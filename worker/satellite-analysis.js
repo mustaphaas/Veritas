@@ -217,18 +217,31 @@ export async function runSatelliteAnalysis(request, env, question, hints = {}) {
   }
   const project = resolution.project;
 
-  // Reuse the same authenticated, point-centred satellite pipeline used by
-  // Project Map. This guarantees Ask Veritas and the map analyse the same image.
-  const analysisRequest = new Request(
-    new URL(`/api/projects/${encodeURIComponent(project.id)}/satellite-verify`, request.url),
-    {
-      method: "POST",
-      headers: { Authorization: request.headers.get("Authorization") || "" },
-    },
+  // Cache-first by default: Ask Veritas reads the stored result and only
+  // performs a new Esri + Gemini check when the user explicitly asks to
+  // refresh/re-check, or when no cached result exists yet.
+  const explicitRefresh = /\b(re-?check|refresh|run again|fresh check|new check|update the satellite)\b/i.test(
+    String(question || ""),
   );
-  const analysisResponse = await handleSatelliteVerify(analysisRequest, env);
+  const makeRequest = (method) =>
+    new Request(
+      new URL(`/api/projects/${encodeURIComponent(project.id)}/satellite-verify`, request.url),
+      {
+        method,
+        headers: { Authorization: request.headers.get("Authorization") || "" },
+      },
+    );
+
+  let analysisResponse = await handleSatelliteVerify(makeRequest(explicitRefresh ? "POST" : "GET"), env);
   if (!analysisResponse) return { ok: false, reason: "Satellite analysis route was unavailable." };
-  const payload = await parseResponse(analysisResponse);
+  let payload = await parseResponse(analysisResponse);
+
+  if (!explicitRefresh && analysisResponse.status === 404 && payload?.code === "no_cached_satellite_result") {
+    analysisResponse = await handleSatelliteVerify(makeRequest("POST"), env);
+    if (!analysisResponse) return { ok: false, reason: "Satellite analysis route was unavailable." };
+    payload = await parseResponse(analysisResponse);
+  }
+
   if (!analysisResponse.ok) return { ok: false, reason: payload?.error || "Satellite analysis could not be completed." };
 
   return {
