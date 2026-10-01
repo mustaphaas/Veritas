@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   isNightLightImpactQuestion,
+  isNightLightEligibilityQuestion,
   nightLightImpactAnswer,
   nightLightCardPayload,
   shouldRunNightLightAnalysis,
@@ -59,6 +60,18 @@ test("a satellite picker projectId does not hijack into VIIRS without night-ligh
   const env = { DB: { prepare: () => { throw new Error("should not touch DB"); } } };
   assert.equal(
     await shouldRunNightLightAnalysis(env, "Verify Kura Mini-Grid by satellite imagery.", { projectId: "p1" }),
+    false,
+  );
+});
+
+
+test("VIIRS eligibility questions are detected deterministically", () => {
+  assert.equal(
+    isNightLightEligibilityQuestion("Which projects have GPS coordinates and are eligible for NASA VIIRS night-time light analysis?"),
+    true,
+  );
+  assert.equal(
+    isNightLightEligibilityQuestion("Analyse the NASA VIIRS night-time light impact for Kura Mini-Grid."),
     false,
   );
 });
