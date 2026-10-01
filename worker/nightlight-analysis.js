@@ -171,8 +171,8 @@ export async function handleNightLightImpact(request, env) {
 }
 
 export async function shouldRunNightLightAnalysis(env, question, hints = {}) {
-  if (typeof hints.projectId === "string" && hints.projectId.trim()) return true;
   if (!isNightLightImpactQuestion(question)) return false;
+  if (typeof hints.projectId === "string" && hints.projectId.trim()) return true;
 
   if (!isPortfolioAggregateQuestion(question)) return true;
 
