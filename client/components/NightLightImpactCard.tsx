@@ -15,8 +15,10 @@ export type NightLightCardData = {
   impact: NightLightImpact;
 };
 
-function fmt(value: number | null, digits = 2) {
-  return typeof value === "number" && Number.isFinite(value) ? value.toFixed(digits) : "—";
+function fmtRadiance(value: number | null) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+  if (value !== 0 && Math.abs(value) < 0.01) return value.toFixed(4);
+  return value.toFixed(2);
 }
 
 function pct(value: number | null) {
@@ -30,13 +32,14 @@ function impactLabel(value: NightLightImpact["impactClass"]) {
   if (value === "moderate_increase") return "Moderate increase";
   if (value === "decrease") return "Decrease";
   if (value === "no_clear_change") return "No clear change";
-  return "Insufficient data";
+  return "Signal too low for reliable % change";
 }
 
 export function NightLightImpactCard({ data }: { data: NightLightCardData }) {
   const { project, impact } = data;
-  const increased = typeof impact.percentChange === "number" && impact.percentChange > 0;
-  const TrendIcon = increased ? TrendingUp : TrendingDown;
+  const hasMeasuredChange = typeof impact.percentChange === "number" && Number.isFinite(impact.percentChange);
+  const increased = hasMeasuredChange && impact.percentChange > 0;
+  const TrendIcon = hasMeasuredChange ? (increased ? TrendingUp : TrendingDown) : MoonStar;
   const place = [project.community, project.lga, project.state].filter(Boolean).join(", ");
   return (
     <div className="overflow-hidden rounded-xl border border-indigo-100 bg-white">
@@ -56,20 +59,20 @@ export function NightLightImpactCard({ data }: { data: NightLightCardData }) {
         <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
           <div className="rounded-lg bg-slate-50 p-2.5">
             <p className="text-[8px] font-bold uppercase tracking-wide text-slate-400">Before</p>
-            <p className="mt-1 text-lg font-black text-slate-800">{fmt(impact.baselineRadiance)}</p>
+            <p className="mt-1 text-lg font-black text-slate-800">{fmtRadiance(impact.baselineRadiance)}</p>
             <p className="text-[8px] text-slate-500">nW/cm²/sr</p>
           </div>
-          <TrendIcon className={`h-4 w-4 ${increased ? "text-emerald-600" : "text-rose-600"}`} />
+          <TrendIcon className={`h-4 w-4 ${!hasMeasuredChange ? "text-slate-400" : increased ? "text-emerald-600" : "text-rose-600"}`} />
           <div className="rounded-lg bg-indigo-50 p-2.5">
             <p className="text-[8px] font-bold uppercase tracking-wide text-indigo-400">After</p>
-            <p className="mt-1 text-lg font-black text-indigo-950">{fmt(impact.afterRadiance)}</p>
+            <p className="mt-1 text-lg font-black text-indigo-950">{fmtRadiance(impact.afterRadiance)}</p>
             <p className="text-[8px] text-indigo-500">nW/cm²/sr</p>
           </div>
         </div>
 
         <div className="mt-2 flex items-center justify-between rounded-lg border border-slate-100 px-2.5 py-2">
           <span className="text-[9px] font-semibold text-slate-500">Observed change</span>
-          <strong className={`text-[11px] ${increased ? "text-emerald-700" : "text-rose-700"}`}>
+          <strong className={`text-[11px] ${!hasMeasuredChange ? "text-slate-600" : increased ? "text-emerald-700" : "text-rose-700"}`}>
             {pct(impact.percentChange)} · {impactLabel(impact.impactClass)}
           </strong>
         </div>
