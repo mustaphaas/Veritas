@@ -137,3 +137,93 @@ test("stored commissioned_at makes a VIIRS project ready even without a field re
   assert.match(result.reason, /has not been processed yet/);
   assert.doesNotMatch(result.reason, /no reliable completion\/commissioning month is recorded/i);
 });
+
+
+test("project-specific VIIRS question prefers the uniquely matching processed project", async () => {
+  const processedProject = {
+    id: "EXT-VIIRS-OGUN-GBAMU-001",
+    name: "Gbamu-Gbamu Mini-Grid (External VIIRS Demo)",
+    programme: "Others",
+    component: "Mini Grid",
+    state: "Ogun",
+    lga: "Ijebu East",
+    community: "Gbamu-Gbamu",
+    latitude: 6.84746,
+    longitude: 4.21247,
+    commissionedAt: "2018-02-01",
+  };
+  const competingProject = {
+    ...processedProject,
+    id: "GBAMU-LEGACY-001",
+    name: "Gbamu-Gbamu Mini-Grid",
+  };
+  const impactRow = {
+    projectId: processedProject.id,
+    commissioningDate: "2018-02-01",
+    dateBasis: "field completion date",
+    radiusMetres: 2000,
+    controlInnerMetres: 3000,
+    controlOuterMetres: 5000,
+    beforeStart: "2017-02-01",
+    beforeEnd: "2018-01-01",
+    afterStart: "2018-03-01",
+    afterEnd: "2019-02-01",
+    baselineRadiance: 1,
+    afterRadiance: 2,
+    radianceDelta: 1,
+    percentChange: 100,
+    controlBaselineRadiance: 1,
+    controlAfterRadiance: 1.1,
+    controlPercentChange: 10,
+    differentialPercentagePoints: 90,
+    monthsBefore: 12,
+    monthsAfter: 12,
+    impactClass: "strong_increase",
+    dataQuality: "good",
+    seriesJson: "[]",
+    beforeGridJson: null,
+    afterGridJson: null,
+    sourceProduct: "VNP46A3.002",
+    sourceName: "NASA VIIRS Black Marble",
+    sourceUrl: "https://example.test",
+    analysisMethod: "monthly-median-v1",
+    checkedAt: "2026-10-01T03:18:00Z",
+  };
+
+  const env = {
+    DB: {
+      prepare(sql) {
+        if (/INNER JOIN project_nightlight_impacts/.test(sql)) {
+          return { all: async () => ({ results: [processedProject] }) };
+        }
+        if (/FROM projects/.test(sql) && /latitude IS NOT NULL/.test(sql)) {
+          return {
+            all: async () => ({ results: [competingProject, processedProject] }),
+            bind: () => ({ first: async () => competingProject }),
+          };
+        }
+        if (/FROM project_nightlight_impacts WHERE project_id=\?/.test(sql)) {
+          return { bind: () => ({ first: async () => impactRow }) };
+        }
+        if (/FROM assignments/.test(sql)) {
+          return { bind: () => ({ first: async () => null }) };
+        }
+        return {
+          all: async () => ({ results: [] }),
+          bind: () => ({ first: async () => null }),
+        };
+      },
+    },
+  };
+
+  const { runNightLightAnalysis } = await import("../worker/nightlight-analysis.js");
+  const result = await runNightLightAnalysis(
+    new Request("https://veritas.test/api/veritas", { method: "POST" }),
+    env,
+    "Did the Gbamu-Gbamu Mini-Grid have a measurable night-time lighting impact according to NASA VIIRS?",
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.project.id, processedProject.id);
+  assert.equal(result.impact.percentChange, 100);
+});
