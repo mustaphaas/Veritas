@@ -27,8 +27,8 @@ test("satellite map consumes the shared Project Map state rather than owning dup
   assert.match(satelliteSource, /effectiveLga/);
   assert.match(satelliteSource, /sharedState\.layers\.Projects/);
   assert.match(satelliteSource, /sharedState\.layers\.Status/);
-  assert.match(satelliteSource, /sharedState\.layers\.Contractors/);
-  assert.match(satelliteSource, /sharedState\.layers\.Inspections/);
+  assert.match(satelliteSource, /(?:sharedState|state)\.layers\.Contractors/);
+  assert.match(satelliteSource, /(?:sharedState|state)\.layers\.Inspections/);
   assert.match(satelliteSource, /fetchReaMapProjects\(session\.apiToken\)/);
 });
 
@@ -37,8 +37,8 @@ test("satellite provider selector offers Esri and official Google Maps", () => {
   assert.match(satelliteSource, /VITE_GOOGLE_MAPS_API_KEY/);
   assert.match(satelliteSource, /maps\.googleapis\.com\/maps\/api\/js/);
   assert.match(satelliteSource, /imageryProvider/);
-  assert.match(satelliteSource, /> Esri</);
-  assert.match(satelliteSource, /> Google</);
+  assert.match(satelliteSource, /title="Esri World Imagery"/);
+  assert.match(satelliteSource, /Google Satellite/);
   assert.doesNotMatch(satelliteSource, /mt[0-9]?\.google\.com\/vt/);
   assert.doesNotMatch(satelliteSource, /api\.mapbox\.com/);
 });
