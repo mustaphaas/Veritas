@@ -411,6 +411,10 @@ export function nightLightImpactAnswer(result) {
   if (!result?.ok) return result?.reason || "Night-time light impact analysis is unavailable.";
 
   const { project, impact } = result;
+  const coreRadiusMetres =
+    typeof impact.coreRadiusMetres === "number" && Number.isFinite(impact.coreRadiusMetres)
+      ? impact.coreRadiusMetres
+      : 1000;
   const pct = typeof impact.percentChange === "number" ? `${impact.percentChange >= 0 ? "+" : ""}${impact.percentChange.toFixed(1)}%` : "not available";
   const control = typeof impact.controlPercentChange === "number"
     ? `${impact.controlPercentChange >= 0 ? "+" : ""}${impact.controlPercentChange.toFixed(1)}%`
@@ -419,7 +423,7 @@ export function nightLightImpactAnswer(result) {
   return [
     `**${project.name}: ${classLabel(impact.impactClass)} in night-time light**`,
     "",
-    `NASA VIIRS Black Marble was analysed using a ${impact.coreRadiusMetres.toLocaleString()} m project core plus the wider ${impact.radiusMetres.toLocaleString()} m context area. The core 90th-percentile radiance changed from ${fmt(impact.coreP90BaselineRadiance, 4)} to ${fmt(impact.coreP90AfterRadiance, 4)} nW/cm²/sr${typeof impact.coreP90PercentChange === "number" ? ` (${impact.coreP90PercentChange >= 0 ? "+" : ""}${impact.coreP90PercentChange.toFixed(1)}%)` : ""}.`,
+    `NASA VIIRS Black Marble was analysed using a ${coreRadiusMetres.toLocaleString()} m project core plus the wider ${impact.radiusMetres.toLocaleString()} m context area. The core 90th-percentile radiance changed from ${fmt(impact.coreP90BaselineRadiance, 4)} to ${fmt(impact.coreP90AfterRadiance, 4)} nW/cm²/sr${typeof impact.coreP90PercentChange === "number" ? ` (${impact.coreP90PercentChange >= 0 ? "+" : ""}${impact.coreP90PercentChange.toFixed(1)}%)` : ""}.`,
     `The 2 km median changed from ${fmt(impact.baselineRadiance, 4)} to ${fmt(impact.afterRadiance, 4)} nW/cm²/sr (${pct}); the comparison area changed by ${control}. Veritas used ${impact.monthsBefore} valid pre-project months and ${impact.monthsAfter} valid post-project months; data quality is ${impact.dataQuality}.`,
     impact.detectionReason ? `Detection basis: ${impact.detectionReason}` : "",
     "",
