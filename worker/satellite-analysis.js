@@ -98,7 +98,8 @@ export function rankProjects(rows, tokens) {
 }
 
 const PROJECT_COLUMNS = `id,name,programme,component,state,lga,community,installed_capacity_kw AS installedCapacityKw,
-  households,latitude,longitude,geofence_radius_metres AS geofenceRadiusMetres`;
+  households,latitude,longitude,geofence_radius_metres AS geofenceRadiusMetres,
+  commissioned_at AS commissionedAt`;
 
 async function loadMappableProjects(env) {
   const all = await env.DB.prepare(

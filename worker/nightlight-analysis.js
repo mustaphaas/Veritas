@@ -320,7 +320,8 @@ export async function runNightLightAnalysis(request, env, question, hints = {}) 
     ).bind(project.id).first();
 
     const hasCompletionDate = Boolean(
-      latestReport?.completionYear && latestReport?.completionMonth,
+      project.commissionedAt ||
+      (latestReport?.completionYear && latestReport?.completionMonth),
     );
     return {
       ok: false,
