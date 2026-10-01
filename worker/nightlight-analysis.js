@@ -43,6 +43,14 @@ export function isNightLightImpactQuestion(question) {
   return NIGHTLIGHT_QUERY.test(String(question || ""));
 }
 
+const ELIGIBILITY_QUERY =
+  /\b(eligible|eligibility|which projects?|what projects?|projects? .* completion|commission(?:ed|ing)?|ready .* VIIRS|VIIRS .* ready|night[-\s]?light .* eligible)\b/i;
+
+export function isNightLightEligibilityQuestion(question) {
+  const text = String(question || "");
+  return isNightLightImpactQuestion(text) && ELIGIBILITY_QUERY.test(text);
+}
+
 function parseJson(value, fallback) {
   if (typeof value !== "string" || !value.trim()) return fallback;
   try {
@@ -170,8 +178,90 @@ export async function handleNightLightImpact(request, env) {
   return response({ project, impact });
 }
 
+
+async function loadNightLightEligibility(env) {
+  const result = await env.DB.prepare(
+    `SELECT
+       p.id,
+       p.name,
+       p.state,
+       p.lga,
+       p.community,
+       p.programme,
+       p.component,
+       p.portfolio_status AS status,
+       p.verified,
+       p.commissioned_at AS commissionedAt,
+       CASE WHEN p.latitude IS NOT NULL AND p.longitude IS NOT NULL THEN 1 ELSE 0 END AS hasCoordinates,
+       CASE WHEN n.project_id IS NOT NULL THEN 1 ELSE 0 END AS hasImpact,
+       n.checked_at AS impactCheckedAt
+     FROM projects p
+     LEFT JOIN project_nightlight_impacts n ON n.project_id=p.id
+     WHERE p.latitude IS NOT NULL
+       AND p.longitude IS NOT NULL
+       AND p.commissioned_at IS NOT NULL
+     ORDER BY
+       CASE WHEN n.project_id IS NOT NULL THEN 0 ELSE 1 END,
+       CASE WHEN p.verified=1 THEN 0 ELSE 1 END,
+       p.name
+     LIMIT 50`
+  ).all();
+
+  const rows = result?.results || [];
+  const processed = rows.filter((row) => Number(row.hasImpact) === 1);
+  const waiting = rows.filter((row) => Number(row.hasImpact) !== 1);
+  return {
+    eligibleCount: rows.length,
+    processedCount: processed.length,
+    waitingCount: waiting.length,
+    projects: rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      state: row.state || "",
+      lga: row.lga || "",
+      community: row.community || "",
+      programme: row.programme || "",
+      component: row.component || "",
+      status: row.status || "",
+      verified: Number(row.verified) === 1,
+      commissionedAt: row.commissionedAt,
+      hasImpact: Number(row.hasImpact) === 1,
+      impactCheckedAt: row.impactCheckedAt || null,
+    })),
+  };
+}
+
+function nightLightEligibilityAnswer(result) {
+  if (!result?.projects?.length) {
+    return [
+      "**No projects currently meet the VIIRS before/after eligibility requirements.**",
+      "",
+      "Veritas checked the live project database for projects with both stored GPS coordinates and a recorded commissioning/completion date. None currently satisfy both requirements.",
+      "",
+      "This is a data-readiness issue, not a privacy restriction. Record a valid completion/commissioning month for a completed project, then run the VIIRS refresh workflow.",
+    ].join("\n");
+  }
+
+  const lines = result.projects.slice(0, 12).map((project, index) => {
+    const state = project.state ? ` · ${project.state}` : "";
+    const status = project.hasImpact ? "VIIRS processed" : "Ready for VIIRS refresh";
+    return `${index + 1}. **${project.name}**${state} — ${status} — completion reference ${project.commissionedAt}`;
+  });
+
+  return [
+    `**${result.eligibleCount} project${result.eligibleCount === 1 ? "" : "s"} currently meet the core VIIRS eligibility requirements.**`,
+    "",
+    `Of these, ${result.processedCount} already have stored VIIRS results and ${result.waitingCount} are waiting for the VIIRS refresh job.`,
+    "",
+    ...lines,
+    "",
+    "Eligibility here means Veritas has stored project coordinates and a recorded completion/commissioning date. Raw coordinates are not shown in chat.",
+  ].join("\n");
+}
+
 export async function shouldRunNightLightAnalysis(env, question, hints = {}) {
   if (!isNightLightImpactQuestion(question)) return false;
+  if (isNightLightEligibilityQuestion(question)) return true;
   if (typeof hints.projectId === "string" && hints.projectId.trim()) return true;
 
   if (!isPortfolioAggregateQuestion(question)) return true;
@@ -187,6 +277,17 @@ export async function shouldRunNightLightAnalysis(env, question, hints = {}) {
 
 export async function runNightLightAnalysis(request, env, question, hints = {}) {
   if (!env.DB) throw new Error("D1 database binding is unavailable.");
+
+  if (isNightLightEligibilityQuestion(question)) {
+    const eligibility = await loadNightLightEligibility(env);
+    return {
+      ok: true,
+      kind: "eligibility",
+      eligibility,
+      answer: nightLightEligibilityAnswer(eligibility),
+    };
+  }
+
   const resolution = await resolveSatelliteProject(env, question, hints);
   if (resolution.status === "ambiguous") {
     return {
