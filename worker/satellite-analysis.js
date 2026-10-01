@@ -24,7 +24,7 @@ const ANALYSIS_WORDS = new Set(
   "impact measurable electrification viirs nasa black marble night nighttime lighting radiance increase change before after commissioning completion completed operational energisation energization".split(" "),
 );
 
-function projectIdentityTokens(question) {
+export function projectIdentityTokens(question) {
   return extractSearchTokens(question).filter(
     (token) => !PROJECT_TYPE_WORDS.has(token) && !ANALYSIS_WORDS.has(token),
   );
