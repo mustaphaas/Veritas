@@ -531,15 +531,16 @@ export async function handleSatelliteVerify(request, env) {
     : "Esri World Imagery (World_Imagery/MapServer export)";
   const imageryDate = metadata.imageryDate || null;
   const analysisMethod = `gemini-vision:${geminiResult.model}`;
-  await env.DB.prepare(
-    `UPDATE projects SET
-       satellite_verification_status=?, satellite_image_quality=?, satellite_verification_confidence=?,
-       satellite_house_estimate=?, satellite_verification_notes=?, satellite_verification_checked_at=?,
-       satellite_imagery_source=?, satellite_imagery_date=?, satellite_analysis_radius_metres=?,
-       satellite_analysis_method=?, satellite_analysis_image_url=?, satellite_analysis_version=?
-     WHERE id=?`,
-  )
-    .bind(
+  const historyId = crypto.randomUUID();
+  await env.DB.batch([
+    env.DB.prepare(
+      `UPDATE projects SET
+         satellite_verification_status=?, satellite_image_quality=?, satellite_verification_confidence=?,
+         satellite_house_estimate=?, satellite_verification_notes=?, satellite_verification_checked_at=?,
+         satellite_imagery_source=?, satellite_imagery_date=?, satellite_analysis_radius_metres=?,
+         satellite_analysis_method=?, satellite_analysis_image_url=?, satellite_analysis_version=?
+       WHERE id=?`,
+    ).bind(
       verdict.status,
       verdict.imageQuality,
       verdict.confidence,
@@ -553,20 +554,53 @@ export async function handleSatelliteVerify(request, env) {
       imageUrl,
       SATELLITE_ANALYSIS_VERSION,
       projectId,
-    )
-    .run();
-
-  await env.DB.prepare(
-    `INSERT INTO audit_events(id,assignment_id,actor_id,action,details_json,ip_address,created_at)
-     VALUES(?,?,?,?,?,?,?)`,
-  )
-    .bind(
+    ),
+    env.DB.prepare(
+      `INSERT INTO satellite_verification_history(
+         id,project_id,actor_id,actor_role,actor_consultant_firm,run_status,
+         verdict_status,model_status,image_quality,confidence,estimated_nearby_houses,
+         notes,evidence_class,evidence_location,signature_strength,limitation_code,
+         limitation_message,house_estimate_note,imagery_source,imagery_date,radius_metres,
+         analysis_method,analysis_version,image_url,checked_at
+       ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    ).bind(
+      historyId,
+      projectId,
+      user.id,
+      user.role,
+      user.consultantFirm || null,
+      "completed",
+      verdict.status,
+      verdict.modelStatus || null,
+      verdict.imageQuality || null,
+      verdict.confidence,
+      verdict.estimatedNearbyHouses,
+      verdict.notes || "",
+      verdict.evidenceClass || null,
+      verdict.evidenceLocation || null,
+      verdict.signatureStrength || null,
+      verdict.limitation?.code || null,
+      verdict.limitation?.message || null,
+      verdict.houseEstimateNote || null,
+      imagerySource,
+      imageryDate,
+      radius,
+      analysisMethod,
+      SATELLITE_ANALYSIS_VERSION,
+      imageUrl,
+      checkedAt,
+    ),
+    env.DB.prepare(
+      `INSERT INTO audit_events(id,assignment_id,actor_id,action,details_json,ip_address,created_at)
+       VALUES(?,?,?,?,?,?,?)`,
+    ).bind(
       crypto.randomUUID(),
       null,
       user.id,
       "project-satellite-verified",
       JSON.stringify({
         projectId,
+        historyId,
         status: verdict.status,
         modelStatus: verdict.modelStatus,
         limitation: verdict.limitation?.code || null,
@@ -576,8 +610,8 @@ export async function handleSatelliteVerify(request, env) {
       }),
       request.headers.get("CF-Connecting-IP"),
       checkedAt,
-    )
-    .run();
+    ),
+  ]);
 
   return response({
     projectId,
