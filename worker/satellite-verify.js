@@ -395,6 +395,81 @@ export function parseVerdict(text) {
   }
 }
 
+
+const HISTORY_ROUTE_PATTERN = /^\/api\/projects\/([^/]+)\/satellite-verification-history$/;
+
+export async function handleSatelliteVerificationHistory(request, env) {
+  const url = new URL(request.url);
+  const match = url.pathname.match(HISTORY_ROUTE_PATTERN);
+  if (!match) return null;
+  if (request.method !== "GET") return response({ error: "Method not allowed." }, 405);
+
+  const user = await currentUser(request, env);
+  if (!user) return response({ error: "Authentication required." }, 401);
+  if (user.role !== "rea_admin" && user.role !== "consultant_admin") {
+    return response({ error: "REA or consultant access required." }, 403);
+  }
+
+  const projectId = decodeURIComponent(match[1]);
+  const project = await env.DB.prepare(
+    `SELECT id,name,consultant_firm AS consultantFirm,state,lga,community,programme,component
+     FROM projects WHERE id=?`,
+  ).bind(projectId).first();
+
+  if (!project) return response({ error: "Project not found." }, 404);
+  if (user.role === "consultant_admin" && project.consultantFirm !== user.consultantFirm) {
+    return response({ error: "Project is outside your consultant firm." }, 403);
+  }
+
+  const requestedLimit = Number(url.searchParams.get("limit") || 50);
+  const limit = Math.max(1, Math.min(Number.isFinite(requestedLimit) ? Math.trunc(requestedLimit) : 50, 100));
+  const result = await env.DB.prepare(
+    `SELECT
+       id,
+       project_id AS projectId,
+       actor_id AS actorId,
+       actor_role AS actorRole,
+       actor_consultant_firm AS actorConsultantFirm,
+       run_status AS runStatus,
+       verdict_status AS verdictStatus,
+       model_status AS modelStatus,
+       image_quality AS imageQuality,
+       confidence,
+       estimated_nearby_houses AS estimatedNearbyHouses,
+       notes,
+       evidence_class AS evidenceClass,
+       evidence_location AS evidenceLocation,
+       signature_strength AS signatureStrength,
+       limitation_code AS limitationCode,
+       limitation_message AS limitationMessage,
+       house_estimate_note AS houseEstimateNote,
+       imagery_source AS imagerySource,
+       imagery_date AS imageryDate,
+       radius_metres AS radiusMetres,
+       analysis_method AS analysisMethod,
+       analysis_version AS analysisVersion,
+       image_url AS imageUrl,
+       checked_at AS checkedAt
+     FROM satellite_verification_history
+     WHERE project_id=?
+     ORDER BY checked_at DESC
+     LIMIT ?`,
+  ).bind(projectId, limit).all();
+
+  return response({
+    project: {
+      id: project.id,
+      name: project.name,
+      state: project.state || "",
+      lga: project.lga || "",
+      community: project.community || "",
+      programme: project.programme || "",
+      component: project.component || "",
+    },
+    history: result?.results || [],
+  });
+}
+
 const ROUTE_PATTERN = /^\/api\/projects\/([^/]+)\/satellite-verify$/;
 
 export async function handleSatelliteVerify(request, env) {
