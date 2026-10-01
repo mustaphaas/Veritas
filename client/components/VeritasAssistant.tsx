@@ -46,6 +46,7 @@ import {
   type SatelliteCardData,
   type SatelliteChoice,
 } from "./SatelliteVerdictCard";
+import { NightLightImpactCard, type NightLightCardData } from "./NightLightImpactCard";
 
 // The Project Map records the pin whose popup is open, so "verify this project"
 // in chat can mean the site the person is looking at.
@@ -58,6 +59,7 @@ type DisplayMessage = VeritasMessage & {
   id: string;
   sources?: VeritasSource[];
   satellite?: SatelliteCardData;
+  nightLight?: NightLightCardData;
   choices?: SatelliteChoice[];
 };
 
@@ -411,6 +413,7 @@ export default function VeritasAssistant() {
         answer?: string;
         sources?: VeritasSource[];
         satellite?: SatelliteCardData;
+        nightLight?: NightLightCardData;
         choices?: SatelliteChoice[];
         error?: string;
       };
@@ -427,6 +430,7 @@ export default function VeritasAssistant() {
           content: payload.answer!,
           sources: payload.sources,
           satellite: payload.satellite,
+          nightLight: payload.nightLight,
           choices: payload.choices,
         },
       ]);
@@ -535,6 +539,8 @@ export default function VeritasAssistant() {
                     )}
                     {message.satellite ? (
                       <SatelliteVerdictCard data={message.satellite} />
+                    ) : message.nightLight ? (
+                      <NightLightImpactCard data={message.nightLight} />
                     ) : (
                       <p className="whitespace-pre-wrap">{message.content}</p>
                     )}
