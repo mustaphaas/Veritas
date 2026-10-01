@@ -75,6 +75,7 @@ const defaultLayers: Record<LayerKey, boolean> = {
   "Coverage Density": true,
 };
 const emptyMetrics: AreaMetrics = { projects: 0, verified: 0, kw: 0, households: 0 };
+export const PROJECT_MAP_STATE_EVENT = "veritas:project-map-state";
 
 const MAP_VISUAL_STYLES = `
 @keyframes veritas-map-enter {
@@ -507,6 +508,34 @@ function ProjectMap({
       );
     });
   }, [component, contractor, lgaFilter, mappedProjects, programme, search, stateFilter]);
+
+  useEffect(() => {
+    const detail = {
+      filters: {
+        programme,
+        component,
+        contractor,
+        state: stateFilter,
+        lga: lgaFilter,
+        search,
+      },
+      selectedState,
+      selectedLga,
+      layers,
+    };
+    (window as Window & { __veritasProjectMapState?: typeof detail }).__veritasProjectMapState = detail;
+    window.dispatchEvent(new CustomEvent(PROJECT_MAP_STATE_EVENT, { detail }));
+  }, [
+    programme,
+    component,
+    contractor,
+    stateFilter,
+    lgaFilter,
+    search,
+    selectedState,
+    selectedLga,
+    layers,
+  ]);
 
   const selectedStateLgas = useMemo(
     () => lgaFeatures.filter((feature) => stateName(feature) === selectedState),
