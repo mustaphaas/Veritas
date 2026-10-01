@@ -85,3 +85,55 @@ test("Gbamu-Gbamu night-light question resolves as one project, not Nasarawa can
     true,
   );
 });
+
+
+test("stored commissioned_at makes a VIIRS project ready even without a field report", async () => {
+  const project = {
+    id: "EXT-VIIRS-OGUN-GBAMU-001",
+    name: "Gbamu-Gbamu Mini-Grid (External VIIRS Demo)",
+    programme: "Others",
+    component: "Mini Grid",
+    state: "Ogun",
+    lga: "Ijebu East",
+    community: "Gbamu-Gbamu",
+    latitude: 6.84746,
+    longitude: 4.21247,
+    commissionedAt: "2018-02-01",
+  };
+
+  const env = {
+    DB: {
+      prepare(sql) {
+        if (/FROM projects/.test(sql) && /latitude IS NOT NULL/.test(sql)) {
+          return {
+            all: async () => ({ results: [project] }),
+            bind: () => ({ first: async () => project }),
+          };
+        }
+        if (/FROM project_nightlight_impacts/.test(sql)) {
+          return { bind: () => ({ first: async () => null }) };
+        }
+        if (/FROM assignments/.test(sql)) {
+          return { bind: () => ({ first: async () => null }) };
+        }
+        return {
+          all: async () => ({ results: [] }),
+          bind: () => ({ first: async () => null }),
+        };
+      },
+    },
+  };
+
+  const { runNightLightAnalysis } = await import("../worker/nightlight-analysis.js");
+  const result = await runNightLightAnalysis(
+    new Request("https://veritas.test/api/veritas", { method: "POST" }),
+    env,
+    "Did the Gbamu-Gbamu Mini-Grid have a measurable night-time lighting impact according to NASA VIIRS?",
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(result.kind, "not_ready");
+  assert.match(result.reason, /recorded completion date/);
+  assert.match(result.reason, /has not been processed yet/);
+  assert.doesNotMatch(result.reason, /no reliable completion\/commissioning month is recorded/i);
+});
