@@ -132,6 +132,7 @@ export type NightLightImpact = {
   commissioningDate: string;
   dateBasis: string;
   radiusMetres: number;
+  coreRadiusMetres: number;
   controlInnerMetres: number;
   controlOuterMetres: number;
   beforeStart: string | null;
@@ -142,6 +143,15 @@ export type NightLightImpact = {
   afterRadiance: number | null;
   radianceDelta: number | null;
   percentChange: number | null;
+  coreBaselineRadiance: number | null;
+  coreAfterRadiance: number | null;
+  coreRadianceDelta: number | null;
+  corePercentChange: number | null;
+  coreMeanBaselineRadiance: number | null;
+  coreMeanAfterRadiance: number | null;
+  coreP90BaselineRadiance: number | null;
+  coreP90AfterRadiance: number | null;
+  coreP90PercentChange: number | null;
   controlBaselineRadiance: number | null;
   controlAfterRadiance: number | null;
   controlPercentChange: number | null;
@@ -150,6 +160,8 @@ export type NightLightImpact = {
   monthsAfter: number;
   impactClass: "strong_increase" | "moderate_increase" | "no_clear_change" | "decrease" | "insufficient_data";
   dataQuality: "good" | "moderate" | "limited" | "insufficient" | string;
+  detectionMetric: string;
+  detectionReason: string;
   series: Array<{ month: string; projectRadiance: number | null; controlRadiance?: number | null }>;
   beforeGrid: unknown;
   afterGrid: unknown;
