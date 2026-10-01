@@ -103,3 +103,69 @@ export async function verifyProjectSatelliteImagery(
   }
   return payload as SatelliteVerificationResult;
 }
+
+
+export type NightLightImpact = {
+  projectId: string;
+  commissioningDate: string;
+  dateBasis: string;
+  radiusMetres: number;
+  controlInnerMetres: number;
+  controlOuterMetres: number;
+  beforeStart: string | null;
+  beforeEnd: string | null;
+  afterStart: string | null;
+  afterEnd: string | null;
+  baselineRadiance: number | null;
+  afterRadiance: number | null;
+  radianceDelta: number | null;
+  percentChange: number | null;
+  controlBaselineRadiance: number | null;
+  controlAfterRadiance: number | null;
+  controlPercentChange: number | null;
+  differentialPercentagePoints: number | null;
+  monthsBefore: number;
+  monthsAfter: number;
+  impactClass: "strong_increase" | "moderate_increase" | "no_clear_change" | "decrease" | "insufficient_data";
+  dataQuality: "good" | "moderate" | "limited" | "insufficient" | string;
+  series: Array<{ month: string; projectRadiance: number | null; controlRadiance?: number | null }>;
+  beforeGrid: unknown;
+  afterGrid: unknown;
+  sourceProduct: string;
+  sourceName: string;
+  sourceUrl: string;
+  analysisMethod: string;
+  checkedAt: string | null;
+};
+
+export type NightLightImpactResult = {
+  project: {
+    id: string;
+    name: string;
+    programme: string;
+    component: string;
+    state: string;
+    lga: string;
+    community: string;
+    latitude: number;
+    longitude: number;
+    commissionedAt?: string | null;
+  };
+  impact: NightLightImpact;
+};
+
+export async function fetchProjectNightLightImpact(
+  projectId: string,
+  apiToken: string,
+): Promise<NightLightImpactResult> {
+  const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/nightlight-impact`, {
+    headers: { Authorization: `Bearer ${apiToken}` },
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(payload?.error || "Unable to load the NASA VIIRS night-time light impact analysis.");
+    (error as Error & { code?: string }).code = payload?.code;
+    throw error;
+  }
+  return payload as NightLightImpactResult;
+}

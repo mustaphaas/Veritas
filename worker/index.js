@@ -2,6 +2,7 @@ import { handleFieldApi } from "./field-api.js";
 import { analyticsCatalog, analyticsAnswerPrompt, deterministicAnalyticsPlan, executeAnalyticsPlan, formatAnalyticsAnswer, parsePlannerJson, plannerPrompt, validateAnalyticsPlan } from "./analytics.js";
 import { handleSatelliteVerify } from "./satellite-verify.js";
 import { runSatelliteAnalysis, satelliteAnalysisAnswer, satelliteCardPayload, shouldRunSatelliteAnalysis } from "./satellite-analysis.js";
+import { handleNightLightImpact, nightLightCardPayload, nightLightImpactAnswer, runNightLightAnalysis, shouldRunNightLightAnalysis } from "./nightlight-analysis.js";
 
 const BUILD_ID = "veritas-2026-09-11-public-rea-team-r4";
 const encoder = new TextEncoder();
@@ -1141,6 +1142,48 @@ async function veritasResponse(request, env) {
     projectId: typeof body?.projectId === "string" ? body.projectId : "",
     mapProjectId: typeof body?.mapProjectId === "string" ? body.mapProjectId : "",
   };
+  if (await shouldRunNightLightAnalysis(env, question, satelliteHints)) {
+    try {
+      const nightLightResult = await runNightLightAnalysis(request, env, question, satelliteHints);
+      if (nightLightResult?.kind === "choose" || nightLightResult?.kind === "none") {
+        return json({
+          answer: nightLightResult.reason,
+          sources: [],
+          ...(nightLightResult.kind === "choose" ? { choices: nightLightResult.candidates, choiceMode: "nightlight" } : {}),
+          mode: nightLightResult.kind === "choose" ? "veritas-nightlight-select" : "veritas-nightlight-clarify",
+          build: BUILD_ID,
+        });
+      }
+      if (!nightLightResult?.ok) {
+        return json({
+          answer: nightLightResult?.reason || "Night-time light impact analysis is not ready for this project.",
+          sources: [],
+          mode: "veritas-nightlight-analysis",
+          build: BUILD_ID,
+        });
+      }
+      return json({
+        answer: nightLightImpactAnswer(nightLightResult),
+        nightLight: nightLightCardPayload(nightLightResult),
+        sources: [],
+        mode: "veritas-nightlight-analysis",
+        build: BUILD_ID,
+      });
+    } catch (error) {
+      console.error(JSON.stringify({
+        event: "veritas_nightlight_analysis_failure",
+        message: error instanceof Error ? error.message : "Unknown error",
+        build: BUILD_ID,
+      }));
+      return json({
+        answer: "Veritas could not read the stored NASA VIIRS night-time light evidence for this project.",
+        sources: [],
+        mode: "veritas-nightlight-analysis",
+        build: BUILD_ID,
+      }, 503);
+    }
+  }
+
   if (await shouldRunSatelliteAnalysis(env, question, satelliteHints)) {
     try {
       const satelliteResult = await runSatelliteAnalysis(request, env, question, satelliteHints);
@@ -1148,7 +1191,7 @@ async function veritasResponse(request, env) {
         return json({
           answer: satelliteResult.reason,
           sources: [],
-          ...(satelliteResult.kind === "choose" ? { choices: satelliteResult.candidates } : {}),
+          ...(satelliteResult.kind === "choose" ? { choices: satelliteResult.candidates, choiceMode: "satellite" } : {}),
           mode: satelliteResult.kind === "choose" ? "veritas-satellite-select" : "veritas-satellite-clarify",
           build: BUILD_ID,
         });
@@ -1559,6 +1602,20 @@ export default {
       const action = officerLifecycleMatch[2] === "status" && request.method === "PATCH" ? "status" : request.method === "DELETE" && !officerLifecycleMatch[2] ? "delete" : null;
       if (!action) return json({ error: "Method not allowed.", build: BUILD_ID }, 405);
       return fieldOfficerLifecycleResponse(request, env, decodeURIComponent(officerLifecycleMatch[1]), action);
+    }
+
+    if (/^\/api\/projects\/[^/]+\/nightlight-impact$/.test(url.pathname)) {
+      try {
+        const nightLightResponse = await handleNightLightImpact(request, env);
+        if (nightLightResponse) return nightLightResponse;
+      } catch (error) {
+        console.error(JSON.stringify({
+          event: "nightlight_impact_failure",
+          message: error instanceof Error ? error.message : "Unknown error",
+          build: BUILD_ID,
+        }));
+        return json({ error: "Night-time light impact lookup failed. Please try again shortly." }, 503);
+      }
     }
 
     if (/^\/api\/projects\/[^/]+\/satellite-verify$/.test(url.pathname)) {

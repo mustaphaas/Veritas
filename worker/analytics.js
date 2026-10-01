@@ -1,6 +1,6 @@
 const DATASETS = {
   projects: {
-    from: "projects p",
+    from: "projects p LEFT JOIN project_nightlight_impacts n ON n.project_id=p.id",
     dimensions: {
       state: "p.state",
       lga: "p.lga",
@@ -15,11 +15,18 @@ const DATASETS = {
       verified: "p.verified",
       onMap: "CASE WHEN p.latitude IS NOT NULL AND p.longitude IS NOT NULL THEN 'yes' ELSE 'no' END",
       satelliteStatus: "COALESCE(p.satellite_verification_status,'not checked')",
+      nightLightImpact: "COALESCE(n.impact_class,'not analysed')",
     },
     measures: {
       projectCount: "COUNT(*)",
       mappedProjects: "SUM(CASE WHEN p.latitude IS NOT NULL AND p.longitude IS NOT NULL THEN 1 ELSE 0 END)",
       satelliteCheckedProjects: "SUM(CASE WHEN p.satellite_verification_status IS NOT NULL THEN 1 ELSE 0 END)",
+      nightLightAnalysedProjects: "SUM(CASE WHEN n.project_id IS NOT NULL THEN 1 ELSE 0 END)",
+      strongNightLightIncreaseProjects: "SUM(CASE WHEN n.impact_class='strong_increase' THEN 1 ELSE 0 END)",
+      moderateNightLightIncreaseProjects: "SUM(CASE WHEN n.impact_class='moderate_increase' THEN 1 ELSE 0 END)",
+      noClearNightLightChangeProjects: "SUM(CASE WHEN n.impact_class='no_clear_change' THEN 1 ELSE 0 END)",
+      nightLightDecreaseProjects: "SUM(CASE WHEN n.impact_class='decrease' THEN 1 ELSE 0 END)",
+      averageNightLightPercentChange: "AVG(n.percent_change)",
       installedCapacityKw: "SUM(COALESCE(p.installed_capacity_kw,0))",
       households: "SUM(COALESCE(p.households,0))",
       verifiedProjects: "SUM(CASE WHEN p.verified=1 THEN 1 ELSE 0 END)",
@@ -232,7 +239,8 @@ export async function executeAnalyticsPlan(env, plan) {
 }
 
 export function plannerPrompt(question, catalog) {
-  return `You are the Veritas analytics query planner. Convert the user's data question into ONE structured read-only analytics plan.\n\nYou are NOT allowed to write SQL. Use only this catalog:\n${JSON.stringify(catalog)}\n\nReturn JSON only with this shape:\n{\"mode\":\"analytics\",\"dataset\":\"projects\",\"dimensions\":[],\"measures\":[],\"filters\":[{\"field\":\"component\",\"op\":\"eq\",\"value\":\"Mini Grid\"}],\"orderBy\":[],\"limit\":100}\n\nRules:\n- Use mode \"analytics\" only for questions answerable from the catalog. Otherwise return {\"mode\":\"general\"}.\n- Never request personal contact information, credentials, secrets, precise coordinates, signatures, evidence contents, hashes, or tokens.\n- Prefer exact aggregates rather than record listings.\n- For \"by X\" questions put X in dimensions.\n- projectCount counts projects; assignmentCount counts assignments.\n- verified is a project dimension stored as 1 or 0.\n- Projects shown on the Project Map are those with coordinates: use the onMap dimension or the mappedProjects measure for questions about what is on the map. satelliteStatus is present, absent, inconclusive or not checked, and only reflects satellite checks that have actually been run.\n- Use filters for named states, programmes, components, contractors, consultants, statuses, officers, or reporting periods.\n- If a question asks about multiple subject areas that cannot be represented faithfully in one dataset, choose the dataset that answers the primary requested comparison and do not imply the plan covers the other subject area.\n- limit must be 200 or less.\n\nUSER QUESTION:\n${question}`;
+  return `You are the Veritas analytics query planner. Convert the user's data question into ONE structured read-only analytics plan.\n\nYou are NOT allowed to write SQL. Use only this catalog:\n${JSON.stringify(catalog)}\n\nReturn JSON only with this shape:\n{\"mode\":\"analytics\",\"dataset\":\"projects\",\"dimensions\":[],\"measures\":[],\"filters\":[{\"field\":\"component\",\"op\":\"eq\",\"value\":\"Mini Grid\"}],\"orderBy\":[],\"limit\":100}\n\nRules:\n- Use mode \"analytics\" only for questions answerable from the catalog. Otherwise return {\"mode\":\"general\"}.\n- Never request personal contact information, credentials, secrets, precise coordinates, signatures, evidence contents, hashes, or tokens.\n- Prefer exact aggregates rather than record listings.\n- For \"by X\" questions put X in dimensions.\n- projectCount counts projects; assignmentCount counts assignments.\n- verified is a project dimension stored as 1 or 0.\n- Projects shown on the Project Map are those with coordinates: use the onMap dimension or the mappedProjects measure for questions about what is on the map. satelliteStatus is present, absent, inconclusive or not checked, and only reflects satellite checks that have actually been run.
+- nightLightImpact is strong_increase, moderate_increase, no_clear_change, decrease, insufficient_data or not analysed. Use the night-light measures for portfolio questions about NASA VIIRS/Black Marble impact; do not confuse these with physical satellite verification.\n- Use filters for named states, programmes, components, contractors, consultants, statuses, officers, or reporting periods.\n- If a question asks about multiple subject areas that cannot be represented faithfully in one dataset, choose the dataset that answers the primary requested comparison and do not imply the plan covers the other subject area.\n- limit must be 200 or less.\n\nUSER QUESTION:\n${question}`;
 }
 
 export function analyticsAnswerPrompt(question, result) {
@@ -269,6 +277,12 @@ const MEASURE_LABELS = {
   projectCount: "Projects",
   mappedProjects: "On the map",
   satelliteCheckedProjects: "Satellite-checked",
+  nightLightAnalysedProjects: "VIIRS analysed",
+  strongNightLightIncreaseProjects: "Strong night-light increase",
+  moderateNightLightIncreaseProjects: "Moderate night-light increase",
+  noClearNightLightChangeProjects: "No clear night-light change",
+  nightLightDecreaseProjects: "Night-light decrease",
+  averageNightLightPercentChange: "Average night-light change (%)",
   installedCapacityKw: "Installed capacity (kW)",
   households: "Households",
   verifiedProjects: "Verified",
@@ -286,6 +300,7 @@ const MEASURE_LABELS = {
 const DIMENSION_LABELS = {
   onMap: "On map",
   satelliteStatus: "Satellite status",
+  nightLightImpact: "Night-light impact",
   consultantFirm: "Consultant firm",
   reportingMonth: "Reporting month",
   dataSource: "Data source",

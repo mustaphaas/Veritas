@@ -46,6 +46,7 @@ import {
   type SatelliteCardData,
   type SatelliteChoice,
 } from "./SatelliteVerdictCard";
+import { NightLightImpactCard, type NightLightCardData } from "./NightLightImpactCard";
 
 // The Project Map records the pin whose popup is open, so "verify this project"
 // in chat can mean the site the person is looking at.
@@ -58,7 +59,9 @@ type DisplayMessage = VeritasMessage & {
   id: string;
   sources?: VeritasSource[];
   satellite?: SatelliteCardData;
+  nightLight?: NightLightCardData;
   choices?: SatelliteChoice[];
+  choiceMode?: "satellite" | "nightlight";
 };
 
 const welcome: DisplayMessage = {
@@ -411,7 +414,9 @@ export default function VeritasAssistant() {
         answer?: string;
         sources?: VeritasSource[];
         satellite?: SatelliteCardData;
+        nightLight?: NightLightCardData;
         choices?: SatelliteChoice[];
+        choiceMode?: "satellite" | "nightlight";
         error?: string;
       };
 
@@ -427,7 +432,9 @@ export default function VeritasAssistant() {
           content: payload.answer!,
           sources: payload.sources,
           satellite: payload.satellite,
+          nightLight: payload.nightLight,
           choices: payload.choices,
+          choiceMode: payload.choiceMode,
         },
       ]);
     } catch (error) {
@@ -450,11 +457,14 @@ export default function VeritasAssistant() {
 
   // A tapped candidate retires its picker so it cannot be replayed against a
   // different project, then re-asks with the chosen id as an explicit hint.
-  const chooseProject = (messageId: string, choice: SatelliteChoice) => {
+  const chooseProject = (messageId: string, choice: SatelliteChoice, mode?: "satellite" | "nightlight") => {
     setMessages((current) =>
       current.map((message) => (message.id === messageId ? { ...message, choices: undefined } : message)),
     );
-    void send(`Verify ${choice.name} by satellite imagery.`, choice.id);
+    const prompt = mode === "nightlight"
+      ? `Analyse the NASA VIIRS night-time light impact for ${choice.name}.`
+      : `Verify ${choice.name} by satellite imagery.`;
+    void send(prompt, choice.id);
   };
 
   return (
@@ -535,6 +545,8 @@ export default function VeritasAssistant() {
                     )}
                     {message.satellite ? (
                       <SatelliteVerdictCard data={message.satellite} />
+                    ) : message.nightLight ? (
+                      <NightLightImpactCard data={message.nightLight} />
                     ) : (
                       <p className="whitespace-pre-wrap">{message.content}</p>
                     )}
@@ -542,7 +554,7 @@ export default function VeritasAssistant() {
                       <SatelliteChoiceList
                         choices={message.choices}
                         disabled={loading}
-                        onChoose={(choice) => chooseProject(message.id, choice)}
+                        onChoose={(choice) => chooseProject(message.id, choice, message.choiceMode)}
                       />
                     ) : null}
                     {message.sources?.length ? (
