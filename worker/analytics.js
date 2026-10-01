@@ -1,6 +1,6 @@
 const DATASETS = {
   projects: {
-    from: "projects p",
+    from: "projects p LEFT JOIN project_nightlight_impacts n ON n.project_id=p.id",
     dimensions: {
       state: "p.state",
       lga: "p.lga",
@@ -15,11 +15,18 @@ const DATASETS = {
       verified: "p.verified",
       onMap: "CASE WHEN p.latitude IS NOT NULL AND p.longitude IS NOT NULL THEN 'yes' ELSE 'no' END",
       satelliteStatus: "COALESCE(p.satellite_verification_status,'not checked')",
+      nightLightImpact: "COALESCE(n.impact_class,'not analysed')",
     },
     measures: {
       projectCount: "COUNT(*)",
       mappedProjects: "SUM(CASE WHEN p.latitude IS NOT NULL AND p.longitude IS NOT NULL THEN 1 ELSE 0 END)",
       satelliteCheckedProjects: "SUM(CASE WHEN p.satellite_verification_status IS NOT NULL THEN 1 ELSE 0 END)",
+      nightLightAnalysedProjects: "SUM(CASE WHEN n.project_id IS NOT NULL THEN 1 ELSE 0 END)",
+      strongNightLightIncreaseProjects: "SUM(CASE WHEN n.impact_class='strong_increase' THEN 1 ELSE 0 END)",
+      moderateNightLightIncreaseProjects: "SUM(CASE WHEN n.impact_class='moderate_increase' THEN 1 ELSE 0 END)",
+      noClearNightLightChangeProjects: "SUM(CASE WHEN n.impact_class='no_clear_change' THEN 1 ELSE 0 END)",
+      nightLightDecreaseProjects: "SUM(CASE WHEN n.impact_class='decrease' THEN 1 ELSE 0 END)",
+      averageNightLightPercentChange: "AVG(n.percent_change)",
       installedCapacityKw: "SUM(COALESCE(p.installed_capacity_kw,0))",
       households: "SUM(COALESCE(p.households,0))",
       verifiedProjects: "SUM(CASE WHEN p.verified=1 THEN 1 ELSE 0 END)",
