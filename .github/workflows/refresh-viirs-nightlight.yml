@@ -1,0 +1,72 @@
+name: Refresh VIIRS night-light impact
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Optional number of projects to process (0 = all)"
+        required: false
+        default: "0"
+  schedule:
+    - cron: "17 3 5 * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: viirs-nightlight-impact
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate VIIRS ingestion script
+        run: python -m py_compile scripts/ingest-viirs-nightlights.py
+
+      - name: Check NASA Earthdata credential
+        env:
+          NASA_EARTHDATA_TOKEN: ${{ secrets.NASA_EARTHDATA_TOKEN }}
+        run: |
+          if [ -z "$NASA_EARTHDATA_TOKEN" ]; then
+            echo "NASA_EARTHDATA_TOKEN is not configured; no VIIRS data will be written."
+            echo "skip_viirs=true" >> "$GITHUB_ENV"
+          fi
+
+      - name: Install processing dependencies
+        if: env.skip_viirs != 'true'
+        run: python -m pip install --disable-pip-version-check numpy h5py
+
+      - name: Export projects with a defensible completion month
+        if: env.skip_viirs != 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx wrangler@latest d1 execute veritas-production --remote --config wrangler.jsonc --json             --command "SELECT id,latitude,longitude,commissioned_at AS commissionedAt,'field completion date' AS dateBasis FROM projects WHERE commissioned_at IS NOT NULL AND latitude IS NOT NULL AND longitude IS NOT NULL ORDER BY id"             > /tmp/viirs-projects.json
+
+      - name: Download NASA Black Marble and calculate before/after impact
+        if: env.skip_viirs != 'true'
+        env:
+          NASA_EARTHDATA_TOKEN: ${{ secrets.NASA_EARTHDATA_TOKEN }}
+        run: |
+          python scripts/ingest-viirs-nightlights.py             --projects-json /tmp/viirs-projects.json             --output-sql /tmp/viirs-impact.sql             --cache-dir /tmp/viirs-cache             --limit "${{ github.event.inputs.limit || '0' }}"
+
+      - name: Write VIIRS impact results to production D1
+        if: env.skip_viirs != 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx wrangler@latest d1 execute veritas-production --remote --config wrangler.jsonc             --file /tmp/viirs-impact.sql
