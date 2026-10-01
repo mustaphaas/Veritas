@@ -37,6 +37,19 @@ function impactLabel(value: NightLightImpact["impactClass"]) {
 
 export function NightLightImpactCard({ data }: { data: NightLightCardData }) {
   const { project, impact } = data;
+  const primaryBefore =
+    typeof impact.coreP90BaselineRadiance === "number" && Number.isFinite(impact.coreP90BaselineRadiance)
+      ? impact.coreP90BaselineRadiance
+      : impact.baselineRadiance;
+  const primaryAfter =
+    typeof impact.coreP90AfterRadiance === "number" && Number.isFinite(impact.coreP90AfterRadiance)
+      ? impact.coreP90AfterRadiance
+      : impact.afterRadiance;
+  const usingCoreP90 =
+    typeof impact.coreP90BaselineRadiance === "number" &&
+    Number.isFinite(impact.coreP90BaselineRadiance) &&
+    typeof impact.coreP90AfterRadiance === "number" &&
+    Number.isFinite(impact.coreP90AfterRadiance);
   const primaryPercentChange =
     typeof impact.coreP90PercentChange === "number" && Number.isFinite(impact.coreP90PercentChange)
       ? impact.coreP90PercentChange
@@ -62,14 +75,14 @@ export function NightLightImpactCard({ data }: { data: NightLightCardData }) {
 
         <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
           <div className="rounded-lg bg-slate-50 p-2.5">
-            <p className="text-[8px] font-bold uppercase tracking-wide text-slate-400">Before · 1 km core P90</p>
-            <p className="mt-1 text-lg font-black text-slate-800">{fmtRadiance(impact.coreP90BaselineRadiance)}</p>
+            <p className="text-[8px] font-bold uppercase tracking-wide text-slate-400">Before{usingCoreP90 ? " · 1 km core P90" : ""}</p>
+            <p className="mt-1 text-lg font-black text-slate-800">{fmtRadiance(primaryBefore)}</p>
             <p className="text-[8px] text-slate-500">nW/cm²/sr</p>
           </div>
           <TrendIcon className={`h-4 w-4 ${!hasMeasuredChange ? "text-slate-400" : increased ? "text-emerald-600" : "text-rose-600"}`} />
           <div className="rounded-lg bg-indigo-50 p-2.5">
-            <p className="text-[8px] font-bold uppercase tracking-wide text-indigo-400">After · 1 km core P90</p>
-            <p className="mt-1 text-lg font-black text-indigo-950">{fmtRadiance(impact.coreP90AfterRadiance)}</p>
+            <p className="text-[8px] font-bold uppercase tracking-wide text-indigo-400">After{usingCoreP90 ? " · 1 km core P90" : ""}</p>
+            <p className="mt-1 text-lg font-black text-indigo-950">{fmtRadiance(primaryAfter)}</p>
             <p className="text-[8px] text-indigo-500">nW/cm²/sr</p>
           </div>
         </div>
