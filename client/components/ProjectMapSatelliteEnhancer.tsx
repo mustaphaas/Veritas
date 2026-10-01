@@ -192,6 +192,7 @@ function verdictHtml(verdict: SatelliteVerificationVerdict) {
     ${houseNote}
     ${qualityNote}
     <button type="button" data-satellite-verify-btn style="margin-top:4px;font-size:9px;font-weight:700;color:#173b2a;background:none;border:1px solid #173b2a;border-radius:4px;padding:2px 6px;cursor:pointer">Re-check</button>
+    ${nightLightButtonHtml()}
   </div>`;
 }
 
