@@ -33,6 +33,7 @@ VERSION = "002"
 ARCHIVE = "5200"
 LAADS = "https://ladsweb.modaps.eosdis.nasa.gov"
 RADIUS_M = 2000
+CORE_RADIUS_M = 1000
 CONTROL_INNER_M = 3000
 CONTROL_OUTER_M = 5000
 BEFORE_MONTHS = 12
@@ -176,11 +177,16 @@ def sample_month(path: Path, h: int, v: int, lat0: float, lon0: float):
         dist = haversine_grid(lat_vec, lon_vec, lat0, lon0)
 
         project_values = radiance[dist <= RADIUS_M]
+        core_values = radiance[dist <= CORE_RADIUS_M]
         control_values = radiance[(dist >= CONTROL_INNER_M) & (dist <= CONTROL_OUTER_M)]
         project_values = project_values[np.isfinite(project_values)]
+        core_values = core_values[np.isfinite(core_values)]
         control_values = control_values[np.isfinite(control_values)]
 
         project = float(np.median(project_values)) if project_values.size else None
+        core_median = float(np.median(core_values)) if core_values.size else None
+        core_mean = float(np.mean(core_values)) if core_values.size else None
+        core_p90 = float(np.percentile(core_values, 90)) if core_values.size else None
         control = float(np.median(control_values)) if control_values.size else None
 
         # Small spatial snapshot for future before/after heatmap rendering.
@@ -191,7 +197,7 @@ def sample_month(path: Path, h: int, v: int, lat0: float, lon0: float):
         c0, c1 = max(0, nearest_col-half), min(radiance.shape[1], nearest_col+half+1)
         grid = radiance[r0:r1, c0:c1]
         grid_json = [[None if not np.isfinite(x) else round(float(x), 3) for x in row] for row in grid]
-        return project, control, grid_json
+        return project, control, core_median, core_mean, core_p90, grid_json
 
 
 def median(values):
@@ -205,18 +211,56 @@ def pct_change(before, after):
     return (after - before) / abs(before) * 100.0
 
 
-def classify(project_pct, control_pct, before_n, after_n):
-    if before_n < 6 or after_n < 6 or project_pct is None:
-        return "insufficient_data", "insufficient"
+def classify(project_pct, control_pct, core_before, core_after, core_p90_before, core_p90_after, control_before, control_after, before_n, after_n):
+    if before_n < 6 or after_n < 6:
+        return "insufficient_data", "insufficient", "insufficient_months", "Fewer than six valid months are available on one side of commissioning."
+
     quality = "good" if before_n >= 10 and after_n >= 10 else "moderate" if before_n >= 8 and after_n >= 8 else "limited"
-    differential = project_pct - (control_pct or 0.0)
-    if project_pct >= 30 and differential >= 20:
-        return "strong_increase", quality
-    if project_pct >= 10 and differential >= 10:
-        return "moderate_increase", quality
-    if project_pct <= -10:
-        return "decrease", quality
-    return "no_clear_change", quality
+
+    # Prefer percentage-based change when the baseline is bright enough to make
+    # a ratio meaningful. The 90th percentile is sensitive to a small cluster
+    # of newly lit pixels that a 2 km median can wash out.
+    core_p90_pct = pct_change(core_p90_before, core_p90_after)
+    if core_p90_pct is not None:
+        differential = core_p90_pct - (control_pct or 0.0)
+        if core_p90_pct >= 30 and differential >= 20:
+            return "strong_increase", quality, "core_p90_percent_change", "The 1 km core 90th-percentile radiance increased substantially relative to the comparison area."
+        if core_p90_pct >= 10 and differential >= 10:
+            return "moderate_increase", quality, "core_p90_percent_change", "The 1 km core 90th-percentile radiance increased relative to the comparison area."
+        if core_p90_pct <= -10:
+            return "decrease", quality, "core_p90_percent_change", "The 1 km core 90th-percentile radiance decreased after commissioning."
+        return "no_clear_change", quality, "core_p90_percent_change", "The 1 km core 90th-percentile radiance did not show a clear change relative to the comparison area."
+
+    # For a near-zero baseline, percentage change is mathematically unstable.
+    # Use an absolute-radiance test, while still requiring the project-core
+    # increase to exceed the contemporaneous control-ring change.
+    if core_p90_before is not None and core_p90_after is not None:
+        project_delta = core_p90_after - core_p90_before
+        control_delta = 0.0
+        if control_before is not None and control_after is not None:
+            control_delta = control_after - control_before
+        excess_delta = project_delta - max(control_delta, 0.0)
+        mean_delta = None if core_before is None or core_after is None else core_after - core_before
+
+        if project_delta >= 0.30 and excess_delta >= 0.20 and (mean_delta is None or mean_delta >= 0.05):
+            return "strong_increase", quality, "core_p90_absolute_change", "The pre-project signal was near zero, so Veritas used absolute 1 km core radiance change; the increase was strong and exceeded the comparison-area change."
+        if project_delta >= 0.10 and excess_delta >= 0.08 and (mean_delta is None or mean_delta >= 0.02):
+            return "moderate_increase", quality, "core_p90_absolute_change", "The pre-project signal was near zero, so Veritas used absolute 1 km core radiance change; the increase exceeded the comparison-area change."
+        if project_delta <= -0.10:
+            return "decrease", quality, "core_p90_absolute_change", "The pre-project signal was near zero and the 1 km core radiance decreased after commissioning."
+        return "no_clear_change", quality, "core_p90_absolute_change", "The pre-project signal was near zero and the absolute 1 km core change was too small to call a measurable increase."
+
+    if project_pct is not None:
+        differential = project_pct - (control_pct or 0.0)
+        if project_pct >= 30 and differential >= 20:
+            return "strong_increase", quality, "two_km_median_percent_change", "The 2 km median radiance increased substantially relative to the comparison area."
+        if project_pct >= 10 and differential >= 10:
+            return "moderate_increase", quality, "two_km_median_percent_change", "The 2 km median radiance increased relative to the comparison area."
+        if project_pct <= -10:
+            return "decrease", quality, "two_km_median_percent_change", "The 2 km median radiance decreased after commissioning."
+        return "no_clear_change", quality, "two_km_median_percent_change", "The 2 km median radiance did not show a clear change."
+
+    return "insufficient_data", quality, "signal_unavailable", "Valid monthly observations exist, but no reliable local radiance metric could be calculated."
 
 
 def parse_wrangler_json(path: Path):
@@ -273,17 +317,20 @@ def analyse_project(project, token: str, cache: Path):
                 continue
             try:
                 path = download_file(month, filename, token, cache)
-                project_rad, control_rad, grid = sample_month(
+                project_rad, control_rad, core_median, core_mean, core_p90, grid = sample_month(
                     path, h, v, float(project["latitude"]), float(project["longitude"])
                 )
             except Exception as exc:
                 print(f"warning: {project['id']} {month}: {exc}", file=sys.stderr)
-                project_rad, control_rad, grid = None, None, None
+                project_rad, control_rad, core_median, core_mean, core_p90, grid = None, None, None, None, None, None
             series.append({
                 "month": month.isoformat(),
                 "phase": phase,
                 "projectRadiance": project_rad,
                 "controlRadiance": control_rad,
+                "coreMedianRadiance": core_median,
+                "coreMeanRadiance": core_mean,
+                "coreP90Radiance": core_p90,
             })
             if grid:
                 (grids_before if phase == "before" else grids_after).append(grid)
@@ -292,14 +339,39 @@ def analyse_project(project, token: str, cache: Path):
     after_p = [x["projectRadiance"] for x in series if x["phase"] == "after" and x["projectRadiance"] is not None]
     before_c = [x["controlRadiance"] for x in series if x["phase"] == "before" and x["controlRadiance"] is not None]
     after_c = [x["controlRadiance"] for x in series if x["phase"] == "after" and x["controlRadiance"] is not None]
+    before_core = [x["coreMedianRadiance"] for x in series if x["phase"] == "before" and x["coreMedianRadiance"] is not None]
+    after_core = [x["coreMedianRadiance"] for x in series if x["phase"] == "after" and x["coreMedianRadiance"] is not None]
+    before_core_mean = [x["coreMeanRadiance"] for x in series if x["phase"] == "before" and x["coreMeanRadiance"] is not None]
+    after_core_mean = [x["coreMeanRadiance"] for x in series if x["phase"] == "after" and x["coreMeanRadiance"] is not None]
+    before_core_p90 = [x["coreP90Radiance"] for x in series if x["phase"] == "before" and x["coreP90Radiance"] is not None]
+    after_core_p90 = [x["coreP90Radiance"] for x in series if x["phase"] == "after" and x["coreP90Radiance"] is not None]
 
     baseline = median(before_p)
     post = median(after_p)
     control_baseline = median(before_c)
     control_post = median(after_c)
+    core_baseline = median(before_core)
+    core_post = median(after_core)
+    core_mean_baseline = median(before_core_mean)
+    core_mean_post = median(after_core_mean)
+    core_p90_baseline = median(before_core_p90)
+    core_p90_post = median(after_core_p90)
     project_pct = pct_change(baseline, post)
+    core_pct = pct_change(core_baseline, core_post)
+    core_p90_pct = pct_change(core_p90_baseline, core_p90_post)
     control_pct = pct_change(control_baseline, control_post)
-    impact_class, quality = classify(project_pct, control_pct, len(before_p), len(after_p))
+    impact_class, quality, detection_metric, detection_reason = classify(
+        project_pct,
+        control_pct,
+        core_mean_baseline,
+        core_mean_post,
+        core_p90_baseline,
+        core_p90_post,
+        control_baseline,
+        control_post,
+        len(before_p),
+        len(after_p),
+    )
     differential = project_pct - control_pct if project_pct is not None and control_pct is not None else None
 
     return {
@@ -307,6 +379,7 @@ def analyse_project(project, token: str, cache: Path):
         "commissioning_date": commissioned.isoformat(),
         "date_basis": project.get("dateBasis") or "field completion date",
         "radius_metres": RADIUS_M,
+        "core_radius_metres": CORE_RADIUS_M,
         "control_inner_metres": CONTROL_INNER_M,
         "control_outer_metres": CONTROL_OUTER_M,
         "before_start": before_months[0].isoformat(),
@@ -317,6 +390,15 @@ def analyse_project(project, token: str, cache: Path):
         "after_radiance": post,
         "radiance_delta": (post - baseline) if baseline is not None and post is not None else None,
         "percent_change": project_pct,
+        "core_baseline_radiance": core_baseline,
+        "core_after_radiance": core_post,
+        "core_radiance_delta": (core_post - core_baseline) if core_baseline is not None and core_post is not None else None,
+        "core_percent_change": core_pct,
+        "core_mean_baseline_radiance": core_mean_baseline,
+        "core_mean_after_radiance": core_mean_post,
+        "core_p90_baseline_radiance": core_p90_baseline,
+        "core_p90_after_radiance": core_p90_post,
+        "core_p90_percent_change": core_p90_pct,
         "control_baseline_radiance": control_baseline,
         "control_after_radiance": control_post,
         "control_percent_change": control_pct,
@@ -325,25 +407,30 @@ def analyse_project(project, token: str, cache: Path):
         "months_after": len(after_p),
         "impact_class": impact_class,
         "data_quality": quality,
+        "detection_metric": detection_metric,
+        "detection_reason": detection_reason,
         "series_json": json.dumps(series, separators=(",", ":")),
         "before_grid_json": json.dumps(grid_median(grids_before), separators=(",", ":")) if grids_before else None,
         "after_grid_json": json.dumps(grid_median(grids_after), separators=(",", ":")) if grids_after else None,
         "source_product": "VNP46A3.002",
         "source_name": "NASA VIIRS Black Marble",
         "source_url": "https://ladsweb.modaps.eosdis.nasa.gov/missions-and-measurements/products/VNP46A3",
-        "analysis_method": "near-nadir-snow-free-monthly-median-v1",
+        "analysis_method": "near-nadir-snow-free-multi-metric-v2",
         "checked_at": dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z"),
     }
 
 
 def emit_sql(results, output: Path):
     columns = [
-        "project_id","commissioning_date","date_basis","radius_metres","control_inner_metres",
+        "project_id","commissioning_date","date_basis","radius_metres","core_radius_metres","control_inner_metres",
         "control_outer_metres","before_start","before_end","after_start","after_end",
         "baseline_radiance","after_radiance","radiance_delta","percent_change",
+        "core_baseline_radiance","core_after_radiance","core_radiance_delta","core_percent_change",
+        "core_mean_baseline_radiance","core_mean_after_radiance",
+        "core_p90_baseline_radiance","core_p90_after_radiance","core_p90_percent_change",
         "control_baseline_radiance","control_after_radiance","control_percent_change",
         "differential_percentage_points","months_before","months_after","impact_class",
-        "data_quality","series_json","before_grid_json","after_grid_json","source_product",
+        "data_quality","detection_metric","detection_reason","series_json","before_grid_json","after_grid_json","source_product",
         "source_name","source_url","analysis_method","checked_at"
     ]
     lines = []
