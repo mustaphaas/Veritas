@@ -89,8 +89,7 @@ def download_file(value: dt.date, filename: str, token: str, cache: Path) -> Pat
     target = cache / filename
     if target.exists() and target.stat().st_size > 1024:
         return target
-    path = f"allData/{ARCHIVE}/{PRODUCT}/{value.year}/{doy_for_month(value):03d}/{filename}"
-    url = f"{LAADS}/api/v2/content/archives/{path}"
+    url = f"{archive_dir(value)}{filename}"
     req = urllib.request.Request(
         url,
         headers={
