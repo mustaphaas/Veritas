@@ -15,6 +15,21 @@ const SEARCH_STOPWORDS = new Set((
 
 const MAX_CHOICES = 6;
 
+// Generic project-type and analysis words describe what is being analysed;
+// they must never identify a particular project on their own.
+const PROJECT_TYPE_WORDS = new Set(
+  "mini grid solar street light lights home system systems standalone stand alone extension water pumping pump".split(" "),
+);
+const ANALYSIS_WORDS = new Set(
+  "impact measurable electrification viirs black marble night nighttime lighting radiance increase change before after commissioning completion completed operational energisation energization".split(" "),
+);
+
+function projectIdentityTokens(question) {
+  return extractSearchTokens(question).filter(
+    (token) => !PROJECT_TYPE_WORDS.has(token) && !ANALYSIS_WORDS.has(token),
+  );
+}
+
 // Portfolio-level questions ("how many mini grids are on the map") name a
 // satellite surface but ask about the whole portfolio, not one site's imagery.
 // They belong to the D1 analytics path.
@@ -115,6 +130,7 @@ export async function resolveSatelliteProject(env, question, hints = {}) {
   if (idMatches.length > 1) return { status: "ambiguous", candidates: idMatches.slice(0, MAX_CHOICES).map(choiceOf) };
 
   const tokens = extractSearchTokens(question);
+  const identityTokens = projectIdentityTokens(question);
   const mapId = typeof hints.mapProjectId === "string" ? hints.mapProjectId.trim().slice(0, 120) : "";
   const fromMap = async () => {
     if (!mapId) return null;
@@ -122,13 +138,17 @@ export async function resolveSatelliteProject(env, question, hints = {}) {
     return project ? { status: "resolved", project, via: "map" } : null;
   };
 
-  if (!tokens.length) return (await fromMap()) || { status: "none", tokens };
+  if (!identityTokens.length) return (await fromMap()) || { status: "none", tokens };
 
-  const ranked = rankProjects(rows, tokens);
+  // Resolve only from distinctive identity words (name/community/LGA/id-like
+  // wording). Component words such as "mini grid" may describe many projects
+  // and cannot be used to manufacture a candidate list when the named place
+  // or project does not exist.
+  const ranked = rankProjects(rows, identityTokens);
   if (!ranked.length) return (await fromMap()) || { status: "none", tokens };
 
   const [top, second] = ranked;
-  const coverage = top.matched / tokens.length;
+  const coverage = top.matched / identityTokens.length;
   if (coverage >= 0.5 && (!second || top.score > second.score)) {
     return { status: "resolved", project: top.row, via: "name" };
   }
@@ -147,13 +167,6 @@ function parseResponse(response) {
   return response.json().catch(() => ({}));
 }
 
-// Words that name a kind of project, not a particular one. In a portfolio
-// question they describe what is being counted, so they must not be mistaken
-// for naming a single site ("Kura Mini-Grid" contains "mini" and "grid").
-const COMPONENT_WORDS = new Set(
-  "mini grid solar street light lights home system systems standalone stand alone extension water pumping pump".split(" "),
-);
-
 // Decides whether a message should run a per-project satellite check.
 //   - a picker choice always does (the person already chose the project)
 //   - a non-satellite message never does
@@ -171,7 +184,7 @@ export async function shouldRunSatelliteAnalysis(env, question, hints = {}) {
     if (rows.some((row) => row.id && String(row.id).length >= 4 && lowered.includes(String(row.id).toLowerCase()))) {
       return true;
     }
-    const tokens = extractSearchTokens(question).filter((token) => !COMPONENT_WORDS.has(token));
+    const tokens = extractSearchTokens(question).filter((token) => !PROJECT_TYPE_WORDS.has(token));
     if (!tokens.length) return false;
     const ranked = rankProjects(rows, tokens).filter((entry) => entry.strong > 0);
     if (!ranked.length) return false;
