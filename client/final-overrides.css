@@ -263,3 +263,341 @@ aside > div.flex.h-\[94px\].items-center.gap-3.px-4 > div:first-child img {
     border-radius: 0 !important;
   }
 }
+
+
+/* ==========================================================================
+   FINAL NJC-INSPIRED LIQUID GLASS OVERRIDE
+   This file loads last. These rules intentionally win over nep-inspired.css.
+   ========================================================================== */
+
+.veritas-liquid-shell {
+  min-height: 100vh !important;
+  background:
+    radial-gradient(circle at 8% -8%, rgba(34, 167, 92, .13), transparent 30%),
+    radial-gradient(circle at 92% 0%, rgba(127, 212, 156, .12), transparent 27%),
+    linear-gradient(180deg, #fbfefc 0%, #f3f8f5 48%, #f8fbf9 100%) !important;
+}
+
+.veritas-liquid-shell > main {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+/* Floating executive header */
+.veritas-liquid-topbar {
+  position: sticky !important;
+  top: 12px !important;
+  z-index: 50 !important;
+  width: calc(100% - 28px) !important;
+  height: 86px !important;
+  margin: 0 14px !important;
+  padding-inline: 22px !important;
+  border: 1px solid rgba(202, 224, 209, .95) !important;
+  border-radius: 24px !important;
+  background: linear-gradient(135deg, rgba(255,255,255,.88), rgba(247,253,249,.74)) !important;
+  box-shadow:
+    0 20px 46px rgba(24, 74, 44, .10),
+    inset 0 1px 0 rgba(255,255,255,.98) !important;
+  -webkit-backdrop-filter: blur(26px) saturate(150%) !important;
+  backdrop-filter: blur(26px) saturate(150%) !important;
+}
+
+.veritas-liquid-topbar h1 {
+  font-weight: 700 !important;
+  letter-spacing: -.025em !important;
+}
+
+.veritas-liquid-topbar button {
+  border-radius: 14px !important;
+}
+
+/* Floating glass navigation */
+.veritas-liquid-nav {
+  position: sticky !important;
+  top: 112px !important;
+  z-index: 45 !important;
+  width: min(1510px, calc(100% - 44px)) !important;
+  margin: 18px auto 0 !important;
+  border: 1px solid rgba(206, 226, 212, .95) !important;
+  border-radius: 20px !important;
+  background: rgba(255,255,255,.76) !important;
+  box-shadow:
+    0 14px 34px rgba(24, 72, 43, .08),
+    inset 0 1px 0 rgba(255,255,255,.96) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(145%) !important;
+  backdrop-filter: blur(22px) saturate(145%) !important;
+  overflow: hidden !important;
+}
+
+.veritas-liquid-nav > div {
+  padding: 7px 10px !important;
+}
+
+.veritas-liquid-nav button {
+  margin: 0 2px !important;
+  padding: 10px 15px !important;
+  border: 0 !important;
+  border-radius: 13px !important;
+  transition: transform .18s ease, background .18s ease, color .18s ease, box-shadow .18s ease !important;
+}
+
+.veritas-liquid-nav button[aria-current="page"] {
+  background: linear-gradient(135deg, #08733f 0%, #17a15d 100%) !important;
+  color: #fff !important;
+  box-shadow: 0 8px 20px rgba(8,115,63,.22) !important;
+}
+
+.veritas-liquid-nav button:not([aria-current="page"]):hover {
+  background: rgba(232, 246, 237, .96) !important;
+  color: #08733f !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Content spacing makes the layout breathe like the Flutter reference. */
+.veritas-liquid-content {
+  max-width: 1580px !important;
+  padding-top: 20px !important;
+  padding-bottom: 38px !important;
+}
+
+/* Glass filter tray */
+.veritas-liquid-filters {
+  border: 1px solid rgba(203, 226, 211, .96) !important;
+  border-radius: 22px !important;
+  background: linear-gradient(135deg, rgba(255,255,255,.84), rgba(240,250,244,.74)) !important;
+  box-shadow:
+    0 15px 34px rgba(23, 70, 42, .07),
+    inset 0 1px 0 rgba(255,255,255,.98) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(140%) !important;
+  backdrop-filter: blur(20px) saturate(140%) !important;
+  padding: 18px !important;
+}
+
+.veritas-liquid-filters select {
+  height: 44px !important;
+  border: 1px solid rgba(207, 225, 213, .98) !important;
+  border-radius: 13px !important;
+  background: rgba(255,255,255,.90) !important;
+  box-shadow: 0 5px 14px rgba(31, 72, 46, .035), inset 0 1px 0 rgba(255,255,255,.98) !important;
+}
+
+.veritas-liquid-filters button {
+  height: 44px !important;
+  border-radius: 13px !important;
+}
+
+/* KPI cards: glass, large-radius, modern line-icon containers. */
+.veritas-liquid-content section.mt-3.flex.gap-3.overflow-x-auto.pb-1 {
+  gap: 14px !important;
+  padding-top: 2px !important;
+}
+
+.veritas-liquid-content section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button) {
+  position: relative !important;
+  min-height: 132px !important;
+  min-width: 220px !important;
+  overflow: hidden !important;
+  border-radius: 22px !important;
+  border: 1px solid rgba(213, 228, 218, .94) !important;
+  background: rgba(255,255,255,.78) !important;
+  padding: 16px !important;
+  text-align: left !important;
+  box-shadow:
+    0 16px 34px rgba(26, 70, 43, .075),
+    inset 0 1px 0 rgba(255,255,255,.95) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(135%) !important;
+  backdrop-filter: blur(18px) saturate(135%) !important;
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease !important;
+}
+
+.veritas-liquid-content section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button)::before {
+  display: block !important;
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 auto 0 0 !important;
+  width: 4px !important;
+  background: linear-gradient(180deg, #0a7b44, #55c783) !important;
+}
+
+.veritas-liquid-content section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > button:last-child::before {
+  background: linear-gradient(180deg, #c98000, #f1bd4e) !important;
+}
+
+.veritas-liquid-content section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button) > div {
+  display: flex !important;
+  height: 100% !important;
+  flex-direction: row !important;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+  gap: 13px !important;
+}
+
+.veritas-liquid-content section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button) > div > div:first-child {
+  position: static !important;
+  width: 46px !important;
+  height: 46px !important;
+  flex: 0 0 46px !important;
+  border: 1px solid rgba(198, 224, 207, .94) !important;
+  border-radius: 15px !important;
+  background: rgba(238, 250, 242, .92) !important;
+  color: #08733f !important;
+  box-shadow: 0 7px 18px rgba(8,115,63,.09), inset 0 1px 0 rgba(255,255,255,.95) !important;
+}
+
+.veritas-liquid-content section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button) > div > div:last-child {
+  width: auto !important;
+  flex: 1 1 auto !important;
+  text-align: left !important;
+}
+
+.veritas-liquid-content section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button) > div > div:last-child > p:first-child {
+  font-size: 10px !important;
+  line-height: 1.3 !important;
+  font-weight: 700 !important;
+  letter-spacing: .075em !important;
+  text-transform: uppercase !important;
+  color: #66766d !important;
+}
+
+.veritas-liquid-content section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button) > div > div:last-child > p:nth-child(2) {
+  margin-top: 8px !important;
+  font-size: 28px !important;
+  line-height: 1 !important;
+  font-weight: 700 !important;
+  letter-spacing: -.04em !important;
+  color: #173b2a !important;
+}
+
+.veritas-liquid-content section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button) > div > div:last-child > p:nth-child(3) {
+  margin-top: 9px !important;
+  font-size: 10px !important;
+  line-height: 1.45 !important;
+  color: #77867e !important;
+}
+
+.veritas-liquid-content section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button):hover {
+  border-color: rgba(133, 192, 153, .95) !important;
+  background: rgba(255,255,255,.94) !important;
+  color: inherit !important;
+  transform: translateY(-5px) !important;
+  box-shadow:
+    0 22px 44px rgba(25, 69, 42, .13),
+    inset 0 1px 0 rgba(255,255,255,.98) !important;
+}
+
+.veritas-liquid-content section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button):hover p,
+.veritas-liquid-content section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button):hover svg {
+  color: inherit !important;
+}
+
+/* Card system across map, programme, charts, activities and tables. */
+.veritas-liquid-content section.overflow-hidden.rounded-xl,
+.veritas-liquid-content article.flex.min-h-\[330px\] {
+  border: 1px solid rgba(214, 229, 219, .95) !important;
+  border-radius: 24px !important;
+  background: rgba(255,255,255,.82) !important;
+  box-shadow:
+    0 16px 38px rgba(24, 68, 41, .07),
+    inset 0 1px 0 rgba(255,255,255,.98) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(135%) !important;
+  backdrop-filter: blur(20px) saturate(135%) !important;
+  overflow: hidden !important;
+}
+
+.veritas-liquid-content section.overflow-hidden.rounded-xl > div:first-child {
+  background: linear-gradient(100deg, rgba(239,250,243,.90), rgba(255,255,255,.72)) !important;
+  border-bottom-color: rgba(218, 232, 222, .90) !important;
+}
+
+.veritas-liquid-content section.overflow-hidden.rounded-xl h2 {
+  font-weight: 700 !important;
+  letter-spacing: -.012em !important;
+  color: #173b2a !important;
+}
+
+/* National map: softly luminous glass surface. */
+.veritas-liquid-content div:has(> svg[aria-label^="Interactive Nigeria state map"]) {
+  background:
+    radial-gradient(circle at 46% 42%, #ffffff 0%, #f1f9f4 56%, #e7f3eb 100%) !important;
+}
+
+.veritas-liquid-content svg[aria-label^="Interactive Nigeria state map"] {
+  filter: drop-shadow(0 12px 24px rgba(43, 93, 61, .09)) !important;
+}
+
+/* Programme table rows become soft floating rows rather than flat dividers. */
+.veritas-liquid-content section:has(h2:first-child) .divide-y.divide-slate-100 {
+  padding: 6px 10px 12px !important;
+  background: transparent !important;
+}
+
+.veritas-liquid-content section:has(h2:first-child) .divide-y.divide-slate-100 > div {
+  margin-top: 6px !important;
+  border: 1px solid rgba(225, 235, 228, .9) !important;
+  border-radius: 15px !important;
+  background: rgba(255,255,255,.68) !important;
+  box-shadow: 0 5px 14px rgba(25,67,42,.035) !important;
+}
+
+/* Trend chart glass well */
+.veritas-liquid-content [aria-label*="trend chart"] {
+  border: 1px solid rgba(219,232,223,.9) !important;
+  border-radius: 18px !important;
+  background: rgba(255,255,255,.72) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.96), 0 8px 22px rgba(28,69,43,.04) !important;
+}
+
+/* Tables */
+.veritas-liquid-content table thead {
+  background: rgba(241, 248, 244, .94) !important;
+}
+
+.veritas-liquid-content table tbody tr:hover {
+  background: rgba(240, 249, 244, .82) !important;
+}
+
+/* Smooth, subtle interactions */
+.veritas-liquid-content button,
+.veritas-liquid-content select {
+  transition: transform .17s ease, box-shadow .17s ease, border-color .17s ease, background-color .17s ease !important;
+}
+
+.veritas-liquid-content button:hover {
+  transform: translateY(-1px);
+}
+
+.veritas-liquid-content button:active {
+  transform: translateY(0) scale(.985) !important;
+}
+
+@media (max-width: 767px) {
+  .veritas-liquid-topbar {
+    top: 6px !important;
+    width: calc(100% - 12px) !important;
+    height: 78px !important;
+    margin-inline: 6px !important;
+    padding-inline: 12px !important;
+    border-radius: 17px !important;
+  }
+
+  .veritas-liquid-nav {
+    top: 92px !important;
+    width: calc(100% - 16px) !important;
+    margin-top: 12px !important;
+    border-radius: 16px !important;
+  }
+
+  .veritas-liquid-content {
+    padding-top: 12px !important;
+  }
+
+  .veritas-liquid-filters,
+  .veritas-liquid-content section.overflow-hidden.rounded-xl {
+    border-radius: 18px !important;
+  }
+
+  .veritas-liquid-content section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :is(article, button) {
+    min-width: 205px !important;
+    border-radius: 18px !important;
+  }
+}
