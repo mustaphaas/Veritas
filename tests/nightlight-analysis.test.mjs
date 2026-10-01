@@ -4,6 +4,7 @@ import {
   isNightLightImpactQuestion,
   nightLightImpactAnswer,
   nightLightCardPayload,
+  shouldRunNightLightAnalysis,
 } from "../worker/nightlight-analysis.js";
 
 test("night-light routing recognises VIIRS and Black Marble questions", () => {
@@ -51,4 +52,13 @@ test("night-light answer uses measured values and includes the causation warning
   const card = nightLightCardPayload(result);
   assert.equal(card.project.id, "p1");
   assert.equal(card.impact.impactClass, "strong_increase");
+});
+
+
+test("a satellite picker projectId does not hijack into VIIRS without night-light wording", async () => {
+  const env = { DB: { prepare: () => { throw new Error("should not touch DB"); } } };
+  assert.equal(
+    await shouldRunNightLightAnalysis(env, "Verify Kura Mini-Grid by satellite imagery.", { projectId: "p1" }),
+    false,
+  );
 });
