@@ -69,9 +69,15 @@ def archive_dir(value: dt.date) -> str:
     return f"{LAADS}/archive/allData/{ARCHIVE}/{PRODUCT}/{value.year}/{doy_for_month(value):03d}/"
 
 
-def list_tile_file(value: dt.date, h: int, v: int) -> str | None:
+def list_tile_file(value: dt.date, h: int, v: int, token: str) -> str | None:
     url = archive_dir(value)
-    req = urllib.request.Request(url, headers={"User-Agent": "Veritas-VIIRS/1.0"})
+    req = urllib.request.Request(
+        url,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "User-Agent": "Veritas-VIIRS/1.0",
+        },
+    )
     try:
         with urllib.request.urlopen(req, timeout=30) as response:
             page = response.read().decode("utf-8", "ignore")
@@ -261,7 +267,7 @@ def analyse_project(project, token: str, cache: Path):
 
     for phase, months in (("before", before_months), ("after", after_months)):
         for month in months:
-            filename = list_tile_file(month, h, v)
+            filename = list_tile_file(month, h, v, token)
             if not filename:
                 series.append({"month": month.isoformat(), "phase": phase, "projectRadiance": None, "controlRadiance": None})
                 continue
