@@ -1162,6 +1162,14 @@ async function veritasResponse(request, env) {
           build: BUILD_ID,
         });
       }
+      if (nightLightResult.kind === "eligibility") {
+        return json({
+          answer: nightLightResult.answer,
+          sources: [],
+          mode: "veritas-nightlight-eligibility",
+          build: BUILD_ID,
+        });
+      }
       return json({
         answer: nightLightImpactAnswer(nightLightResult),
         nightLight: nightLightCardPayload(nightLightResult),

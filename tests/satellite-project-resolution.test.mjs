@@ -199,3 +199,21 @@ test("exact analytics answers read as findings, with the database's own numbers"
 
   assert.match(formatAnalyticsAnswer({ rows: [] }), /Nothing in the live production data matches/);
 });
+
+
+test("nonexistent Kura does not fall back to unrelated mini-grid projects", async () => {
+  const withoutKura = PROJECTS.filter((project) => project.id !== "REA-DARES-0201");
+  const result = await resolveSatelliteProject(
+    fakeEnv(withoutKura),
+    "Did the Kura Mini-Grid have a measurable electrification impact?",
+  );
+  assert.equal(result.status, "none");
+});
+
+test("generic mini-grid wording alone cannot produce arbitrary project candidates", async () => {
+  const result = await resolveSatelliteProject(
+    fakeEnv(PROJECTS.filter((project) => project.id !== "REA-DARES-0201")),
+    "Did the Mini-Grid have a measurable electrification impact?",
+  );
+  assert.equal(result.status, "none");
+});
