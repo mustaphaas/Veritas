@@ -1149,7 +1149,7 @@ async function veritasResponse(request, env) {
         return json({
           answer: nightLightResult.reason,
           sources: [],
-          ...(nightLightResult.kind === "choose" ? { choices: nightLightResult.candidates } : {}),
+          ...(nightLightResult.kind === "choose" ? { choices: nightLightResult.candidates, choiceMode: "nightlight" } : {}),
           mode: nightLightResult.kind === "choose" ? "veritas-nightlight-select" : "veritas-nightlight-clarify",
           build: BUILD_ID,
         });
@@ -1191,7 +1191,7 @@ async function veritasResponse(request, env) {
         return json({
           answer: satelliteResult.reason,
           sources: [],
-          ...(satelliteResult.kind === "choose" ? { choices: satelliteResult.candidates } : {}),
+          ...(satelliteResult.kind === "choose" ? { choices: satelliteResult.candidates, choiceMode: "satellite" } : {}),
           mode: satelliteResult.kind === "choose" ? "veritas-satellite-select" : "veritas-satellite-clarify",
           build: BUILD_ID,
         });
