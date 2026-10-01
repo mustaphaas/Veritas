@@ -217,3 +217,28 @@ test("generic mini-grid wording alone cannot produce arbitrary project candidate
   );
   assert.equal(result.status, "none");
 });
+
+
+test("NASA wording never makes Nasarawa a candidate for Gbamu-Gbamu", async () => {
+  const rows = [
+    ...PROJECTS,
+    { id: "EXT-VIIRS-OGUN-GBAMU-001", name: "Gbamu-Gbamu Mini-Grid (External VIIRS Demo)", component: "Mini Grid", programme: "Others", state: "Ogun", lga: "Ijebu East", community: "Gbamu-Gbamu", latitude: 6.84746, longitude: 4.21247 },
+    { id: "DEMO-NASARAWA-005", name: "Nasarawa Grid Extension Project 05", component: "Grid Extension", programme: "Others", state: "Nasarawa", lga: "Nasarawa Central", community: "Nasarawa Community 5", latitude: 8.49, longitude: 8.51 },
+    { id: "DEMO-NASARAWA-011", name: "Nasarawa Mini Grid Project 11", component: "Mini Grid", programme: "Others", state: "Nasarawa", lga: "Nasarawa Central", community: "Nasarawa Community 11", latitude: 8.50, longitude: 8.52 },
+  ];
+  const result = await resolveSatelliteProject(
+    fakeEnv(rows),
+    "Did the Gbamu-Gbamu Mini-Grid have a measurable night-time lighting impact according to NASA VIIRS?",
+  );
+  assert.equal(result.status, "resolved");
+  assert.equal(result.project.id, "EXT-VIIRS-OGUN-GBAMU-001");
+  assert.equal(result.via, "name");
+});
+
+test("project matching uses exact identity tokens, not prefixes", async () => {
+  const rows = [
+    { id: "DEMO-NASARAWA-001", name: "Nasarawa Mini Grid Project 01", component: "Mini Grid", programme: "Others", state: "Nasarawa", lga: "Nasarawa Central", community: "Nasarawa Community 1", latitude: 8.49, longitude: 8.51 },
+  ];
+  const result = await resolveSatelliteProject(fakeEnv(rows), "NASA VIIRS impact for a mini grid");
+  assert.equal(result.status, "none");
+});
