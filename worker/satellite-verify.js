@@ -50,6 +50,8 @@ async function currentUser(request, env) {
 
 const ESRI_EXPORT_URL =
   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export";
+const ESRI_METADATA_QUERY_URL =
+  "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/0/query";
 const METRES_PER_DEGREE_LAT = 111320;
 const MIN_RADIUS_METRES = 80;
 const MAX_RADIUS_METRES = 400;
@@ -59,6 +61,73 @@ export function bboxAround(lat, lon, radiusMetres) {
   const dLat = radiusMetres / METRES_PER_DEGREE_LAT;
   const dLon = radiusMetres / (METRES_PER_DEGREE_LAT * Math.cos((lat * Math.PI) / 180));
   return [lon - dLon, lat - dLat, lon + dLon, lat + dLat];
+}
+
+export function normaliseEsriImageryDate(value) {
+  if (value === null || value === undefined || value === "" || value === 99999) return null;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const millis = value > 10_000_000_000 ? value : value > 1_000_000_000 ? value * 1000 : null;
+    if (millis) {
+      const date = new Date(millis);
+      if (!Number.isNaN(date.getTime())) return date.toISOString().slice(0, 10);
+    }
+  }
+  const text = String(value).trim();
+  if (/^\d{8}$/.test(text)) {
+    const y = text.slice(0, 4);
+    const m = text.slice(4, 6);
+    const d = text.slice(6, 8);
+    const parsed = new Date(`${y}-${m}-${d}T00:00:00Z`);
+    return Number.isNaN(parsed.getTime()) ? null : `${y}-${m}-${d}`;
+  }
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(0, 10);
+}
+
+export function parseEsriImageryMetadata(attributes = {}) {
+  const entries = Object.entries(attributes || {});
+  const pick = (patterns) => {
+    for (const pattern of patterns) {
+      const entry = entries.find(([key, value]) => value !== null && value !== "" && pattern.test(key));
+      if (entry) return entry[1];
+    }
+    return null;
+  };
+  const rawDate = pick([/^SRC_DATE2$/i, /^SRC_DATE$/i, /ACQ.*DATE/i, /CAPTURE.*DATE/i, /COLLECT.*DATE/i, /DATE/i]);
+  const source = pick([/^SOURCE$/i, /^SRC_NAME$/i, /SOURCE/i, /CITATION/i, /PROVIDER/i]);
+  return {
+    imageryDate: normaliseEsriImageryDate(rawDate),
+    source: source ? String(source).trim() : null,
+  };
+}
+
+export async function fetchEsriImageryMetadata(lat, lon) {
+  const params = new URLSearchParams({
+    f: "json",
+    geometry: `${lon},${lat}`,
+    geometryType: "esriGeometryPoint",
+    inSR: "4326",
+    spatialRel: "esriSpatialRelIntersects",
+    outFields: "*",
+    returnGeometry: "false",
+  });
+  try {
+    const metadataResponse = await fetch(`${ESRI_METADATA_QUERY_URL}?${params.toString()}`, {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!metadataResponse.ok) return { imageryDate: null, source: null };
+    const payload = await metadataResponse.json().catch(() => ({}));
+    const features = Array.isArray(payload?.features) ? payload.features : [];
+    for (const feature of features) {
+      const parsed = parseEsriImageryMetadata(feature?.attributes || {});
+      if (parsed.imageryDate || parsed.source) return parsed;
+    }
+  } catch {
+    // Metadata is supporting provenance only. The image analysis can proceed
+    // when Esri's metadata layer is temporarily unavailable.
+  }
+  return { imageryDate: null, source: null };
 }
 
 export function esriExportUrl(lat, lon, radiusMetres) {
@@ -332,22 +401,32 @@ export async function handleSatelliteVerify(request, env) {
   const url = new URL(request.url);
   const match = url.pathname.match(ROUTE_PATTERN);
   if (!match) return null;
-  if (request.method !== "POST") return response({ error: "Method not allowed." }, 405);
+  if (request.method !== "GET" && request.method !== "POST") {
+    return response({ error: "Method not allowed." }, 405);
+  }
 
   const user = await currentUser(request, env);
   if (!user) return response({ error: "Authentication required." }, 401);
   if (user.role !== "rea_admin" && user.role !== "consultant_admin") {
     return response({ error: "REA or consultant access required." }, 403);
   }
-  if (!env.GEMINI_API_KEY) {
-    return response({ error: "Satellite verification is not configured yet." }, 503);
-  }
-
   const projectId = decodeURIComponent(match[1]);
   const project = await env.DB.prepare(
     `SELECT id,name,programme,component,consultant_firm AS consultantFirm,
        state,lga,community,latitude,longitude,geofence_radius_metres AS geofenceRadiusMetres,
-       installed_capacity_kw AS installedCapacityKw,households
+       installed_capacity_kw AS installedCapacityKw,households,
+       satellite_verification_status AS satelliteVerificationStatus,
+       satellite_image_quality AS satelliteImageQuality,
+       satellite_verification_confidence AS satelliteVerificationConfidence,
+       satellite_house_estimate AS satelliteHouseEstimate,
+       satellite_verification_notes AS satelliteVerificationNotes,
+       satellite_verification_checked_at AS satelliteVerificationCheckedAt,
+       satellite_imagery_source AS satelliteImagerySource,
+       satellite_imagery_date AS satelliteImageryDate,
+       satellite_analysis_radius_metres AS satelliteAnalysisRadiusMetres,
+       satellite_analysis_method AS satelliteAnalysisMethod,
+       satellite_analysis_image_url AS satelliteAnalysisImageUrl,
+       satellite_analysis_version AS satelliteAnalysisVersion
      FROM projects WHERE id=?`,
   )
     .bind(projectId)
@@ -361,6 +440,47 @@ export async function handleSatelliteVerify(request, env) {
   const longitude = Number(project.longitude);
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
     return response({ error: "Project has no usable GPS coordinates on file." }, 422);
+  }
+
+  if (request.method === "GET") {
+    if (!project.satelliteVerificationCheckedAt || !project.satelliteVerificationStatus) {
+      return response(
+        {
+          error: "No cached satellite verification exists for this project yet.",
+          code: "no_cached_satellite_result",
+          projectId,
+        },
+        404,
+      );
+    }
+    return response({
+      projectId,
+      imageUrl: project.satelliteAnalysisImageUrl || null,
+      checkedAt: project.satelliteVerificationCheckedAt,
+      verdict: {
+        status: project.satelliteVerificationStatus,
+        imageQuality: project.satelliteImageQuality || "unusable",
+        confidence:
+          project.satelliteVerificationConfidence === null || project.satelliteVerificationConfidence === undefined
+            ? null
+            : Number(project.satelliteVerificationConfidence),
+        estimatedNearbyHouses:
+          project.satelliteHouseEstimate === null || project.satelliteHouseEstimate === undefined
+            ? null
+            : Number(project.satelliteHouseEstimate),
+        notes: project.satelliteVerificationNotes || "",
+      },
+      imagerySource: project.satelliteImagerySource || "Esri World Imagery",
+      imageryDate: project.satelliteImageryDate || null,
+      radiusMetres: Number(project.satelliteAnalysisRadiusMetres || project.geofenceRadiusMetres || 150),
+      analysisMethod: project.satelliteAnalysisMethod || null,
+      analysisVersion: project.satelliteAnalysisVersion || null,
+      cached: true,
+    });
+  }
+
+  if (!env.GEMINI_API_KEY) {
+    return response({ error: "Satellite verification is not configured yet." }, 503);
   }
 
   const requestedRadius = Math.max(
@@ -383,6 +503,7 @@ export async function handleSatelliteVerify(request, env) {
   }
 
   const { imageBase64, imageUrl, radius } = imageryResult;
+  const metadata = await fetchEsriImageryMetadata(latitude, longitude);
 
   const geminiResult = await callGeminiVision(env, imageBase64, verificationPrompt(project, radius));
   if (!geminiResult.ok) {
@@ -405,7 +526,10 @@ export async function handleSatelliteVerify(request, env) {
     .slice(0, 700);
 
   const checkedAt = new Date().toISOString();
-  const imagerySource = "Esri World Imagery (World_Imagery/MapServer export)";
+  const imagerySource = metadata.source
+    ? `Esri World Imagery — ${metadata.source}`
+    : "Esri World Imagery (World_Imagery/MapServer export)";
+  const imageryDate = metadata.imageryDate || null;
   const analysisMethod = `gemini-vision:${geminiResult.model}`;
   await env.DB.prepare(
     `UPDATE projects SET
@@ -423,7 +547,7 @@ export async function handleSatelliteVerify(request, env) {
       storedNotes,
       checkedAt,
       imagerySource,
-      null,
+      imageryDate,
       radius,
       analysisMethod,
       imageUrl,
@@ -448,6 +572,7 @@ export async function handleSatelliteVerify(request, env) {
         limitation: verdict.limitation?.code || null,
         evidenceLocation: verdict.evidenceLocation,
         confidence: verdict.confidence,
+        imageryDate,
       }),
       request.headers.get("CF-Connecting-IP"),
       checkedAt,
@@ -460,7 +585,7 @@ export async function handleSatelliteVerify(request, env) {
     checkedAt,
     verdict,
     imagerySource,
-    imageryDate: null,
+    imageryDate,
     radiusMetres: radius,
     analysisMethod,
     analysisVersion: SATELLITE_ANALYSIS_VERSION,
