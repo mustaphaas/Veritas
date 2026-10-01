@@ -1,0 +1,50 @@
+name: Verify VIIRS night-light impact
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'worker/nightlight-analysis.js'
+      - 'worker/analytics.js'
+      - 'worker/index.js'
+      - 'client/components/NightLightImpactCard.tsx'
+      - 'client/components/ProjectMapSatelliteEnhancer.tsx'
+      - 'client/components/VeritasAssistant.tsx'
+      - 'client/lib/rea-project-map-data.ts'
+      - 'migrations/0010_viirs_nightlight_impact.sql'
+      - 'scripts/ingest-viirs-nightlights.py'
+      - 'tests/nightlight-analysis.test.mjs'
+      - '.github/workflows/refresh-viirs-nightlight.yml'
+      - '.github/workflows/verify-viirs-nightlight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: npm ci
+      - name: Validate worker syntax
+        run: |
+          node --check worker/nightlight-analysis.js
+          node --check worker/index.js
+          node --check worker/analytics.js
+      - name: Run VIIRS and satellite routing tests
+        run: node --test tests/nightlight-analysis.test.mjs tests/satellite-analysis.test.mjs tests/satellite-project-resolution.test.mjs
+      - name: Validate ingestion script
+        run: python -m py_compile scripts/ingest-viirs-nightlights.py
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build client
+        run: npm run build:client
