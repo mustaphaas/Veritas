@@ -1,6 +1,6 @@
 import { handleFieldApi } from "./field-api.js";
 import { analyticsCatalog, analyticsAnswerPrompt, deterministicAnalyticsPlan, executeAnalyticsPlan, formatAnalyticsAnswer, parsePlannerJson, plannerPrompt, validateAnalyticsPlan } from "./analytics.js";
-import { handleSatelliteVerify } from "./satellite-verify.js";
+import { handleSatelliteVerify, handleSatelliteVerificationHistory } from "./satellite-verify.js";
 import { runSatelliteAnalysis, satelliteAnalysisAnswer, satelliteCardPayload, shouldRunSatelliteAnalysis } from "./satellite-analysis.js";
 import { handleNightLightImpact, nightLightCardPayload, nightLightImpactAnswer, runNightLightAnalysis, shouldRunNightLightAnalysis } from "./nightlight-analysis.js";
 
@@ -1623,6 +1623,20 @@ export default {
           build: BUILD_ID,
         }));
         return json({ error: "Night-time light impact lookup failed. Please try again shortly." }, 503);
+      }
+    }
+
+    if (/^\/api\/projects\/[^/]+\/satellite-verification-history$/.test(url.pathname)) {
+      try {
+        const historyResponse = await handleSatelliteVerificationHistory(request, env);
+        if (historyResponse) return historyResponse;
+      } catch (error) {
+        console.error(JSON.stringify({
+          event: "satellite-verification-history-failed",
+          message: error instanceof Error ? error.message : "Unknown error",
+          build: BUILD_ID,
+        }));
+        return json({ error: "Unable to load satellite verification history." }, 500);
       }
     }
 
