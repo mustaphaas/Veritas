@@ -298,10 +298,13 @@ export async function runNightLightAnalysis(request, env, question, hints = {}) 
     };
   }
   if (resolution.status === "none") {
+    const named = String(question || "").replace(/\s+/g, " ").trim();
     return {
       ok: false,
       kind: "none",
-      reason: "I can't tell which project you mean. Name the project or community, or open its pin on the Project Map.",
+      reason: named
+        ? "I couldn't find a matching project in the current Veritas production portfolio for that name or community. Use the exact project name or Project ID from the Project Map."
+        : "I couldn't find a matching project in the current Veritas production portfolio. Open its pin on the Project Map or provide the exact Project ID.",
     };
   }
 
