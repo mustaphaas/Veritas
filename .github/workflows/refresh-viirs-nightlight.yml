@@ -17,6 +17,7 @@ on:
       - main
     paths:
       - '.github/workflows/refresh-viirs-nightlight.yml'
+      - 'scripts/ingest-viirs-nightlights.py'
   schedule:
     # Daily incremental refresh at 03:17 UTC (04:17 WAT).
     - cron: "17 3 * * *"
