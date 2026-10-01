@@ -1,5 +1,7 @@
 import {
   isPortfolioAggregateQuestion,
+  projectIdentityTokens,
+  rankProjects,
   resolveSatelliteProject,
 } from "./satellite-analysis.js";
 
@@ -275,6 +277,35 @@ export async function shouldRunNightLightAnalysis(env, question, hints = {}) {
   }
 }
 
+async function resolveProcessedNightLightProject(env, question) {
+  const tokens = projectIdentityTokens(question);
+  if (!tokens.length) return null;
+
+  const result = await env.DB.prepare(
+    `SELECT
+       p.id,p.name,p.programme,p.component,p.state,p.lga,p.community,
+       p.latitude,p.longitude,p.commissioned_at AS commissionedAt
+     FROM projects p
+     INNER JOIN project_nightlight_impacts n ON n.project_id=p.id
+     WHERE p.latitude IS NOT NULL AND p.longitude IS NOT NULL
+     ORDER BY p.name
+     LIMIT 2000`,
+  ).all();
+
+  const rows = result?.results || [];
+  if (!rows.length) return null;
+
+  const ranked = rankProjects(rows, tokens);
+  if (!ranked.length) return null;
+
+  const [top, second] = ranked;
+  const coverage = top.matched / tokens.length;
+  if (coverage >= 0.5 && (!second || top.score > second.score)) {
+    return { status: "resolved", project: top.row, via: "processed-name" };
+  }
+  return null;
+}
+
 export async function runNightLightAnalysis(request, env, question, hints = {}) {
   if (!env.DB) throw new Error("D1 database binding is unavailable.");
 
@@ -288,7 +319,11 @@ export async function runNightLightAnalysis(request, env, question, hints = {}) 
     };
   }
 
-  const resolution = await resolveSatelliteProject(env, question, hints);
+  const processedResolution =
+    !hints?.projectId && !hints?.mapProjectId
+      ? await resolveProcessedNightLightProject(env, question)
+      : null;
+  const resolution = processedResolution || await resolveSatelliteProject(env, question, hints);
   if (resolution.status === "ambiguous") {
     return {
       ok: false,
