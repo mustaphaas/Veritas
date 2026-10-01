@@ -5,6 +5,7 @@ import { Layers3, Map as MapIcon, Satellite } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import {
   fetchReaMapProjects,
+  fetchProjectNightLightImpact,
   verifyProjectSatelliteImagery,
   type ReaMapProjectRecord,
   type SatelliteVerificationVerdict,
@@ -137,10 +138,35 @@ function extractNigeriaRings(data: any) {
 // "verify" button, a loading state, and the verdict never loses track of
 // which project a click belongs to - a single delegated listener on the
 // popup element (wired in map.on("popupopen") below) reads it from there.
+function nightLightButtonHtml() {
+  return `<button type="button" data-nightlight-impact-btn style="margin-left:5px;font-size:10px;font-weight:700;color:#312e81;background:#eef2ff;border:1px solid #c7d2fe;border-radius:4px;padding:4px 8px;cursor:pointer">
+    Night-light impact
+  </button>`;
+}
+
+function nightLightImpactHtml(impact: any) {
+  const fmt = (value: unknown) => typeof value === "number" && Number.isFinite(value) ? value.toFixed(2) : "—";
+  const pct = (value: unknown) => typeof value === "number" && Number.isFinite(value) ? `${value >= 0 ? "+" : ""}${value.toFixed(1)}%` : "—";
+  const labels: Record<string, string> = {
+    strong_increase: "Strong increase",
+    moderate_increase: "Moderate increase",
+    no_clear_change: "No clear change",
+    decrease: "Decrease",
+    insufficient_data: "Insufficient data",
+  };
+  return `<div style="margin-top:7px;border-top:1px solid #e2e8f0;padding-top:7px;font-size:10px;line-height:1.5">
+    <div style="font-weight:800;color:#312e81">NASA VIIRS night-light impact</div>
+    <div style="margin-top:3px;color:#475569">Before <b>${escapeHtml(fmt(impact.baselineRadiance))}</b> → After <b>${escapeHtml(fmt(impact.afterRadiance))}</b> nW/cm²/sr</div>
+    <div style="color:#475569">Change <b>${escapeHtml(pct(impact.percentChange))}</b> · ${escapeHtml(labels[impact.impactClass] || "Insufficient data")}</div>
+    <div style="margin-top:2px;color:#64748b">Comparison area: ${escapeHtml(pct(impact.controlPercentChange))} · ${escapeHtml(String(impact.monthsBefore || 0))} before / ${escapeHtml(String(impact.monthsAfter || 0))} after months</div>
+    <div style="margin-top:3px;color:#64748b">Supporting impact evidence only; not proof of causation.</div>
+  </div>`;
+}
+
 function verifyButtonHtml() {
   return `<button type="button" data-satellite-verify-btn style="font-size:10px;font-weight:700;color:#fff;background:#173b2a;border:none;border-radius:4px;padding:4px 8px;cursor:pointer">
     Verify via satellite
-  </button>`;
+  </button>${nightLightButtonHtml()}`;
 }
 
 function verdictHtml(verdict: SatelliteVerificationVerdict) {
@@ -221,17 +247,30 @@ function SatelliteCanvas({ projects, apiToken }: { projects: ReaMapProjectRecord
 
           container.addEventListener("click", async (clickEvent) => {
             const target = clickEvent.target as HTMLElement | null;
-            const button = target?.closest<HTMLElement>("[data-satellite-verify-btn]");
-            const slot = button?.closest<HTMLElement>("[data-satellite-verify-slot]");
+            const nightLightButton = target?.closest<HTMLElement>("[data-nightlight-impact-btn]");
+            const satelliteButton = target?.closest<HTMLElement>("[data-satellite-verify-btn]");
+            const control = nightLightButton || satelliteButton;
+            const slot = control?.closest<HTMLElement>("[data-satellite-verify-slot]");
             const projectId = slot?.getAttribute("data-satellite-verify-slot");
-            if (!button || !slot || !projectId) return;
+            if (!control || !slot || !projectId) return;
             // Swapping slot.innerHTML below detaches the clicked button, so
             // Leaflet can no longer tell the click came from inside the popup
             // and would close it as a map click before the result arrives.
             clickEvent.stopPropagation();
 
             if (!apiToken) {
-              slot.innerHTML = errorHtml("Sign in again to run a satellite check.");
+              slot.innerHTML = errorHtml("Sign in again to run this geospatial check.");
+              return;
+            }
+            if (nightLightButton) {
+              const existing = slot.innerHTML;
+              slot.innerHTML = `<span style="font-size:10px;color:#64748b">Loading NASA VIIRS impact…</span>`;
+              try {
+                const result = await fetchProjectNightLightImpact(projectId, apiToken);
+                slot.innerHTML = existing + nightLightImpactHtml(result.impact);
+              } catch (error) {
+                slot.innerHTML = existing + `<div style="margin-top:6px;font-size:10px;color:#b45309">${escapeHtml(error instanceof Error ? error.message : "Night-light impact is not available yet.")}</div>`;
+              }
               return;
             }
             slot.innerHTML = `<span style="font-size:10px;color:#64748b">Checking satellite imagery…</span>`;
