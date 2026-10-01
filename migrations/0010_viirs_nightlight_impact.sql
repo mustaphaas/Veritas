@@ -4,6 +4,36 @@
 
 ALTER TABLE projects ADD COLUMN commissioned_at TEXT;
 
+-- Backfill a project completion month from the newest field report when the
+-- component-specific inspection captured one. We deliberately leave the date
+-- NULL when it cannot be established rather than using reporting_month.
+UPDATE projects
+SET commissioned_at = (
+  SELECT printf(
+    '%04d-%02d-01',
+    CAST(json_extract(a.report_json,'$.componentValues.completionDateYear') AS INTEGER),
+    CASE lower(json_extract(a.report_json,'$.componentValues.completionDateMonth'))
+      WHEN 'january' THEN 1 WHEN 'february' THEN 2 WHEN 'march' THEN 3
+      WHEN 'april' THEN 4 WHEN 'may' THEN 5 WHEN 'june' THEN 6
+      WHEN 'july' THEN 7 WHEN 'august' THEN 8 WHEN 'september' THEN 9
+      WHEN 'october' THEN 10 WHEN 'november' THEN 11 WHEN 'december' THEN 12
+    END
+  )
+  FROM assignments a
+  WHERE a.project_id=projects.id
+    AND json_extract(a.report_json,'$.componentValues.completionDateYear') IS NOT NULL
+    AND json_extract(a.report_json,'$.componentValues.completionDateMonth') IS NOT NULL
+  ORDER BY COALESCE(a.verified_at,a.approved_at,a.submitted_at,a.updated_at) DESC
+  LIMIT 1
+)
+WHERE commissioned_at IS NULL
+  AND EXISTS (
+    SELECT 1 FROM assignments a
+    WHERE a.project_id=projects.id
+      AND json_extract(a.report_json,'$.componentValues.completionDateYear') IS NOT NULL
+      AND json_extract(a.report_json,'$.componentValues.completionDateMonth') IS NOT NULL
+  );
+
 CREATE TABLE IF NOT EXISTS project_nightlight_impacts (
   project_id TEXT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
   commissioning_date TEXT NOT NULL,
