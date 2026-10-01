@@ -79,29 +79,51 @@ export type SatelliteVerificationVerdict = {
 
 export type SatelliteVerificationResult = {
   projectId: string;
-  imageUrl: string;
+  imageUrl: string | null;
   checkedAt: string;
   verdict: SatelliteVerificationVerdict;
+  imagerySource?: string | null;
+  imageryDate?: string | null;
+  radiusMetres?: number | null;
+  analysisMethod?: string | null;
+  analysisVersion?: string | null;
+  cached?: boolean;
 };
 
-// Fetches Esri satellite imagery for the project's stored GPS coordinates
-// and asks Veritas AI (Gemini) to judge whether infrastructure consistent
-// with the claimed project type is visible. Result is cached server-side,
-// so this only re-spends imagery/model calls when the caller explicitly
-// triggers a (re-)check.
-export async function verifyProjectSatelliteImagery(
+async function satelliteVerificationRequest(
   projectId: string,
   apiToken: string,
+  method: "GET" | "POST",
 ): Promise<SatelliteVerificationResult> {
   const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/satellite-verify`, {
-    method: "POST",
+    method,
     headers: { Authorization: `Bearer ${apiToken}` },
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(payload?.error || "Unable to complete the satellite verification check.");
+    const error = new Error(payload?.error || "Unable to load the satellite verification result.");
+    (error as Error & { code?: string; status?: number }).code = payload?.code;
+    (error as Error & { code?: string; status?: number }).status = response.status;
+    throw error;
   }
   return payload as SatelliteVerificationResult;
+}
+
+// Cache-first read. This never calls Gemini or downloads a fresh image.
+export async function fetchCachedProjectSatelliteImagery(
+  projectId: string,
+  apiToken: string,
+): Promise<SatelliteVerificationResult> {
+  return satelliteVerificationRequest(projectId, apiToken, "GET");
+}
+
+// Explicit re-check. This is the only client path that spends a new Esri +
+// Gemini verification call and replaces the stored result.
+export async function verifyProjectSatelliteImagery(
+  projectId: string,
+  apiToken: string,
+): Promise<SatelliteVerificationResult> {
+  return satelliteVerificationRequest(projectId, apiToken, "POST");
 }
 
 
