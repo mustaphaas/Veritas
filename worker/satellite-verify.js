@@ -1,3 +1,4 @@
+import { sameFirm } from "./tenant.js";
 // Satellite-based project verification for the Project Map tab.
 //
 // Given a project ID, this fetches an Esri World Imagery export centered on
@@ -417,7 +418,7 @@ export async function handleSatelliteVerificationHistory(request, env) {
   ).bind(projectId).first();
 
   if (!project) return response({ error: "Project not found." }, 404);
-  if (user.role === "consultant_admin" && project.consultantFirm !== user.consultantFirm) {
+  if (user.role === "consultant_admin" && !sameFirm(project.consultantFirm, user.consultantFirm)) {
     return response({ error: "Project is outside your consultant firm." }, 403);
   }
 
@@ -507,7 +508,7 @@ export async function handleSatelliteVerify(request, env) {
     .bind(projectId)
     .first();
   if (!project) return response({ error: "Project not found." }, 404);
-  if (user.role === "consultant_admin" && project.consultantFirm !== user.consultantFirm) {
+  if (user.role === "consultant_admin" && !sameFirm(project.consultantFirm, user.consultantFirm)) {
     return response({ error: "Project is outside your consultant firm." }, 403);
   }
 

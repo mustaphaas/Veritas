@@ -3,6 +3,13 @@ import fs from 'node:fs';
 const path = 'worker/field-api.js';
 let source = fs.readFileSync(path, 'utf8');
 
+// Superseded: assignment scoping is now centralised in assignmentScope() (deny-by-default, normalised firm
+// matching), so this one-shot migration has nothing left to patch. Kept as a no-op so the deploy workflow step still passes.
+if (source.includes('function assignmentScope(user)')) {
+  console.log('Consultant assignment scoping already centralised in assignmentScope(); nothing to patch.');
+  process.exit(0);
+}
+
 const oldAssignedRecord = 'user.role === "consultant_admin" ? "AND p.consultant_firm=?" : ""';
 const normalizedAssignedRecord = 'user.role === "consultant_admin" ? "AND lower(trim(p.consultant_firm))=lower(trim(?))" : ""';
 if (source.includes(oldAssignedRecord)) {

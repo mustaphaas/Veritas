@@ -1,3 +1,4 @@
+import { sameFirm } from "./tenant.js";
 import {
   isPortfolioAggregateQuestion,
   projectIdentityTokens,
@@ -186,7 +187,7 @@ export async function handleNightLightImpact(request, env) {
     .bind(projectId)
     .first();
   if (!project) return response({ error: "Project not found." }, 404);
-  if (user.role === "consultant_admin" && project.consultantFirm !== user.consultantFirm) {
+  if (user.role === "consultant_admin" && !sameFirm(project.consultantFirm, user.consultantFirm)) {
     return response({ error: "Project is outside your consultant firm." }, 403);
   }
 

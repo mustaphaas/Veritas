@@ -1,3 +1,4 @@
+import { sameFirm } from "./tenant.js";
 const encoder = new TextEncoder();
 const SESSION_DAYS = 7;
 
@@ -62,12 +63,30 @@ async function audit(env, request, user, assignmentId, action, details = {}) {
     .bind(crypto.randomUUID(), assignmentId, user.id, action, JSON.stringify(details), request.headers.get("CF-Connecting-IP"), now()).run();
 }
 
+// Deny-by-default scope for assignment reads. Returns null when the caller has no valid scope
+// (unknown role, or a consultant/officer with no firm/id) so callers must refuse rather than fall back to "all rows".
+function assignmentScope(user) {
+  switch (user?.role) {
+    case "field_officer":
+      return user.id ? { sql: " AND a.officer_id=?", args: [user.id] } : null;
+    case "consultant_admin": {
+      const firm = String(user.consultantFirm ?? "").trim();
+      return firm ? { sql: " AND lower(trim(p.consultant_firm))=lower(trim(?))", args: [firm] } : null;
+    }
+    case "rea_admin":
+    case "rea_staff":
+      return { sql: "", args: [] };
+    default:
+      return null;
+  }
+}
+
 async function assignedRecord(env, id, user) {
-  const scope = user.role === "field_officer" ? "AND a.officer_id=?" : user.role === "consultant_admin" ? "AND lower(trim(p.consultant_firm))=lower(trim(?))" : "";
-  const value = user.role === "field_officer" ? user.id : user.consultantFirm;
+  const scope = assignmentScope(user);
+  if (!scope) return null;
   const sql = `SELECT a.*,p.name AS project_name,p.programme,p.component,p.contractor,p.consultant_firm,p.state,p.lga,p.community,p.latitude,p.longitude,p.geofence_radius_metres,u.name AS officer_name
-    FROM assignments a JOIN projects p ON p.id=a.project_id JOIN users u ON u.id=a.officer_id WHERE a.id=? ${scope}`;
-  return value ? env.DB.prepare(sql).bind(id, value).first() : env.DB.prepare(sql).bind(id).first();
+    FROM assignments a JOIN projects p ON p.id=a.project_id JOIN users u ON u.id=a.officer_id WHERE a.id=?${scope.sql}`;
+  return env.DB.prepare(sql).bind(id, ...scope.args).first();
 }
 
 function assignmentJson(row) {
@@ -104,21 +123,13 @@ async function login(request, env) {
 }
 
 async function listAssignments(env, user, url) {
+  const scope = assignmentScope(user);
+  if (!scope) return response({ error: "Assignment access is not available for this account." }, 403);
   const since = url.searchParams.get("since") || "1970-01-01T00:00:00.000Z";
-  let sql = `SELECT a.*,p.name AS project_name,p.programme,p.component,p.contractor,p.consultant_firm,p.state,p.lga,p.community,p.latitude,p.longitude,p.geofence_radius_metres,u.name AS officer_name
-    FROM assignments a JOIN projects p ON p.id=a.project_id JOIN users u ON u.id=a.officer_id WHERE a.updated_at>?`;
-  const args = [since];
-  if (user.role === "field_officer") { sql += " AND a.officer_id=?"; args.push(user.id); }
-  if (user.role === "consultant_admin") { sql += " AND lower(trim(p.consultant_firm))=lower(trim(?))"; args.push(user.consultantFirm); }
-  sql += " ORDER BY a.updated_at DESC";
-  const result = await env.DB.prepare(sql).bind(...args).all();
+  const sql = `SELECT a.*,p.name AS project_name,p.programme,p.component,p.contractor,p.consultant_firm,p.state,p.lga,p.community,p.latitude,p.longitude,p.geofence_radius_metres,u.name AS officer_name
+    FROM assignments a JOIN projects p ON p.id=a.project_id JOIN users u ON u.id=a.officer_id WHERE a.updated_at>?${scope.sql} ORDER BY a.updated_at DESC`;
+  const result = await env.DB.prepare(sql).bind(since, ...scope.args).all();
   return response({ assignments: result.results.map(assignmentJson), serverTime: now() });
-}
-
-// Tenant comparison: normalised, and an empty value never matches (fail closed).
-function sameFirm(a, b) {
-  const x = String(a ?? "").trim().toLowerCase();
-  return x !== "" && x === String(b ?? "").trim().toLowerCase();
 }
 
 async function createAssignment(request, env, user) {

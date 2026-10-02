@@ -1,16 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { spawnSync } from 'node:child_process';
 
-const patch = spawnSync(process.execPath, ['scripts/patch-consultant-assignment-normalized-identity.mjs'], { encoding: 'utf8' });
-assert.equal(patch.status, 0, patch.stderr || patch.stdout || 'consultant assignment normalization patch failed');
+// Static guard. Behavioural coverage lives in tenant-fail-closed.test.mjs and assignment-tenant-isolation.test.mjs.
+// (This file used to spawn scripts/patch-consultant-assignment-normalized-identity.mjs, a one-shot migration
+// whose anchors no longer exist now that scoping is centralised in assignmentScope().)
 const fieldApi = fs.readFileSync('worker/field-api.js', 'utf8');
 
-test('consultant assignment listing normalizes consultant firm matching', () => {
+test('consultant assignment scoping normalizes consultant firm matching', () => {
   assert.match(fieldApi, /lower\(trim\(p\.consultant_firm\)\)=lower\(trim\(\?\)\)/);
 });
 
-test('consultant assigned-record lookup normalizes consultant firm matching', () => {
-  assert.match(fieldApi, /user\.role === "consultant_admin" \? "AND lower\(trim\(p\.consultant_firm\)\)=lower\(trim\(\?\)\)"/);
+test('assignment reads share one deny-by-default scope used by both list and by-id lookups', () => {
+  assert.match(fieldApi, /function assignmentScope\(user\)/);
+  assert.match(fieldApi, /async function assignedRecord[\s\S]*?assignmentScope\(user\)[\s\S]*?if \(!scope\) return null/);
+  assert.match(fieldApi, /async function listAssignments[\s\S]*?assignmentScope\(user\)[\s\S]*?if \(!scope\) return response\(/);
 });

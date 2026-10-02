@@ -1,3 +1,4 @@
+import { sameFirm } from "./tenant.js";
 import { handleFieldApi } from "./field-api.js";
 import { analyticsCatalog, analyticsAnswerPrompt, deterministicAnalyticsPlan, executeAnalyticsPlan, formatAnalyticsAnswer, parsePlannerJson, plannerPrompt, validateAnalyticsPlan } from "./analytics.js";
 import { handleSatelliteVerify, handleSatelliteVerificationHistory } from "./satellite-verify.js";
@@ -555,7 +556,7 @@ async function fieldOfficerLifecycleResponse(request, env, officerId, action) {
   const officer = await env.DB.prepare("SELECT id,name,role,consultant_firm AS consultantFirm,status FROM users WHERE id=? AND role='field_officer'")
     .bind(officerId).first();
   if (!officer) return json({ error: "Field officer not found." }, 404);
-  if (user.role === "consultant_admin" && officer.consultantFirm !== user.consultantFirm) {
+  if (user.role === "consultant_admin" && !sameFirm(officer.consultantFirm, user.consultantFirm)) {
     return json({ error: "Field officer is outside your consultant firm." }, 403);
   }
 
