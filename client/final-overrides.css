@@ -630,6 +630,9 @@ body.veritas-project-map-open [data-veritas-project-map="true"] {
 }
 
 .veritas-page-header {
+  border: 1px solid var(--veritas-border) !important;
+  border-radius: var(--veritas-radius-card) !important;
+  padding: 20px !important;
   border-color: var(--veritas-border) !important;
   background:
     linear-gradient(105deg, rgba(244, 251, 246, .9) 0%, #ffffff 46%, #ffffff 100%) !important;
