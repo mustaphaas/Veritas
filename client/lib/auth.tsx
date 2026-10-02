@@ -11,7 +11,6 @@ export type DemoAccount = { role: DemoRole; roleLabel: string; name: string; ini
 const reaStaffPath = (staffRole?: string) => staffRole === "M&E Officer" ? "/me-dashboard" : "/";
 export const demoAccounts: DemoAccount[] = [
  { role:"rea", roleLabel:"REA Dashboard", name:"REA Administrator", initials:"RA", email:"rea.admin@demo.ng", password:"REA2024!", path:"/" },
- { role:"rea", roleLabel:"M&E Officer", name:"M&E Officer", initials:"ME", email:"me.officer@demo.ng", password:"ME2026!Demo", path:"/me-dashboard" },
  { role:"field", roleLabel:"Field Officer", name:"Amina Yusuf", initials:"AY", email:"field.officer@demo.ng", password:"Field2024!", path:"/field-officer", consultantId:"con-001" },
  { role:"consultant", roleLabel:"Consultant Admin", name:"Ibrahim Musa", initials:"IM", email:"consultant.admin@demo.ng", password:"Consult2024!", path:"/consultant-admin", consultantId:"con-001" },
 ];
