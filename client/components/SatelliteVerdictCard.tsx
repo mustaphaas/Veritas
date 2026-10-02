@@ -1,4 +1,5 @@
-import { MapPin, ShieldAlert } from "lucide-react";
+import { useMemo, useState } from "react";
+import { MapPin, Search, ShieldAlert } from "lucide-react";
 import { presentVerdict } from "../lib/satellite-verdict-presentation";
 
 export type SatelliteChoice = {
@@ -8,6 +9,9 @@ export type SatelliteChoice = {
   lga: string;
   community: string;
   component: string;
+  programme?: string;
+  status?: string;
+  verified?: boolean;
 };
 
 export type SatelliteCardData = {
@@ -150,25 +154,84 @@ export function SatelliteChoiceList({
   disabled?: boolean;
   onChoose: (choice: SatelliteChoice) => void;
 }) {
+  const [query, setQuery] = useState("");
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return choices;
+    return choices.filter((choice) =>
+      [
+        choice.name,
+        choice.state,
+        choice.lga,
+        choice.community,
+        choice.component,
+        choice.programme,
+        choice.status,
+      ].some((value) => String(value || "").toLowerCase().includes(needle)),
+    );
+  }, [choices, query]);
+
   return (
-    <div className="mt-2.5 space-y-1.5">
-      {choices.map((choice) => {
-        const place = [choice.community, choice.lga, choice.state].filter(Boolean).join(", ");
-        return (
-          <button
-            key={choice.id}
-            type="button"
-            disabled={disabled}
-            onClick={() => onChoose(choice)}
-            className="block w-full rounded-lg border border-[#d9e9de] bg-white px-2.5 py-2 text-left transition hover:border-[#79be91] hover:bg-[#eff9f2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#08733f] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <span className="block text-[11px] font-bold leading-4 text-[#173b2a]">{choice.name}</span>
-            <span className="block text-[9px] leading-4 text-slate-500">
-              {[place, choice.component].filter(Boolean).join(" · ")}
-            </span>
-          </button>
-        );
-      })}
+    <div className="mt-3 overflow-hidden rounded-xl border border-[#d9e9de] bg-[#fbfefc]">
+      <div className="border-b border-[#e4eee7] bg-white p-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-[#557060]">
+            Project selection
+          </p>
+          <span className="rounded-full bg-[#edf7f0] px-2 py-0.5 text-[9px] font-bold text-[#08733f]">
+            {filtered.length.toLocaleString("en-GB")}{query ? ` of ${choices.length.toLocaleString("en-GB")}` : ""} project{filtered.length === 1 ? "" : "s"}
+          </span>
+        </div>
+        {choices.length > 6 ? (
+          <label className="mt-2 flex items-center gap-2 rounded-lg border border-[#dce8df] bg-[#f8fbf9] px-2.5 py-2 focus-within:border-[#79be91] focus-within:bg-white">
+            <Search className="h-3.5 w-3.5 shrink-0 text-[#08733f]" />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search project, state, LGA, community or programme"
+              className="min-w-0 flex-1 bg-transparent text-[10px] text-slate-700 outline-none placeholder:text-slate-400"
+              aria-label="Search project options"
+            />
+          </label>
+        ) : null}
+      </div>
+
+      <div className="max-h-[310px] space-y-1.5 overflow-y-auto p-2">
+        {filtered.length ? filtered.map((choice) => {
+          const place = [choice.community, choice.lga, choice.state].filter(Boolean).join(", ");
+          const meta = [choice.programme, choice.component, choice.status].filter(Boolean).join(" · ");
+          return (
+            <button
+              key={choice.id}
+              type="button"
+              disabled={disabled}
+              onClick={() => onChoose(choice)}
+              className="group block w-full rounded-lg border border-[#e0ebe3] bg-white px-2.5 py-2.5 text-left transition hover:border-[#79be91] hover:bg-[#eff9f2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#08733f] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <span className="flex items-start justify-between gap-2">
+                <span className="min-w-0">
+                  <span className="block truncate text-[11px] font-bold leading-4 text-[#173b2a]">{choice.name}</span>
+                  <span className="block text-[9px] leading-4 text-slate-500">{place || "Location not specified"}</span>
+                  {meta ? <span className="block text-[9px] leading-4 text-slate-400">{meta}</span> : null}
+                </span>
+                {typeof choice.verified === "boolean" ? (
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[8px] font-bold ${
+                    choice.verified
+                      ? "bg-[#e9f7ee] text-[#08733f]"
+                      : "bg-[#fff7df] text-[#8a6400]"
+                  }`}>
+                    {choice.verified ? "Verified" : "Pending"}
+                  </span>
+                ) : null}
+              </span>
+            </button>
+          );
+        }) : (
+          <div className="px-3 py-6 text-center text-[10px] leading-4 text-slate-500">
+            No projects match that search.
+          </div>
+        )}
+      </div>
     </div>
   );
 }
