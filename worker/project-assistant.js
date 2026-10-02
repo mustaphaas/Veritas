@@ -102,6 +102,25 @@ function filteredProjects(rows, question) {
   });
 }
 
+function isDemoRecord(row) {
+  const source = normal(row?.dataSource);
+  const status = normal(row?.status);
+  const name = normal(row?.name);
+  return source.includes("demo") || source.includes("external")
+    || status.includes("external demo")
+    || name.includes("external demo");
+}
+
+function sortProjectRows(rows) {
+  return [...rows].sort((a, b) => {
+    for (const field of ["state", "lga", "community", "name"]) {
+      const compared = clean(a?.[field]).localeCompare(clean(b?.[field]), "en", { sensitivity: "base", numeric: true });
+      if (compared) return compared;
+    }
+    return 0;
+  });
+}
+
 function choiceOf(row) {
   return {
     id: row.id,
@@ -113,7 +132,37 @@ function choiceOf(row) {
     programme: row.programme || "",
     status: row.status || "",
     verified: Number(row.verified) === 1,
+    isDemo: isDemoRecord(row),
   };
+}
+
+function projectListAnswer(matches, scope) {
+  const sorted = sortProjectRows(matches);
+  const demo = sorted.filter(isDemoRecord);
+  const portfolio = sorted.filter((row) => !isDemoRecord(row));
+  const verified = portfolio.filter((row) => Number(row.verified) === 1).length;
+  const notVerified = Math.max(0, portfolio.length - verified);
+  const locations = new Set(sorted.map((row) => clean(row.state)).filter(Boolean));
+  const subject = scope || "matching";
+
+  const headline = `I found **${sorted.length.toLocaleString("en-GB")} ${subject} project${sorted.length === 1 ? "" : "s"}** in the current Veritas register${locations.size ? ` across **${locations.size.toLocaleString("en-GB")} state${locations.size === 1 ? "" : "s"}/FCT**` : ""}.`;
+
+  const summary = [];
+  if (portfolio.length) {
+    summary.push(`**${portfolio.length.toLocaleString("en-GB")}** portfolio record${portfolio.length === 1 ? "" : "s"}`);
+    summary.push(`**${verified.toLocaleString("en-GB")} verified**`);
+    summary.push(`**${notVerified.toLocaleString("en-GB")} not yet verified**`);
+  }
+  if (demo.length) summary.push(`**${demo.length.toLocaleString("en-GB")} external/demo reference${demo.length === 1 ? "" : "s"}**`);
+
+  return [
+    headline,
+    summary.length ? `**Register summary:** ${summary.join(" · ")}.` : "",
+    demo.length
+      ? "External/demo records are clearly marked below and are kept separate from normal portfolio status."
+      : "",
+    "Browse the register below by state or use search for a project name, LGA, community or programme. Select any project to open its record and continue with verification or satellite analysis.",
+  ].filter(Boolean).join("\n\n");
 }
 
 function describeScope(question, rows) {
@@ -228,15 +277,13 @@ export async function runProjectAssistant(env, question, hints = {}) {
 
   if (isProjectListQuestion(question)) {
     if (!matches.length) {
-      return {
-        kind: "list",
-        answer: scope
-          ? \`I could not find any \${scope} projects in the current Veritas register.\`
-          : "I could not find any projects matching that request in the current Veritas register.",
-        choices: [],
-        choiceMode: "project",
-      };
-    }
+      const sortedMatches = sortProjectRows(matches);
+    return {
+      kind: "list",
+      answer: projectListAnswer(sortedMatches, scope),
+      choices: sortedMatches.map(choiceOf),
+      choiceMode: "project",
+    };    }
 
     return {
       kind: "list",
