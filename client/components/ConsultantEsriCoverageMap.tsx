@@ -19,6 +19,7 @@ type ArcgisMapElement = HTMLElement & {
   map?: any;
   graphics?: { removeAll: () => void; addMany: (graphics: any[]) => void };
   popupEnabled?: boolean;
+  constraints?: unknown;
   componentOnReady?: () => Promise<unknown>;
   viewOnReady?: () => Promise<unknown>;
   hitTest?: (target: unknown) => Promise<{ results?: any[] }>;
@@ -98,6 +99,71 @@ function geometryJson(feature: GeoFeature) {
       feature.geometry.type === "Polygon"
         ? feature.geometry.coordinates
         : (feature.geometry.coordinates as number[][][][]).flat(),
+    spatialReference: { wkid: 4326 },
+  };
+}
+
+function ringArea(ring: number[][]) {
+  let area = 0;
+  for (let index = 0, previous = ring.length - 1; index < ring.length; previous = index++) {
+    area +=
+      Number(ring[previous]?.[0] ?? 0) * Number(ring[index]?.[1] ?? 0) -
+      Number(ring[index]?.[0] ?? 0) * Number(ring[previous]?.[1] ?? 0);
+  }
+  return area / 2;
+}
+
+function closeRing(ring: number[][]) {
+  if (!ring.length) return ring;
+  const first = ring[0];
+  const last = ring[ring.length - 1];
+  if (first?.[0] === last?.[0] && first?.[1] === last?.[1]) return ring;
+  return [...ring, [first[0], first[1]]];
+}
+
+function orientRing(ring: number[][], clockwise: boolean) {
+  const closed = closeRing(ring);
+  const isClockwise = ringArea(closed) < 0;
+  return isClockwise === clockwise ? closed : [...closed].reverse();
+}
+
+function featureOuterRings(feature: GeoFeature) {
+  if (feature.geometry.type === "Polygon") {
+    const polygons = feature.geometry.coordinates as number[][][];
+    return polygons[0] ? [polygons[0]] : [];
+  }
+  return (feature.geometry.coordinates as number[][][][])
+    .map((polygon) => polygon[0])
+    .filter((ring): ring is number[][] => Boolean(ring));
+}
+
+export function nigeriaConstraintGeometry(stateFeatures: GeoFeature[]) {
+  return {
+    type: "polygon",
+    rings: stateFeatures.flatMap((feature) =>
+      featureOuterRings(feature).map((ring) => orientRing(ring, true)),
+    ),
+    spatialReference: { wkid: 4326 },
+  };
+}
+
+export function nigeriaMaskGeometry(stateFeatures: GeoFeature[]) {
+  const worldRing = orientRing(
+    [
+      [-180, -80],
+      [-180, 80],
+      [180, 80],
+      [180, -80],
+      [-180, -80],
+    ],
+    true,
+  );
+  const nigeriaHoles = stateFeatures.flatMap((feature) =>
+    featureOuterRings(feature).map((ring) => orientRing(ring, false)),
+  );
+  return {
+    type: "polygon",
+    rings: [worldRing, ...nigeriaHoles],
     spatialReference: { wkid: 4326 },
   };
 }
@@ -224,7 +290,15 @@ export default function ConsultantEsriCoverageMap({
         mapElement.map = map;
         mapElement.popupEnabled = false;
         await mapElement.viewOnReady?.();
-        if (!cancelled) setMapReady(true);
+        if (cancelled) return;
+        mapElement.constraints = {
+          geometry: nigeriaConstraintGeometry(stateFeatures),
+          minScale: 12_000_000,
+          maxScale: 0,
+          rotationEnabled: false,
+          snapToZoom: false,
+        };
+        setMapReady(true);
       } catch {
         if (!cancelled) setMapError(true);
       }
@@ -283,7 +357,20 @@ export default function ConsultantEsriCoverageMap({
     const mapElement = mapRef.current;
     if (!mapReady || !runtime || !mapElement?.graphics) return;
 
-    const graphics: any[] = [];
+    const graphics: any[] = [
+      new runtime.Graphic({
+        geometry: nigeriaMaskGeometry(stateFeatures),
+        attributes: { kind: "nigeria-mask" },
+        symbol: {
+          type: "simple-fill",
+          color:
+            basemapMode === "satellite"
+              ? [6, 19, 13, 0.72]
+              : [246, 249, 247, 0.94],
+          outline: { color: [0, 0, 0, 0], width: 0 },
+        },
+      }),
+    ];
 
     if (!selectedState) {
       for (const feature of stateFeatures) {
@@ -365,6 +452,7 @@ export default function ConsultantEsriCoverageMap({
     mapElement.graphics.removeAll();
     mapElement.graphics.addMany(graphics);
   }, [
+    basemapMode,
     lgaCounts,
     lgaFeatures,
     mapReady,
@@ -416,7 +504,13 @@ export default function ConsultantEsriCoverageMap({
     }
 
     void mapElement
-      .goTo({ center: [8.6753, 9.082], zoom: 6 }, { duration: 500 })
+      .goTo(
+        {
+          target: nigeriaConstraintGeometry(stateFeatures),
+          padding: { top: 26, right: 26, bottom: 26, left: 26 },
+        },
+        { duration: 500 },
+      )
       .catch(() => undefined);
   }, [
     mapReady,
@@ -424,6 +518,7 @@ export default function ConsultantEsriCoverageMap({
     selectedLgaFeature,
     selectedProjectId,
     selectedStateFeature,
+    stateFeatures,
   ]);
 
   return (
@@ -487,7 +582,7 @@ export default function ConsultantEsriCoverageMap({
       )}
 
       <div className="pointer-events-none absolute bottom-2 left-3 z-20 rounded-md bg-white/90 px-2 py-1 text-[8px] font-semibold text-slate-500 shadow-sm backdrop-blur">
-        Esri basemap · Veritas project and local LGA overlays
+        Nigeria extent locked · Esri basemap · Veritas project and local LGA overlays
       </div>
     </div>
   );
