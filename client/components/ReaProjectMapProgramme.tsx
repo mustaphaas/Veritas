@@ -721,7 +721,7 @@ function ProjectMap({
     <div className="veritas-project-map-workspace fixed bottom-0 left-0 right-0 top-[94px] z-[24] overflow-hidden bg-[#f6faf7] lg:left-[72px]">
       <style>{MAP_VISUAL_STYLES}</style>
       <section className="flex h-full min-w-0 flex-col">
-        <header className="veritas-project-map-header flex min-h-[76px] items-center justify-between gap-4 border-b border-[#dfeae2] bg-white/95 px-4 shadow-[0_8px_24px_rgba(21,70,43,.05)] backdrop-blur lg:px-6">
+        <header className="veritas-project-map-header flex min-h-[62px] items-center justify-between gap-3 border-b border-[#dfeae2] bg-white px-4 shadow-[0_4px_16px_rgba(21,70,43,.04)] lg:px-5">
           <div className="flex min-w-0 items-center gap-1 overflow-x-auto text-[11px] font-bold text-slate-500">
             <button
               type="button"
@@ -761,16 +761,16 @@ function ProjectMap({
           </div>
 
           <div className="hidden items-center gap-2 md:flex">
-            <span className="inline-flex items-center gap-2 rounded-xl border border-[#d7e6dc] bg-[#f7fbf8] px-3 py-2 text-[9px] font-extrabold text-[#405b4a] shadow-sm">
+            <span className="inline-flex items-center gap-2 rounded-lg border border-[#d7e6dc] bg-[#f8fbf9] px-2.5 py-1.5 text-[9px] font-extrabold text-[#405b4a] shadow-sm">
               <MapPinned className="h-3.5 w-3.5 text-[#08733f]" /> {displayMetrics.projects.toLocaleString()} Projects
             </span>
-            <span className="inline-flex items-center gap-2 rounded-xl border border-[#c7e2d0] bg-[#edf8f1] px-3 py-2 text-[9px] font-extrabold text-[#08733f] shadow-sm">
+            <span className="inline-flex items-center gap-2 rounded-lg border border-[#c7e2d0] bg-[#f0f8f3] px-2.5 py-1.5 text-[9px] font-extrabold text-[#08733f] shadow-sm">
               <CheckCircle2 className="h-3.5 w-3.5" /> {displayMetrics.verified.toLocaleString()} Verified
             </span>
-            <span className="inline-flex items-center gap-2 rounded-xl border border-[#cfdef1] bg-[#f1f6fc] px-3 py-2 text-[9px] font-extrabold text-[#285f96] shadow-sm">
+            <span className="inline-flex items-center gap-2 rounded-lg border border-[#cfdef1] bg-[#f4f8fc] px-2.5 py-1.5 text-[9px] font-extrabold text-[#285f96] shadow-sm">
               <Zap className="h-3.5 w-3.5" /> {formatMw(displayMetrics.kw)}
             </span>
-            <span className="inline-flex items-center gap-2 rounded-xl border border-[#eadcb8] bg-[#fff9e9] px-3 py-2 text-[9px] font-extrabold text-[#9e6900] shadow-sm">
+            <span className="inline-flex items-center gap-2 rounded-lg border border-[#eadcb8] bg-[#fffaf0] px-2.5 py-1.5 text-[9px] font-extrabold text-[#9e6900] shadow-sm">
               <UsersRound className="h-3.5 w-3.5" /> {displayMetrics.households.toLocaleString()} Households
             </span>
             <button
@@ -784,28 +784,28 @@ function ProjectMap({
           </div>
         </header>
 
-        <div className="relative flex-1 overflow-hidden p-3 sm:p-4 lg:p-6">
+        <div className="relative flex-1 overflow-hidden p-3 sm:p-4 lg:p-5">
           <div
             ref={mapShellRef}
-            className="veritas-map-canvas relative h-full overflow-hidden rounded-[24px] border border-[#cfe0d4] shadow-[0_18px_44px_rgba(21,70,43,.10)]"
+            className="veritas-map-canvas relative h-full overflow-hidden rounded-[18px] border border-[#cfe0d4] shadow-[0_10px_30px_rgba(21,70,43,.07)]"
           >
             <div className="absolute left-4 top-4 z-20 flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setFiltersOpen(true)}
-                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#cfe3d5] bg-white text-[#08733f] shadow-[0_8px_20px_rgba(21,70,43,.09)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#8dc7a0] hover:bg-[#f3faf5]"
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#cfe3d5] bg-white text-[#08733f] shadow-sm transition-all duration-200 hover:border-[#8dc7a0] hover:bg-[#f3faf5]"
                 aria-label="Open project map panel"
                 title="Open project map panel"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
-              <div className="hidden rounded-2xl border border-[#dbe8df] bg-white/95 px-4 py-3 shadow-[0_8px_24px_rgba(21,70,43,.08)] backdrop-blur sm:block">
+              <div className="hidden rounded-xl border border-[#dbe8df] bg-white/96 px-3 py-2.5 shadow-sm backdrop-blur sm:block">
                 <p className="text-[9px] font-black uppercase tracking-[0.13em] text-[#128149]">{mapTitle}</p>
                 <p className="mt-0.5 text-[9px] text-slate-500">Dots are projects; colour identifies programme.</p>
               </div>
             </div>
 
-            <div className="absolute right-4 top-4 z-20 flex overflow-hidden rounded-2xl border border-[#d8e5dc] bg-white shadow-[0_8px_22px_rgba(21,70,43,.08)]">
+            <div className="absolute right-4 top-4 z-20 flex overflow-hidden rounded-xl border border-[#d8e5dc] bg-white shadow-sm">
               <button
                 type="button"
                 onClick={() => setZoom((value) => Math.min(1.85, Number((value + 0.15).toFixed(2))))}
