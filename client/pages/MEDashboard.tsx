@@ -34,6 +34,7 @@ import {
   MapPinned,
   Menu,
   Search,
+  RotateCcw,
   ShieldCheck,
   UserPlus,
   UsersRound,
@@ -489,27 +490,102 @@ function MEAnalytics({
     ? Math.round((inspections.filter((item) => /submitted|approved|verified/i.test(item.status)).length / totalInspections) * 100)
     : 0;
   const reinspectionCount = inspections.filter((item) => /re-?inspection/i.test(item.status)).length;
+  const analyticsSummary = [
+    {
+      label: "Verification",
+      value: `${verificationRate}%`,
+      detail: `${projects.filter((project) => project.verified).length} of ${projects.length} projects`,
+      progress: verificationRate,
+      icon: ShieldCheck,
+      iconClass: "bg-emerald-600 text-white",
+      barClass: "bg-emerald-600",
+      surfaceClass: "border-emerald-100 bg-emerald-50/65",
+    },
+    {
+      label: "Completion",
+      value: `${completionRate}%`,
+      detail: `${inspections.filter((item) => /submitted|approved|verified/i.test(item.status)).length} of ${totalInspections} inspections`,
+      progress: completionRate,
+      icon: CheckCircle2,
+      iconClass: "bg-violet-600 text-white",
+      barClass: "bg-violet-600",
+      surfaceClass: "border-violet-100 bg-violet-50/60",
+    },
+    {
+      label: "Re-Inspection",
+      value: reinspectionCount.toLocaleString(),
+      detail: reinspectionCount === 1 ? "case requiring another inspection" : "cases requiring another inspection",
+      progress: totalInspections ? Math.min(100, Math.round((reinspectionCount / totalInspections) * 100)) : 0,
+      icon: RotateCcw,
+      iconClass: "bg-rose-600 text-white",
+      barClass: "bg-rose-500",
+      surfaceClass: "border-rose-100 bg-rose-50/60",
+    },
+  ];
 
   const cardMotion = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.35 } };
 
   return <div className="space-y-4">
-    <motion.section {...cardMotion} className="flex flex-col gap-3 rounded-xl border border-[#d6e9da] bg-gradient-to-r from-[#f6fbf7] to-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
-      <div>
-        <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#08733f]">M&E intelligence</p>
-        <h2 className="mt-1 text-lg font-bold tracking-tight text-[#173b2a]">Portfolio Analytics</h2>
-        <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">
-          {isMeAdmin ? "National M&E team portfolio view." : "Analytics is limited to projects assigned to your M&E teams."} Charts use the current filtered live portfolio.
-        </p>
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        {[
-          ["Verification", `${verificationRate}%`],
-          ["Completion", `${completionRate}%`],
-          ["Re-Inspection", reinspectionCount.toLocaleString()],
-        ].map(([label, value]) => <div key={label} className="min-w-[105px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-center shadow-sm">
-          <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">{label}</p>
-          <p className="mt-1 text-lg font-extrabold text-[#173b2a]">{value}</p>
-        </div>)}
+    <motion.section {...cardMotion} className="overflow-hidden rounded-2xl border border-[#d7e7db] bg-white shadow-[0_8px_30px_rgba(23,59,42,0.06)]">
+      <div className="grid gap-0 xl:grid-cols-[minmax(280px,.78fr)_minmax(0,1.72fr)]">
+        <div className="relative overflow-hidden border-b border-[#e6eee8] bg-[linear-gradient(135deg,#f4faf6_0%,#ffffff_70%)] p-5 xl:border-b-0 xl:border-r">
+          <div className="absolute -right-8 -top-10 h-28 w-28 rounded-full bg-[#dff0e4]/65 blur-2xl" />
+          <div className="relative">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <span className="inline-flex items-center gap-2 rounded-full border border-[#cfe5d6] bg-white px-3 py-1 text-[9px] font-extrabold uppercase tracking-[0.13em] text-[#08733f] shadow-sm">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#08733f]" />
+                M&E Intelligence
+              </span>
+              <span className="rounded-full border border-slate-200 bg-white/90 px-2.5 py-1 text-[9px] font-bold text-slate-500">
+                {isMeAdmin ? "All M&E teams" : "Assigned portfolio"}
+              </span>
+            </div>
+            <h2 className="text-[20px] font-extrabold tracking-[-0.025em] text-[#173b2a]">Portfolio Analytics</h2>
+            <p className="mt-2 max-w-md text-[11px] leading-5 text-slate-500">
+              {isMeAdmin
+                ? "Live performance signals across all M&E teams and assigned projects."
+                : "Live performance signals from projects assigned to your M&E teams only."}
+            </p>
+            <div className="mt-4 flex items-center gap-2 text-[10px] font-semibold text-slate-400">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.08)]" />
+              Filters update every chart and metric on this page
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-3 p-4 sm:grid-cols-3 sm:p-5">
+          {analyticsSummary.map((metric, index) => {
+            const Icon = metric.icon;
+            return <motion.article
+              key={metric.label}
+              initial={{ opacity: 0, y: 10, scale: 0.985 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.32, delay: 0.06 + index * 0.05 }}
+              whileHover={{ y: -2 }}
+              className={`group rounded-2xl border p-3.5 shadow-[0_5px_16px_rgba(23,59,42,0.04)] transition-all hover:shadow-[0_9px_24px_rgba(23,59,42,0.08)] ${metric.surfaceClass}`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <span className={`flex h-9 w-9 items-center justify-center rounded-xl shadow-sm transition-transform duration-300 group-hover:scale-105 ${metric.iconClass}`}>
+                  <Icon className="h-4 w-4" />
+                </span>
+                <span className="text-[9px] font-bold uppercase tracking-[0.09em] text-slate-400">{metric.label}</span>
+              </div>
+              <div className="mt-4 flex items-end justify-between gap-3">
+                <p className="text-[27px] font-extrabold leading-none tracking-[-0.035em] text-[#173b2a]">{metric.value}</p>
+                <span className="text-[9px] font-bold text-slate-400">{metric.progress}%</span>
+              </div>
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/80 ring-1 ring-black/[0.03]">
+                <motion.div
+                  className={`h-full rounded-full ${metric.barClass}`}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${metric.progress}%` }}
+                  transition={{ duration: 0.7, delay: 0.15 + index * 0.06, ease: "easeOut" }}
+                />
+              </div>
+              <p className="mt-2 min-h-[30px] text-[9.5px] leading-[15px] text-slate-500">{metric.detail}</p>
+            </motion.article>;
+          })}
+        </div>
       </div>
     </motion.section>
 
