@@ -220,7 +220,7 @@ export function SatelliteChoiceList({
                 </span>
                 <span className="flex shrink-0 flex-col items-end gap-1">
                   {choice.isDemo ? <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[8px] font-bold text-slate-600">External Demo</span> : null}
-                  {typeof choice.verified === "boolean" ? (
+                  {!choice.isDemo && typeof choice.verified === "boolean" ? (
                     <span className={`rounded-full px-2 py-0.5 text-[8px] font-bold ${
                       choice.verified
                         ? "bg-[#e9f7ee] text-[#08733f]"
