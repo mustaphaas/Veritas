@@ -236,14 +236,23 @@ async function collaborativeStaff(env) {
   return result.results;
 }
 
-async function collaborativeTeams(env) {
-  const result = await env.DB.prepare(`
-    SELECT t.id,t.name,t.team_lead_id,t.status,
-      lead.name AS team_lead_name
-    FROM inspection_teams t
-    JOIN users lead ON lead.id=t.team_lead_id
-    ORDER BY t.updated_at DESC
-  `).all();
+async function collaborativeTeams(env, user = null) {
+  const scoped = user?.staffRole === "M&E Officer";
+  const result = scoped
+    ? await env.DB.prepare(`
+        SELECT DISTINCT t.id,t.name,t.team_lead_id,t.status,lead.name AS team_lead_name
+        FROM inspection_teams t
+        JOIN users lead ON lead.id=t.team_lead_id
+        JOIN inspection_team_members scope_member ON scope_member.team_id=t.id
+        WHERE scope_member.user_id=?
+        ORDER BY t.updated_at DESC
+      `).bind(user.id).all()
+    : await env.DB.prepare(`
+        SELECT t.id,t.name,t.team_lead_id,t.status,lead.name AS team_lead_name
+        FROM inspection_teams t
+        JOIN users lead ON lead.id=t.team_lead_id
+        ORDER BY t.updated_at DESC
+      `).all();
   const teams = [];
   for (const row of result.results) {
     const members = await env.DB.prepare(`
@@ -256,17 +265,31 @@ async function collaborativeTeams(env) {
   return teams;
 }
 
-async function collaborativeInspections(env) {
-  const result = await env.DB.prepare(`
-    SELECT i.id,i.team_id,i.project_id,i.status,i.due_date,i.form_json,i.section_assignments_json,
-      i.version,i.last_saved_by,i.created_at,i.updated_at,i.submitted_at,
-      p.name AS project_name,p.programme,p.component,p.contractor,p.state,p.lga,p.community,
-      t.name AS team_name
-    FROM collaborative_inspections i
-    JOIN projects p ON p.id=i.project_id
-    JOIN inspection_teams t ON t.id=i.team_id
-    ORDER BY i.updated_at DESC
-  `).all();
+async function collaborativeInspections(env, user = null) {
+  const scoped = user?.staffRole === "M&E Officer";
+  const result = scoped
+    ? await env.DB.prepare(`
+        SELECT DISTINCT i.id,i.team_id,i.project_id,i.status,i.due_date,i.form_json,i.section_assignments_json,
+          i.version,i.last_saved_by,i.created_at,i.updated_at,i.submitted_at,
+          p.name AS project_name,p.programme,p.component,p.contractor,p.state,p.lga,p.community,
+          t.name AS team_name
+        FROM collaborative_inspections i
+        JOIN projects p ON p.id=i.project_id
+        JOIN inspection_teams t ON t.id=i.team_id
+        JOIN inspection_team_members m ON m.team_id=i.team_id
+        WHERE m.user_id=?
+        ORDER BY i.updated_at DESC
+      `).bind(user.id).all()
+    : await env.DB.prepare(`
+        SELECT i.id,i.team_id,i.project_id,i.status,i.due_date,i.form_json,i.section_assignments_json,
+          i.version,i.last_saved_by,i.created_at,i.updated_at,i.submitted_at,
+          p.name AS project_name,p.programme,p.component,p.contractor,p.state,p.lga,p.community,
+          t.name AS team_name
+        FROM collaborative_inspections i
+        JOIN projects p ON p.id=i.project_id
+        JOIN inspection_teams t ON t.id=i.team_id
+        ORDER BY i.updated_at DESC
+      `).all();
   return result.results.map((row) => ({
     id: row.id, teamId: row.team_id, projectId: row.project_id, status: row.status,
     dueDate: row.due_date, form: JSON.parse(row.form_json || "{}"),
@@ -284,29 +307,49 @@ async function handleCollaborativeInspections(request, env, user) {
   if (user.role !== "rea_admin" && user.role !== "rea_staff") return response({ error: "REA access required." }, 403);
 
   if (path === "/api/field/rea-inspections" && request.method === "GET") {
+    const scopedOfficer = user.staffRole === "M&E Officer";
+    const projects = scopedOfficer
+      ? await env.DB.prepare(`
+          SELECT DISTINCT p.id,p.name,p.programme,p.component,p.contractor,p.state,p.lga,p.community
+          FROM projects p
+          JOIN collaborative_inspections ci ON ci.project_id=p.id
+          JOIN inspection_team_members m ON m.team_id=ci.team_id
+          WHERE m.user_id=?
+          ORDER BY p.name
+        `).bind(user.id).all()
+      : await env.DB.prepare("SELECT id,name,programme,component,contractor,state,lga,community FROM projects ORDER BY name").all();
     return response({
       currentUserId: user.id,
-      staff: await collaborativeStaff(env),
-      teams: await collaborativeTeams(env),
-      projects: (await env.DB.prepare("SELECT id,name,programme,component,contractor,state,lga,community FROM projects ORDER BY name").all()).results,
-      inspections: await collaborativeInspections(env),
+      staffRole: user.staffRole || "",
+      staff: user.staffRole === "M&E Admin" || user.role === "rea_admin" ? await collaborativeStaff(env) : [],
+      teams: await collaborativeTeams(env, user),
+      projects: projects.results,
+      inspections: await collaborativeInspections(env, user),
       serverTime: now(),
     });
   }
 
-  if (user.staffRole === "M&E Officer" && request.method !== "GET") {
-    return response({ error: "M&E access is read-only for inspection administration." }, 403);
+  const canManageMeTeams = user.role === "rea_admin" || user.staffRole === "M&E Admin";
+  if (request.method !== "GET" && !canManageMeTeams) {
+    return response({ error: "M&E team administration access required." }, 403);
   }
 
   if (path === "/api/field/rea-inspections/teams" && request.method === "POST") {
     const body = await request.json().catch(() => null);
     const memberIds = [...new Set([body?.teamLeadId, ...(Array.isArray(body?.memberIds) ? body.memberIds : [])].filter(Boolean))];
     if (!body?.name || !body?.teamLeadId || !memberIds.length) return response({ error: "Team name, Team Lead and at least one staff member are required." }, 400);
-    const lead = await env.DB.prepare("SELECT id FROM users WHERE id=? AND role='rea_admin' AND status='active'").bind(body.teamLeadId).first();
-    if (!lead) return response({ error: "Team Lead must be an active REA staff member." }, 422);
+    const meOnly = user.staffRole === "M&E Admin";
+    const lead = meOnly
+      ? await env.DB.prepare(`SELECT u.id FROM users u JOIN rea_staff_accounts r ON r.user_id=u.id
+          WHERE u.id=? AND u.role='rea_admin' AND u.status='active' AND r.staff_role IN ('M&E Admin','M&E Officer')`).bind(body.teamLeadId).first()
+      : await env.DB.prepare("SELECT id FROM users WHERE id=? AND role='rea_admin' AND status='active'").bind(body.teamLeadId).first();
+    if (!lead) return response({ error: meOnly ? "Team Lead must be an active M&E staff member." : "Team Lead must be an active REA staff member." }, 422);
     const placeholders = memberIds.map(() => "?").join(",");
-    const valid = await env.DB.prepare(`SELECT u.id FROM users u WHERE u.role='rea_admin' AND u.status='active' AND u.id IN (${placeholders})`).bind(...memberIds).all();
-    if (valid.results.length !== memberIds.length) return response({ error: "All team members must be active REA staff." }, 422);
+    const valid = meOnly
+      ? await env.DB.prepare(`SELECT u.id FROM users u JOIN rea_staff_accounts r ON r.user_id=u.id
+          WHERE u.role='rea_admin' AND u.status='active' AND r.staff_role IN ('M&E Admin','M&E Officer') AND u.id IN (${placeholders})`).bind(...memberIds).all()
+      : await env.DB.prepare(`SELECT u.id FROM users u WHERE u.role='rea_admin' AND u.status='active' AND u.id IN (${placeholders})`).bind(...memberIds).all();
+    if (valid.results.length !== memberIds.length) return response({ error: meOnly ? "All team members must be active M&E staff." : "All team members must be active REA staff." }, 422);
     const id = `team-${crypto.randomUUID()}`, timestamp = now();
     await env.DB.prepare("INSERT INTO inspection_teams(id,name,team_lead_id,status,created_at,updated_at) VALUES(?,?,?,?,?,?)")
       .bind(id, String(body.name).trim(), body.teamLeadId, "Active", timestamp, timestamp).run();
@@ -354,8 +397,8 @@ async function handleCollaborativeInspections(request, env, user) {
   const team = await env.DB.prepare("SELECT * FROM inspection_teams WHERE id=?").bind(inspection.team_id).first();
   if (!team) return response({ error: "Inspection team not found." }, 404);
   const member = await env.DB.prepare("SELECT 1 FROM inspection_team_members WHERE team_id=? AND user_id=?").bind(team.id, user.id).first();
-  const isReaAdmin = user.role === "rea_admin";
-  if (!member && !isReaAdmin) return response({ error: "You are not a member of this inspection team." }, 403);
+  const hasMeAdminAccess = user.role === "rea_admin" || user.staffRole === "M&E Admin";
+  if (!member && !hasMeAdminAccess) return response({ error: "You are not a member of this inspection team." }, 403);
 
   if (match[2] === "submit" && request.method === "POST") {
     if (team.team_lead_id !== user.id) return response({ error: "Only the Team Lead can submit the inspection." }, 403);
@@ -383,7 +426,7 @@ async function handleCollaborativeInspections(request, env, user) {
     const currentAssignments = JSON.parse(inspection.section_assignments_json || "{}");
     const nextForm = body?.formPatch && typeof body.formPatch === "object" ? { ...currentForm, ...body.formPatch } : currentForm;
     const nextAssignments = body?.sectionAssignments && typeof body.sectionAssignments === "object" ? body.sectionAssignments : currentAssignments;
-    if (body?.sectionAssignments && team.team_lead_id !== user.id && user.role !== "rea_admin") return response({ error: "Only the Team Lead or REA Administrator can assign sections." }, 403);
+    if (body?.sectionAssignments && team.team_lead_id !== user.id && user.role !== "rea_admin" && user.staffRole !== "M&E Admin") return response({ error: "Only the Team Lead or REA Administrator can assign sections." }, 403);
     const timestamp = now();
     await env.DB.prepare("UPDATE collaborative_inspections SET form_json=?,section_assignments_json=?,status='In Progress',version=version+1,last_saved_by=?,updated_at=? WHERE id=?")
       .bind(JSON.stringify(nextForm), JSON.stringify(nextAssignments), user.id, timestamp, inspection.id).run();

@@ -1,4 +1,4 @@
-export type ReaStaffRole = "REA Administrator" | "Programme Manager" | "M&E Officer" | "Verification Officer" | "Claims Officer" | "Analyst" | "Viewer";
+export type ReaStaffRole = "REA Administrator" | "Programme Manager" | "M&E Admin" | "M&E Officer" | "Verification Officer" | "Claims Officer" | "Analyst" | "Viewer";
 export type ReaStaffStatus = "Active" | "Suspended" | "Invited";
 
 export type ReaStaffAccount = {
@@ -118,7 +118,7 @@ export function readReaStaff(): ReaStaffAccount[] {
     const accounts = parsed.flatMap((value, index): ReaStaffAccount[] => {
       if (!isRecord(value)) return [];
       const fallback = defaultReaStaff[index % defaultReaStaff.length];
-      const role = typeof value.role === "string" && ["REA Administrator", "Programme Manager", "M&E Officer", "Verification Officer", "Claims Officer", "Analyst", "Viewer"].includes(value.role)
+      const role = typeof value.role === "string" && ["REA Administrator", "Programme Manager", "M&E Admin", "M&E Officer", "Verification Officer", "Claims Officer", "Analyst", "Viewer"].includes(value.role)
         ? value.role as ReaStaffRole
         : fallback.role;
       const status = value.status === "Suspended" || value.status === "Invited" ? value.status : "Active";

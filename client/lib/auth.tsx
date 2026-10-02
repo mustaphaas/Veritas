@@ -8,7 +8,8 @@ import { authenticateFieldApi, fetchConsultantProfileWithToken } from "./field-a
 
 export type DemoRole = "rea" | "field" | "consultant";
 export type DemoAccount = { role: DemoRole; roleLabel: string; name: string; initials: string; email: string; password: string; path: string; consultantId?: string; };
-const reaStaffPath = (staffRole?: string) => staffRole === "M&E Officer" ? "/me-dashboard" : "/";
+const isMeRole = (staffRole?: string) => staffRole === "M&E Admin" || staffRole === "M&E Officer";
+const reaStaffPath = (staffRole?: string) => isMeRole(staffRole) ? "/me-dashboard" : "/";
 export const demoAccounts: DemoAccount[] = [
  { role:"rea", roleLabel:"REA Dashboard", name:"REA Administrator", initials:"RA", email:"rea.admin@demo.ng", password:"REA2024!", path:"/" },
  { role:"field", roleLabel:"Field Officer", name:"Amina Yusuf", initials:"AY", email:"field.officer@demo.ng", password:"Field2024!", path:"/field-officer", consultantId:"con-001" },
@@ -124,4 +125,4 @@ export function AuthProvider({children}:{children:ReactNode}){
 export function useAuth(){const c=useContext(AuthContext);if(!c)throw new Error("useAuth must be used inside AuthProvider");return c;}
 export function RequireRole({role,children}:{role:DemoRole;children:ReactNode}){const{session}=useAuth();const location=useLocation();if(!session)return <Navigate to="/login" replace state={{from:location.pathname}}/>;if(session.role!==role)return <Navigate to={session.path} replace/>;return children;}
 
-export function RequireReaStaffRole({staffRole,children}:{staffRole:string;children:ReactNode}){const{session}=useAuth();const location=useLocation();if(!session)return <Navigate to="/login" replace state={{from:location.pathname}}/>;if(session.role!=="rea")return <Navigate to={session.path} replace/>;if(session.roleLabel!==staffRole)return <Navigate to={session.path===location.pathname?"/":session.path} replace/>;return children;}
+export function RequireReaStaffRole({staffRole,children}:{staffRole:string|string[];children:ReactNode}){const{session}=useAuth();const location=useLocation();if(!session)return <Navigate to="/login" replace state={{from:location.pathname}}/>;if(session.role!=="rea")return <Navigate to={session.path} replace/>;const allowed=Array.isArray(staffRole)?staffRole:[staffRole];if(!allowed.includes(session.roleLabel))return <Navigate to={session.path===location.pathname?"/":session.path} replace/>;return children;}

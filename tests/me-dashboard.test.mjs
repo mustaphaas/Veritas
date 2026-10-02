@@ -12,13 +12,13 @@ const fieldApi = fs.readFileSync("worker/field-api.js", "utf8");
 
 test("M&E has a dedicated role-gated dashboard route", () => {
   assert.match(app, /path="\/me-dashboard\/\*"/);
-  assert.match(app, /RequireReaStaffRole staffRole="M&E Officer"/);
-  assert.match(auth, /staffRole === "M&E Officer" \? "\/me-dashboard" : "\/"/);
+  assert.match(app, /RequireReaStaffRole staffRole=\{\["M&E Admin", "M&E Officer"\]\}/);
+  assert.match(auth, /staffRole === "M&E Admin" \|\| staffRole === "M&E Officer"/);
 });
 
 test("M&E role is available to REA user management", () => {
-  assert.match(staff, /"M&E Officer"/);
-  assert.match(users, /"M&E Officer"/);
+  assert.match(staff, /"M&E Admin"/);\n  assert.match(staff, /"M&E Officer"/);
+  assert.match(users, /"M&E Admin"/);\n  assert.match(users, /"M&E Officer"/);
   assert.match(staff, /"Findings"/);
   assert.match(staff, /"Analytics"/);
 });
@@ -27,7 +27,7 @@ test("M&E dashboard is monitoring focused and does not expose admin controls", (
   assert.match(page, /Projects Monitored/);
   assert.match(page, /Pending Review/);
   assert.match(page, /Projects at Risk/);
-  assert.match(page, /Read-only oversight/);
+  assert.match(page, /Your portfolio is limited to projects assigned to your M&E teams/);
   assert.doesNotMatch(page, /Create REA Staff|Reset Password|Delete User|Create Consultant/);
 });
 

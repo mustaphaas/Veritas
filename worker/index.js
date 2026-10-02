@@ -37,7 +37,7 @@ async function authenticatedDatabaseUser(request, env) {
   const tokenHash = await digest(bearer);
   return env.DB.prepare(`SELECT u.id,u.name,
     CASE WHEN u.role='rea_admin' AND COALESCE(r.staff_role,'REA Administrator')<>'REA Administrator' THEN 'rea_staff' ELSE u.role END AS role,
-    u.consultant_firm AS consultantFirm
+    u.consultant_firm AS consultantFirm,r.staff_role AS staffRole,r.department,r.access_json AS accessJson
     FROM sessions s JOIN users u ON u.id=s.user_id
     LEFT JOIN rea_staff_accounts r ON r.user_id=u.id
     WHERE s.token_hash=? AND s.expires_at>? AND u.status='active'`)
@@ -413,11 +413,20 @@ async function reaProjectsResponse(request, env) {
   const user = await authenticatedDatabaseUser(request, env);
   if (!user) return json({ error: "Authentication required." }, 401);
   if (user.role !== "rea_admin" && user.role !== "rea_staff") return json({ error: "REA access required." }, 403);
-  const result = await env.DB.prepare(`SELECT id,name,programme,component,contractor,consultant_firm AS consultantFirm,state,lga,community,
-    reporting_month AS reportingMonth,portfolio_status AS status,installed_capacity_kw AS installedCapacityKw,
-    households,verified,latitude,longitude,geofence_radius_metres AS geofenceRadiusMetres,
-    data_source AS dataSource,updated_at AS updatedAt
-    FROM projects ORDER BY state,name`).all();
+  const projectColumns = `SELECT p.id,p.name,p.programme,p.component,p.contractor,p.consultant_firm AS consultantFirm,p.state,p.lga,p.community,
+    p.reporting_month AS reportingMonth,p.portfolio_status AS status,p.installed_capacity_kw AS installedCapacityKw,
+    p.households,p.verified,p.latitude,p.longitude,p.geofence_radius_metres AS geofenceRadiusMetres,
+    p.data_source AS dataSource,p.updated_at AS updatedAt FROM projects p`;
+  const result = user.staffRole === "M&E Officer"
+    ? await env.DB.prepare(`${projectColumns}
+        WHERE EXISTS (
+          SELECT 1
+          FROM collaborative_inspections ci
+          JOIN inspection_team_members itm ON itm.team_id=ci.team_id
+          WHERE ci.project_id=p.id AND itm.user_id=?
+        )
+        ORDER BY p.state,p.name`).bind(user.id).all()
+    : await env.DB.prepare(`${projectColumns} ORDER BY p.state,p.name`).all();
   return json({
     projects: (result.results || []).map((project) => ({
       ...project,
