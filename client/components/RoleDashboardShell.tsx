@@ -190,7 +190,7 @@ export default function RoleDashboardShell({ title, subtitle, roleName, initials
   );
 
   return (
-    <div className="min-h-screen bg-[#f6f8f6] text-slate-900">
+    <div className="min-h-screen bg-white text-slate-900">
       <aside className="veritas-side-rail fixed inset-y-0 left-0 z-30 hidden w-[58px] flex-col border-r border-slate-200 bg-white lg:flex">{navContent}</aside>
       <div className={`fixed inset-0 z-50 lg:hidden ${mobileMenuOpen ? "" : "pointer-events-none"}`}>
         <button type="button" aria-label="Close navigation backdrop" onClick={() => setMobileMenuOpen(false)} className={`absolute inset-0 bg-slate-900/20 transition-opacity ${mobileMenuOpen ? "opacity-100" : "opacity-0"}`} />
