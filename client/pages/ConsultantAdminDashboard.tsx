@@ -19,6 +19,7 @@ import {
   Zap,
 } from "lucide-react";
 import RoleDashboardShell from "../components/RoleDashboardShell";
+import ConsultantCoverageMap, { type ConsultantMapFilters } from "../components/ConsultantCoverageMap";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { Project } from "../lib/dashboard-data";
 import { setAssignmentConsultant, setOfficerConsultant } from "../lib/consultant-tenancy";
@@ -929,45 +930,135 @@ function ConsultantWorkspace({
 
 export default function ConsultantAdminDashboard() {
   const { setFieldOfficerStatus } = useInspectionWorkflow();
-  const { consultant, visibleAssignments: assignments, fieldOfficers, unallocatedProjects } = useConsultantPortfolio();
+  const {
+    consultant,
+    visibleAssignments: assignments,
+    fieldOfficers,
+    unallocatedProjects,
+  } = useConsultantPortfolio();
   const [programmeFilter, setProgrammeFilter] = useState("All Programmes");
   const [stateFilter, setStateFilter] = useState("All States");
   const [officerFilter, setOfficerFilter] = useState("All Field Officers");
   const [assignOpen, setAssignOpen] = useState(false);
   const [createOfficerOpen, setCreateOfficerOpen] = useState(false);
   const [reviewing, setReviewing] = useState<InspectionAssignment | null>(null);
-  const handleOfficerStatus=async(id:string,status:FieldOfficerAccount["status"])=>{try{await updateFieldOfficerStatusApi(id,status);setFieldOfficerStatus(id,status);window.dispatchEvent(new Event("veritas-cloud-session"));}catch(error){window.alert(error instanceof Error?error.message:"Unable to update field officer.");}};
-  const handleDeleteOfficer=async(id:string)=>{if(!window.confirm("Delete this field officer? This is only allowed when the officer has no assignment history."))return;try{await deleteFieldOfficerApi(id);window.dispatchEvent(new Event("veritas-cloud-session"));}catch(error){window.alert(error instanceof Error?error.message:"Unable to delete field officer.");}};
+  const handleOfficerStatus = async (id: string, status: FieldOfficerAccount["status"]) => {
+    try {
+      await updateFieldOfficerStatusApi(id, status);
+      setFieldOfficerStatus(id, status);
+      window.dispatchEvent(new Event("veritas-cloud-session"));
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Unable to update field officer.");
+    }
+  };
+  const handleDeleteOfficer = async (id: string) => {
+    if (!window.confirm("Delete this field officer? This is only allowed when the officer has no assignment history.")) return;
+    try {
+      await deleteFieldOfficerApi(id);
+      window.dispatchEvent(new Event("veritas-cloud-session"));
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Unable to delete field officer.");
+    }
+  };
   const location = useLocation();
   const navigate = useNavigate();
   const activeView = consultantPathViews[location.pathname] ?? "Overview";
-  const [selectedMapProjectId, setSelectedMapProjectId] = useState<string>("");
+
   useEffect(() => {
-    setProgrammeFilter("All Programmes"); setStateFilter("All States"); setOfficerFilter("All Field Officers");
-    setSelectedMapProjectId(""); setReviewing(null); setAssignOpen(false); setCreateOfficerOpen(false);
+    setProgrammeFilter("All Programmes");
+    setStateFilter("All States");
+    setOfficerFilter("All Field Officers");
+    setReviewing(null);
+    setAssignOpen(false);
+    setCreateOfficerOpen(false);
   }, [consultant?.id]);
+
+  const mapAssignments = useMemo<Array<InspectionAssignment & { mapDisplayStatus?: string }>>(() => {
+    const awaitingFieldOfficer = unallocatedProjects.map((project) => ({
+      id: project.id || `allocated-${project.name}`,
+      projectName: project.name,
+      programme: project.programme,
+      component: project.component,
+      contractor: project.contractor,
+      state: project.state,
+      lga: project.lga || "",
+      community: project.community || "",
+      latitude: Number(project.latitude),
+      longitude: Number(project.longitude),
+      geofenceRadius: 250,
+      officer: "Awaiting field officer",
+      dueDate: "",
+      status: "Assigned" as const,
+      syncStatus: "synced" as const,
+      mapDisplayStatus: "Awaiting field officer",
+      audit: [],
+    }));
+    const assigned = assignments
+      .filter((item) => item.status !== "Draft")
+      .map((item) => ({ ...item }));
+    return [...awaitingFieldOfficer, ...assigned];
+  }, [assignments, unallocatedProjects]);
+
+  const mapFilters = useMemo<ConsultantMapFilters>(
+    () => ({
+      programme: programmeFilter,
+      state: stateFilter,
+      officer: officerFilter,
+    }),
+    [officerFilter, programmeFilter, stateFilter],
+  );
+
+  const filteredPortfolio = useMemo(
+    () =>
+      mapAssignments.filter(
+        (item) =>
+          (programmeFilter === "All Programmes" || item.programme === programmeFilter) &&
+          (stateFilter === "All States" || item.state === stateFilter) &&
+          (officerFilter === "All Field Officers" || item.officer === officerFilter),
+      ),
+    [mapAssignments, officerFilter, programmeFilter, stateFilter],
+  );
+
   const filtered = useMemo(
     () =>
       assignments.filter(
         (item) =>
-          (programmeFilter === "All Programmes" ||
-            item.programme === programmeFilter) &&
+          (programmeFilter === "All Programmes" || item.programme === programmeFilter) &&
           (stateFilter === "All States" || item.state === stateFilter) &&
-          (officerFilter === "All Field Officers" ||
-            item.officer === officerFilter),
+          (officerFilter === "All Field Officers" || item.officer === officerFilter),
       ),
-    [assignments, programmeFilter, stateFilter, officerFilter],
+    [assignments, officerFilter, programmeFilter, stateFilter],
   );
-  const portfolioProjectCount = filtered.filter((item) => item.status !== "Draft").length + unallocatedProjects.length;
-  const approved = filtered.filter((item) =>
+
+  const programmeOptions = useMemo(
+    () => [...new Set(mapAssignments.map((item) => item.programme).filter(Boolean))].sort(),
+    [mapAssignments],
+  );
+  const stateOptions = useMemo(
+    () => [...new Set(mapAssignments.map((item) => item.state).filter(Boolean))].sort(),
+    [mapAssignments],
+  );
+  const officerOptions = useMemo(
+    () => [...new Set(mapAssignments.map((item) => item.officer).filter(Boolean))].sort(),
+    [mapAssignments],
+  );
+
+  const portfolioProjectCount = filteredPortfolio.length;
+  const approved = filteredPortfolio.filter((item) =>
     ["Approved", "Verified"].includes(item.status),
   ).length;
-  const pending = filtered.filter(
-    (item) => !["Approved", "Submitted", "Verified"].includes(item.status),
+  const pending = filteredPortfolio.filter(
+    (item) =>
+      item.mapDisplayStatus === "Awaiting field officer" ||
+      !["Approved", "Submitted", "Verified"].includes(item.status),
   ).length;
-  const approvalRate = filtered.length
-    ? Math.round((approved / filtered.length) * 100)
+  const reviewableCount = filteredPortfolio.filter(
+    (item) => item.mapDisplayStatus !== "Awaiting field officer",
+  ).length;
+  const approvalRate = reviewableCount
+    ? Math.round((approved / reviewableCount) * 100)
     : 0;
+
   const contractors = [...new Set(filtered.map((item) => item.contractor))]
     .map((name) => {
       const rows = filtered.filter((item) => item.contractor === name);
@@ -981,6 +1072,7 @@ export default function ConsultantAdminDashboard() {
     })
     .sort((a, b) => b.projects - a.projects)
     .slice(0, 4);
+
   const team = fieldOfficers.map((officer) => {
     const rows = assignments.filter((item) => item.officer === officer.name);
     return {
@@ -994,35 +1086,6 @@ export default function ConsultantAdminDashboard() {
       ).length,
     };
   });
-  const mapPortfolio = useMemo(() => {
-    const assigned = filtered.map((item) => ({
-      id: item.id,
-      projectName: item.projectName,
-      community: item.community,
-      state: item.state,
-      latitude: item.latitude,
-      longitude: item.longitude,
-      status: getAssignmentDisplayStatus(item.status),
-    }));
-    const allocated = unallocatedProjects.map((project) => ({
-      id: project.id || project.name,
-      projectName: project.name,
-      community: project.community,
-      state: project.state,
-      latitude: project.latitude,
-      longitude: project.longitude,
-      status: "Awaiting field officer",
-    }));
-    return [...allocated, ...assigned].filter(
-      (item) => Number.isFinite(item.latitude) && Number.isFinite(item.longitude),
-    );
-  }, [filtered, unallocatedProjects]);
-  const mapTarget =
-    mapPortfolio.find((item) => item.id === selectedMapProjectId) ||
-    mapPortfolio[0];
-  const mapUrl = mapTarget
-    ? `https://www.openstreetmap.org/export/embed.html?bbox=${mapTarget.longitude - 0.045}%2C${mapTarget.latitude - 0.035}%2C${mapTarget.longitude + 0.045}%2C${mapTarget.latitude + 0.035}&layer=mapnik&marker=${mapTarget.latitude}%2C${mapTarget.longitude}`
-    : "";
   return (
     <RoleDashboardShell
       title="Consultant Admin Dashboard"
