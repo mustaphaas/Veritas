@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Activity,
   AlertTriangle,
   BarChart3,
+  Bell,
   CheckCircle2,
   ClipboardCheck,
   FileCheck2,
@@ -10,10 +12,13 @@ import {
   FolderKanban,
   Gauge,
   LayoutDashboard,
+  LocateFixed,
   LogOut,
   MapPinned,
+  Menu,
   Search,
   ShieldCheck,
+  UsersRound,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { fetchReaMapProjects, reaRecordToDashboardProject } from "../lib/rea-project-map-data";
@@ -66,6 +71,7 @@ function statusTone(status: string) {
 }
 
 export default function MEDashboard() {
+  const navigate = useNavigate();
   const { session, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("Overview");
   const [projects, setProjects] = useState<Project[]>([]);
@@ -73,6 +79,8 @@ export default function MEDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const [programmeFilter, setProgrammeFilter] = useState("All programmes");
+  const [stateFilter, setStateFilter] = useState("All states");
 
   useEffect(() => {
     if (!session?.apiToken) return;
@@ -94,35 +102,50 @@ export default function MEDashboard() {
     return () => { cancelled = true; };
   }, [session?.apiToken]);
 
-  const totals = useMemo(() => summarizePortfolio(projects), [projects]);
+  const programmeOptions = useMemo(() => ["All programmes", ...[...new Set(projects.map((project) => project.programme).filter(Boolean))].sort()], [projects]);
+  const stateOptions = useMemo(() => ["All states", ...[...new Set(projects.map((project) => project.state).filter(Boolean))].sort()], [projects]);
+
+  const filteredProjects = useMemo(() => projects.filter((project) => {
+    if (programmeFilter !== "All programmes" && project.programme !== programmeFilter) return false;
+    if (stateFilter !== "All states" && project.state !== stateFilter) return false;
+    return true;
+  }), [projects, programmeFilter, stateFilter]);
+
+  const filteredInspections = useMemo(() => inspections.filter((inspection) => {
+    if (programmeFilter !== "All programmes" && inspection.programme !== programmeFilter) return false;
+    if (stateFilter !== "All states" && inspection.state !== stateFilter) return false;
+    return true;
+  }), [inspections, programmeFilter, stateFilter]);
+
+  const totals = useMemo(() => summarizePortfolio(filteredProjects), [filteredProjects]);
   const inspectionSummary = useMemo(() => {
-    const submitted = inspections.filter((item) => item.status === "Submitted").length;
-    const verified = inspections.filter((item) => item.status === "Verified" || item.status === "Approved").length;
-    const inProgress = inspections.filter((item) => item.status === "In Progress").length;
-    const flagged = inspections.filter((item) => /re-?inspection|risk|issue/i.test(item.status) || /critical|outstanding|failed/i.test(JSON.stringify(item.form || {}))).length;
+    const submitted = filteredInspections.filter((item) => item.status === "Submitted").length;
+    const verified = filteredInspections.filter((item) => item.status === "Verified" || item.status === "Approved").length;
+    const inProgress = filteredInspections.filter((item) => item.status === "In Progress").length;
+    const flagged = filteredInspections.filter((item) => /re-?inspection|risk|issue/i.test(item.status) || /critical|outstanding|failed/i.test(JSON.stringify(item.form || {}))).length;
     return { submitted, verified, inProgress, flagged };
-  }, [inspections]);
+  }, [filteredInspections]);
 
   const visibleProjects = useMemo(() => {
     const term = query.trim().toLowerCase();
-    if (!term) return projects;
-    return projects.filter((project) =>
+    if (!term) return filteredProjects;
+    return filteredProjects.filter((project) =>
       [project.name, project.programme, project.component, project.contractor, project.state, project.lga || "", project.community || "", project.status]
         .join(" ").toLowerCase().includes(term),
     );
-  }, [projects, query]);
+  }, [filteredProjects, query]);
 
   const visibleInspections = useMemo(() => {
     const term = query.trim().toLowerCase();
-    if (!term) return inspections;
-    return inspections.filter((inspection) =>
+    if (!term) return filteredInspections;
+    return filteredInspections.filter((inspection) =>
       [inspection.projectName, inspection.programme, inspection.component, inspection.contractor, inspection.state, inspection.lga, inspection.community, inspection.status, inspection.teamName || ""]
         .join(" ").toLowerCase().includes(term),
     );
-  }, [inspections, query]);
+  }, [filteredInspections, query]);
 
-  const programmeRows = useMemo(() => [...new Set(projects.map((project) => project.programme))].map((programme) => {
-    const matching = projects.filter((project) => project.programme === programme);
+  const programmeRows = useMemo(() => [...new Set(filteredProjects.map((project) => project.programme))].map((programme) => {
+    const matching = filteredProjects.filter((project) => project.programme === programme);
     const verified = matching.filter((project) => project.verified).length;
     return {
       programme,
@@ -131,106 +154,115 @@ export default function MEDashboard() {
       pending: matching.length - verified,
       rate: matching.length ? Math.round((verified / matching.length) * 100) : 0,
     };
-  }).sort((a, b) => b.projects - a.projects), [projects]);
+  }).sort((a, b) => b.projects - a.projects), [filteredProjects]);
 
-  const findings = useMemo(() => inspections.filter((inspection) =>
+  const findings = useMemo(() => filteredInspections.filter((inspection) =>
     /re-?inspection|risk|issue/i.test(inspection.status) || /critical|outstanding|failed|defect|corrective/i.test(JSON.stringify(inspection.form || {})),
-  ), [inspections]);
+  ), [filteredInspections]);
 
   const kpis = [
-    { label: "Projects Monitored", value: totals.projects, detail: "National project portfolio", icon: FolderKanban },
-    { label: "Inspections Completed", value: inspectionSummary.submitted + inspectionSummary.verified, detail: "Submitted or completed reviews", icon: ClipboardCheck },
-    { label: "Verified Projects", value: totals.verified, detail: `${totals.verificationRate}% of monitored projects`, icon: ShieldCheck },
-    { label: "Pending Review", value: Math.max(totals.pending, inspectionSummary.submitted), detail: "Requires monitoring attention", icon: Gauge },
-    { label: "Projects at Risk", value: inspectionSummary.flagged, detail: "Findings or reinspection signals", icon: AlertTriangle },
+    { label: "Projects Monitored", value: totals.projects, detail: "Across filtered portfolio", icon: FolderKanban, card: "border-sky-200 bg-sky-50", iconClass: "bg-sky-600 text-white", valueClass: "text-sky-800" },
+    { label: "Inspections Completed", value: inspectionSummary.submitted + inspectionSummary.verified, detail: "Submitted or completed reviews", icon: ClipboardCheck, card: "border-violet-200 bg-violet-50", iconClass: "bg-violet-600 text-white", valueClass: "text-violet-800" },
+    { label: "Verified Projects", value: totals.verified, detail: `${totals.verificationRate}% of monitored projects`, icon: ShieldCheck, card: "border-emerald-200 bg-emerald-50", iconClass: "bg-emerald-700 text-white", valueClass: "text-emerald-800" },
+    { label: "Pending Review", value: Math.max(totals.pending, inspectionSummary.submitted), detail: "Requires monitoring attention", icon: Gauge, card: "border-orange-200 bg-orange-50", iconClass: "bg-orange-600 text-white", valueClass: "text-orange-800" },
+    { label: "Projects at Risk", value: inspectionSummary.flagged, detail: "Findings or reinspection signals", icon: AlertTriangle, card: "border-rose-200 bg-rose-50", iconClass: "bg-rose-600 text-white", valueClass: "text-rose-800" },
   ];
 
+  const resetFilters = () => {
+    setQuery("");
+    setProgrammeFilter("All programmes");
+    setStateFilter("All states");
+  };
+
   return (
-    <main className="min-h-screen bg-[#f6f9f7] text-[#183126]">
-      <div className="flex min-h-screen">
-        <aside className="hidden w-[238px] shrink-0 border-r border-[#dce8df] bg-white lg:flex lg:flex-col">
-          <div className="border-b border-[#e5eee8] px-5 py-5">
-            <div className="flex items-center gap-3">
-              <img src="/rea-brand-mark.svg" alt="" className="h-10 w-10 object-contain" />
-              <div><p className="text-sm font-extrabold text-[#173b2a]">Veritas</p><p className="text-[10px] font-semibold uppercase tracking-[.08em] text-slate-500">M&E Workspace</p></div>
+    <div className="veritas-government-app min-h-screen text-slate-900">
+      <main className="veritas-rea-main">
+        <header className="veritas-government-topbar sticky top-0 z-20 flex h-[94px] items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-7 lg:px-8">
+          <div className="flex items-center gap-3">
+            <button className="rounded-md p-2 text-slate-600 hover:bg-slate-100" aria-label="Open navigation"><Menu className="h-5 w-5" /></button>
+            <div>
+              <h1 className="text-lg font-bold tracking-tight text-[#142a1f] sm:text-[22px]">M&E Dashboard</h1>
+              <p className="mt-1 hidden text-xs text-slate-500 sm:block">Monitor programme delivery, inspections, verification and project risk across Nigeria.</p>
             </div>
           </div>
-          <nav className="flex-1 space-y-1 p-3">
-            {navigation.map(({ label, icon: Icon }) => (
-              <button key={label} type="button" onClick={() => setActiveTab(label)}
-                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-xs font-bold transition ${activeTab === label ? "bg-[#eaf6ee] text-[#08733f]" : "text-slate-600 hover:bg-slate-50"}`}>
-                <Icon className="h-4 w-4" />{label}
-              </button>
-            ))}
-          </nav>
-          <div className="border-t border-[#e5eee8] p-4">
-            <div className="mb-3 rounded-lg bg-[#f7faf8] p-3"><p className="text-xs font-bold text-[#173b2a]">{session?.name}</p><p className="mt-1 text-[10px] text-slate-500">Monitoring & Evaluation</p></div>
-            <button onClick={logout} className="flex w-full items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"><LogOut className="h-4 w-4"/>Sign out</button>
+          <div className="flex items-center gap-2 sm:gap-4">
+            <span className="hidden items-center gap-2 text-xs font-semibold text-[#08733f] md:flex"><i className="h-2 w-2 rounded-full bg-[#08733f]" />Live data</span>
+            <span className="hidden border-l border-slate-200 pl-4 text-xs text-slate-500 xl:block">Monitoring & Evaluation</span>
+            <button className="relative rounded-md p-2 text-slate-500 hover:bg-slate-100" aria-label="Notifications"><Bell className="h-5 w-5" /><span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full border border-white bg-[#df7d00] px-1 text-[8px] font-bold text-white">{inspectionSummary.flagged}</span></button>
+            <div className="hidden items-center gap-2 sm:flex"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500"><UsersRound className="h-5 w-5" /></div><span className="hidden text-xs font-semibold text-[#142a1f] xl:inline">{session?.name ?? "M&E Officer"}</span></div>
+            <button type="button" onClick={() => { logout(); navigate("/login", { replace: true }); }} className="flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-[11px] font-bold text-slate-600 hover:border-[#e2b5b5] hover:bg-red-50 hover:text-red-700"><LogOut className="h-4 w-4" /><span className="hidden xl:inline">Logout</span></button>
           </div>
-        </aside>
+        </header>
 
-        <section className="min-w-0 flex-1">
-          <header className="border-b border-[#dfeae2] bg-white px-4 py-4 sm:px-6 lg:px-8">
-            <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-4">
-              <div><p className="text-[10px] font-extrabold uppercase tracking-[.13em] text-[#08733f]">Monitoring & Evaluation</p><h1 className="mt-1 text-xl font-extrabold tracking-tight text-[#173b2a]">{activeTab}</h1><p className="mt-1 text-xs text-slate-500">Monitor delivery, inspection evidence, verification progress and exceptions.</p></div>
-              <div className="hidden rounded-lg border border-[#d8e8dd] bg-[#f7fbf8] px-3 py-2 text-right sm:block"><p className="text-[10px] font-bold text-[#08733f]">Read-only oversight</p><p className="text-[10px] text-slate-500">No user or system administration</p></div>
+        <nav className="veritas-rea-side-rail border-b border-slate-200 bg-white" aria-label="M&E dashboard navigation">
+          <div className="veritas-rea-side-rail-inner mx-auto flex max-w-[1580px] items-center gap-1 overflow-x-auto px-4 sm:px-7 lg:px-7">
+            {navigation.map(({ label, icon: Icon }) => {
+              const active = activeTab === label;
+              return <button key={label} type="button" onClick={() => setActiveTab(label)} aria-current={active ? "page" : undefined} aria-label={label} className={`group flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-xs font-bold transition-all duration-300 ease-out ${active ? "border-[#08733f] text-[#08733f]" : "border-transparent text-slate-500 hover:border-[#b8dfc5] hover:text-[#173b2a]"}`}>
+                <Icon className="h-4 w-4" /><span className="veritas-rea-nav-label">{label}</span>
+              </button>;
+            })}
+          </div>
+        </nav>
+
+        <div className="veritas-dashboard-content mx-auto max-w-[1580px] px-4 py-0 sm:px-7 lg:px-7">
+          {error && <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-semibold text-rose-700">{error}</div>}
+          {loading && <div className="mt-3 rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs text-slate-500">Loading live M&E portfolio…</div>}
+
+          <section className="veritas-overview-filter-bar mt-0 rounded-xl border border-[#d6e9da] bg-[#f7fcf8] p-4">
+            <div className="grid gap-4 md:grid-cols-[minmax(0,1.6fr)_minmax(180px,.7fr)_minmax(180px,.7fr)_140px] md:items-end">
+              <label className="flex min-w-0 flex-col gap-1.5"><span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Search</span><div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/><input value={query} onChange={(event)=>setQuery(event.target.value)} placeholder="Project, contractor, state or status" className="h-10 w-full rounded-md border border-slate-200 bg-white pl-9 pr-3 text-sm font-medium text-[#173b2a] outline-none transition-colors focus:border-[#08733f] focus:ring-2 focus:ring-[#08733f]/10"/></div></label>
+              <label className="flex min-w-0 flex-col gap-1.5"><span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Programme</span><select value={programmeFilter} onChange={(event)=>setProgrammeFilter(event.target.value)} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-[#173b2a] outline-none focus:border-[#08733f] focus:ring-2 focus:ring-[#08733f]/10">{programmeOptions.map((option)=><option key={option}>{option}</option>)}</select></label>
+              <label className="flex min-w-0 flex-col gap-1.5"><span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">State</span><select value={stateFilter} onChange={(event)=>setStateFilter(event.target.value)} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-[#173b2a] outline-none focus:border-[#08733f] focus:ring-2 focus:ring-[#08733f]/10">{stateOptions.map((option)=><option key={option}>{option}</option>)}</select></label>
+              <button type="button" onClick={resetFilters} className="flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-[#76bd91] bg-white px-4 text-xs font-bold text-[#08733f] transition-all hover:border-[#08733f] hover:bg-[#edf9f0]"><LocateFixed className="h-4 w-4"/>Reset filters</button>
             </div>
-          </header>
+          </section>
 
-          <div className="mx-auto max-w-[1500px] p-4 sm:p-6 lg:p-8">
-            {error && <div className="mb-5 rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs font-semibold text-rose-700">{error}</div>}
-            {loading && <div className="mb-5 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500">Loading live M&E portfolio…</div>}
+          {activeTab === "Overview" && <>
+            <section className="veritas-overview-kpis mt-3 flex gap-3 overflow-x-auto pb-1">
+              {kpis.map(({ label, value, detail, icon: Icon, card, iconClass, valueClass }) => <article key={label} className={`veritas-overview-kpi-card min-h-[108px] min-w-[210px] flex-1 rounded-xl border p-3.5 text-left shadow-sm ${card}`}><div className="flex h-full items-start gap-3"><div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-sm ${iconClass}`}><Icon className="h-5 w-5"/></div><div className="min-w-0 flex-1"><p className="text-xs font-bold text-slate-700">{label}</p><p className={`mt-1.5 text-[22px] font-bold leading-none tracking-tight ${valueClass}`}>{value.toLocaleString()}</p><p className="mt-2 text-[10px] leading-4 text-slate-600">{detail}</p></div></div></article>)}
+            </section>
 
-            {(activeTab === "Overview" || activeTab === "Projects" || activeTab === "Inspections" || activeTab === "Verification") && (
-              <div className="mb-5 flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
-                <Search className="h-4 w-4 text-slate-400"/><input value={query} onChange={(event)=>setQuery(event.target.value)} placeholder="Search project, programme, state, contractor or status…" className="w-full bg-transparent text-xs outline-none placeholder:text-slate-400"/>
-              </div>
-            )}
+            <div className="mt-4 grid gap-4 xl:grid-cols-[1.35fr_.65fr]">
+              <section className="veritas-overview-panel overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className="flex items-center justify-between border-b border-[#e3ece6] bg-white px-5 py-4"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#cce5d4] bg-[#eef8f1] text-[#08733f]"><BarChart3 className="h-4 w-4"/></span><div><h2 className="text-base font-bold tracking-[-0.01em] text-[#173b2a]">Programme Performance</h2><p className="mt-1 text-xs text-slate-500">Verification progress across the filtered M&E portfolio</p></div></div></div>
+                <div className="overflow-x-auto"><table className="veritas-data-table w-full min-w-[600px] text-left"><thead><tr><th className="px-5 py-3">Programme</th><th className="px-5 py-3">Projects</th><th className="px-5 py-3">Verified</th><th className="px-5 py-3">Pending</th><th className="px-5 py-3">Rate</th></tr></thead><tbody>{programmeRows.map((row)=><tr key={row.programme}><td className="px-5 py-3 text-xs font-bold text-[#173b2a]">{row.programme}</td><td className="px-5 py-3 text-xs">{row.projects}</td><td className="px-5 py-3 text-xs">{row.verified}</td><td className="px-5 py-3 text-xs">{row.pending}</td><td className="px-5 py-3"><span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700">{row.rate}%</span></td></tr>)}</tbody></table></div>
+              </section>
 
-            {activeTab === "Overview" && <>
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                {kpis.map(({ label, value, detail, icon: Icon }) => <article key={label} className="rounded-xl border border-[#dce8df] bg-white p-4 shadow-sm"><div className="flex items-start justify-between"><div><p className="text-[11px] font-bold text-slate-500">{label}</p><p className="mt-2 text-2xl font-extrabold text-[#173b2a]">{value.toLocaleString()}</p></div><span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#edf7f0] text-[#08733f]"><Icon className="h-4 w-4"/></span></div><p className="mt-3 text-[10px] text-slate-500">{detail}</p></article>)}
-              </div>
+              <section className="veritas-overview-panel overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className="flex items-center justify-between border-b border-[#e3ece6] bg-white px-5 py-4"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#f1d7b2] bg-[#fff8ed] text-[#c87812]"><Activity className="h-4 w-4"/></span><div><h2 className="text-base font-bold tracking-[-0.01em] text-[#173b2a]">Monitoring Attention</h2><p className="mt-1 text-xs text-slate-500">Items requiring M&E review</p></div></div></div>
+                <div className="space-y-2 p-4">
+                  {[["Pending verification", totals.pending],["Submitted inspections", inspectionSummary.submitted],["In progress inspections", inspectionSummary.inProgress],["Flagged / reinspection", inspectionSummary.flagged]].map(([label,value])=><div key={String(label)} className="flex items-center justify-between rounded-lg border border-slate-100 bg-[#fafcfb] px-3 py-3"><span className="text-xs font-semibold text-slate-600">{label}</span><span className="text-sm font-bold text-[#173b2a]">{Number(value).toLocaleString()}</span></div>)}
+                </div>
+              </section>
+            </div>
+          </>}
 
-              <div className="mt-5 grid gap-5 xl:grid-cols-[1.25fr_.75fr]">
-                <article className="rounded-xl border border-[#dce8df] bg-white shadow-sm">
-                  <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4"><div><h2 className="text-sm font-extrabold text-[#173b2a]">Programme Performance</h2><p className="mt-1 text-[10px] text-slate-500">Verification progress by programme</p></div><BarChart3 className="h-4 w-4 text-[#08733f]"/></div>
-                  <div className="overflow-x-auto"><table className="w-full min-w-[600px] text-left"><thead><tr className="border-b bg-[#fafcfb] text-[10px] uppercase tracking-wide text-slate-500"><th className="px-5 py-3">Programme</th><th className="px-5 py-3">Projects</th><th className="px-5 py-3">Verified</th><th className="px-5 py-3">Pending</th><th className="px-5 py-3">Rate</th></tr></thead><tbody>{programmeRows.map((row)=><tr key={row.programme} className="border-b border-slate-100 last:border-0"><td className="px-5 py-3 text-xs font-bold text-[#173b2a]">{row.programme}</td><td className="px-5 py-3 text-xs text-slate-600">{row.projects}</td><td className="px-5 py-3 text-xs text-slate-600">{row.verified}</td><td className="px-5 py-3 text-xs text-slate-600">{row.pending}</td><td className="px-5 py-3"><span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700">{row.rate}%</span></td></tr>)}</tbody></table></div>
-                </article>
-
-                <article className="rounded-xl border border-[#dce8df] bg-white p-5 shadow-sm">
-                  <div className="flex items-center justify-between"><div><h2 className="text-sm font-extrabold text-[#173b2a]">Monitoring Attention</h2><p className="mt-1 text-[10px] text-slate-500">Items requiring review</p></div><Activity className="h-4 w-4 text-[#08733f]"/></div>
-                  <div className="mt-4 space-y-3">
-                    {[["Pending verification", totals.pending],["Submitted inspections", inspectionSummary.submitted],["In progress inspections", inspectionSummary.inProgress],["Flagged / reinspection", inspectionSummary.flagged]].map(([label,value])=><div key={String(label)} className="flex items-center justify-between rounded-lg border border-slate-100 bg-[#fafcfb] px-3 py-3"><span className="text-xs font-semibold text-slate-600">{label}</span><span className="text-sm font-extrabold text-[#173b2a]">{Number(value).toLocaleString()}</span></div>)}
-                  </div>
-                </article>
-              </div>
-            </>}
-
+          <div className={activeTab === "Overview" ? "pb-8" : "py-4"}>
             {activeTab === "Projects" && <DataTableProjects projects={visibleProjects}/>}
             {activeTab === "Inspections" && <DataTableInspections inspections={visibleInspections}/>}
             {activeTab === "Verification" && <DataTableProjects projects={visibleProjects.filter((project)=>!project.verified)} verificationMode/>}
 
-            {activeTab === "Findings" && <article className="rounded-xl border border-[#dce8df] bg-white shadow-sm"><div className="border-b border-slate-100 px-5 py-4"><h2 className="text-sm font-extrabold text-[#173b2a]">Findings & Corrective Attention</h2><p className="mt-1 text-[10px] text-slate-500">Read-only register derived from inspection records with outstanding or risk signals.</p></div>{findings.length ? <div className="divide-y divide-slate-100">{findings.map((item)=><div key={item.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"><div><p className="text-xs font-bold text-[#173b2a]">{item.projectName}</p><p className="mt-1 text-[10px] text-slate-500">{item.state} · {item.lga} · {item.teamName || "Inspection team"}</p></div><span className={`rounded-full border px-2 py-1 text-[10px] font-bold ${statusTone(item.status)}`}>{item.status}</span></div>)}</div> : <div className="p-8 text-center text-xs text-slate-500">No risk or corrective-action signals are currently recorded.</div>}</article>}
+            {activeTab === "Findings" && <section className="veritas-data-panel overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div className="border-b border-[#e3ece6] px-5 py-4"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 text-rose-600"><AlertTriangle className="h-4 w-4"/></span><div><h2 className="text-base font-bold text-[#173b2a]">Findings & Corrective Attention</h2><p className="mt-1 text-xs text-slate-500">Read-only register of inspection records with outstanding or risk signals.</p></div></div></div>{findings.length ? <div className="divide-y divide-slate-100">{findings.map((item)=><div key={item.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"><div><p className="text-xs font-bold text-[#173b2a]">{item.projectName}</p><p className="mt-1 text-[10px] text-slate-500">{item.state} · {item.lga} · {item.teamName || "Inspection team"}</p></div><span className={`rounded-full border px-2 py-1 text-[10px] font-bold ${statusTone(item.status)}`}>{item.status}</span></div>)}</div> : <div className="p-8 text-center text-xs text-slate-500">No risk or corrective-action signals are currently recorded.</div>}</section>}
 
-            {activeTab === "Analytics" && <div className="grid gap-4 lg:grid-cols-3">
-              {[["Verification rate", `${totals.verificationRate}%`, "Share of projects verified"],["Inspection completion", inspections.length ? `${Math.round(((inspectionSummary.submitted + inspectionSummary.verified) / inspections.length) * 100)}%` : "0%", "Submitted or completed inspections"],["At-risk signals", inspectionSummary.flagged.toLocaleString(), "Projects/inspections requiring attention"]].map(([label,value,detail])=><article key={label} className="rounded-xl border border-[#dce8df] bg-white p-5 shadow-sm"><p className="text-[11px] font-bold text-slate-500">{label}</p><p className="mt-2 text-3xl font-extrabold text-[#173b2a]">{value}</p><p className="mt-2 text-[10px] text-slate-500">{detail}</p></article>)}
+            {activeTab === "Analytics" && <div className="veritas-kpi-grid grid gap-3 lg:grid-cols-3">
+              {[["Verification rate", `${totals.verificationRate}%`, "Share of projects verified"],["Inspection completion", filteredInspections.length ? `${Math.round(((inspectionSummary.submitted + inspectionSummary.verified) / filteredInspections.length) * 100)}%` : "0%", "Submitted or completed inspections"],["At-risk signals", inspectionSummary.flagged.toLocaleString(), "Projects/inspections requiring attention"]].map(([label,value,detail])=><article key={label} className="veritas-kpi-card p-4"><p className="text-xs font-bold text-slate-600">{label}</p><p className="mt-2 text-[28px] font-bold tracking-tight text-[#173b2a]">{value}</p><p className="mt-2 text-[10px] text-slate-500">{detail}</p></article>)}
             </div>}
 
-            {activeTab === "Reports" && <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {["Monthly M&E Report","Programme Performance Report","State Performance Report","Projects at Risk Report","Outstanding Findings Report","Verification Progress Report"].map((report)=><article key={report} className="rounded-xl border border-[#dce8df] bg-white p-5 shadow-sm"><FileText className="h-5 w-5 text-[#08733f]"/><h3 className="mt-3 text-sm font-extrabold text-[#173b2a]">{report}</h3><p className="mt-2 text-xs leading-5 text-slate-500">Report template available to M&E staff. Export actions can be connected to the existing Veritas reporting service.</p></article>)}
+            {activeTab === "Reports" && <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {["Monthly M&E Report","Programme Performance Report","State Performance Report","Projects at Risk Report","Outstanding Findings Report","Verification Progress Report"].map((report)=><article key={report} className="veritas-entity-card rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#cce5d4] bg-[#eef8f1] text-[#08733f]"><FileText className="h-4 w-4"/></span><h3 className="mt-3 text-sm font-bold text-[#173b2a]">{report}</h3><p className="mt-2 text-xs leading-5 text-slate-500">Prepared for M&E monitoring and management review using the current filtered portfolio.</p></article>)}
             </div>}
           </div>
-        </section>
-      </div>
-    </main>
+        </div>
+      </main>
+    </div>
   );
 }
 
 function DataTableProjects({ projects, verificationMode = false }: { projects: Project[]; verificationMode?: boolean }) {
-  return <article className="rounded-xl border border-[#dce8df] bg-white shadow-sm"><div className="flex items-center justify-between border-b border-slate-100 px-5 py-4"><div><h2 className="text-sm font-extrabold text-[#173b2a]">{verificationMode ? "Pending Verification" : "Projects Monitored"}</h2><p className="mt-1 text-[10px] text-slate-500">{projects.length.toLocaleString()} records in current view</p></div><MapPinned className="h-4 w-4 text-[#08733f]"/></div><div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left"><thead><tr className="border-b bg-[#fafcfb] text-[10px] uppercase tracking-wide text-slate-500"><th className="px-5 py-3">Project</th><th className="px-5 py-3">Programme</th><th className="px-5 py-3">Location</th><th className="px-5 py-3">Contractor</th><th className="px-5 py-3">Component</th><th className="px-5 py-3">Status</th></tr></thead><tbody>{projects.slice(0,100).map((project)=><tr key={project.id || project.name} className="border-b border-slate-100 last:border-0"><td className="px-5 py-3 text-xs font-bold text-[#173b2a]">{project.name}</td><td className="px-5 py-3 text-xs text-slate-600">{project.programme}</td><td className="px-5 py-3 text-xs text-slate-600">{project.state}{project.lga ? ` · ${project.lga}` : ""}</td><td className="px-5 py-3 text-xs text-slate-600">{project.contractor}</td><td className="px-5 py-3 text-xs text-slate-600">{project.component}</td><td className="px-5 py-3"><span className={`rounded-full border px-2 py-1 text-[10px] font-bold ${project.verified ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>{project.verified ? "Verified" : project.status || "Pending"}</span></td></tr>)}</tbody></table></div></article>
+  return <section className="veritas-data-panel overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center justify-between border-b border-[#e3ece6] px-5 py-4"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#cce5d4] bg-[#eef8f1] text-[#08733f]"><MapPinned className="h-4 w-4"/></span><div><h2 className="text-base font-bold text-[#173b2a]">{verificationMode ? "Pending Verification" : "Projects Monitored"}</h2><p className="mt-1 text-xs text-slate-500">{projects.length.toLocaleString()} records in current view</p></div></div></div><div className="overflow-x-auto"><table className="veritas-data-table w-full min-w-[900px] text-left"><thead><tr><th className="px-5 py-3">Project</th><th className="px-5 py-3">Programme</th><th className="px-5 py-3">Location</th><th className="px-5 py-3">Contractor</th><th className="px-5 py-3">Component</th><th className="px-5 py-3">Status</th></tr></thead><tbody>{projects.slice(0,100).map((project)=><tr key={project.id || project.name}><td className="px-5 py-3 text-xs font-bold text-[#173b2a]">{project.name}</td><td className="px-5 py-3 text-xs">{project.programme}</td><td className="px-5 py-3 text-xs">{project.state}{project.lga ? ` · ${project.lga}` : ""}</td><td className="px-5 py-3 text-xs">{project.contractor}</td><td className="px-5 py-3 text-xs">{project.component}</td><td className="px-5 py-3"><span className={`rounded-full border px-2 py-1 text-[10px] font-bold ${project.verified ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>{project.verified ? "Verified" : project.status || "Pending"}</span></td></tr>)}</tbody></table></div></section>
 }
 
 function DataTableInspections({ inspections }: { inspections: Inspection[] }) {
-  return <article className="rounded-xl border border-[#dce8df] bg-white shadow-sm"><div className="flex items-center justify-between border-b border-slate-100 px-5 py-4"><div><h2 className="text-sm font-extrabold text-[#173b2a]">Inspection Monitoring</h2><p className="mt-1 text-[10px] text-slate-500">{inspections.length.toLocaleString()} inspection records</p></div><CheckCircle2 className="h-4 w-4 text-[#08733f]"/></div><div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left"><thead><tr className="border-b bg-[#fafcfb] text-[10px] uppercase tracking-wide text-slate-500"><th className="px-5 py-3">Project</th><th className="px-5 py-3">Programme</th><th className="px-5 py-3">Location</th><th className="px-5 py-3">Team</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Updated</th></tr></thead><tbody>{inspections.slice(0,100).map((item)=><tr key={item.id} className="border-b border-slate-100 last:border-0"><td className="px-5 py-3 text-xs font-bold text-[#173b2a]">{item.projectName}</td><td className="px-5 py-3 text-xs text-slate-600">{item.programme}</td><td className="px-5 py-3 text-xs text-slate-600">{item.state} · {item.lga}</td><td className="px-5 py-3 text-xs text-slate-600">{item.teamName || "—"}</td><td className="px-5 py-3"><span className={`rounded-full border px-2 py-1 text-[10px] font-bold ${statusTone(item.status)}`}>{item.status}</span></td><td className="px-5 py-3 text-xs text-slate-500">{item.updatedAt ? new Date(item.updatedAt).toLocaleDateString() : "—"}</td></tr>)}</tbody></table></div></article>
+  return <section className="veritas-data-panel overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center justify-between border-b border-[#e3ece6] px-5 py-4"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#cce5d4] bg-[#eef8f1] text-[#08733f]"><CheckCircle2 className="h-4 w-4"/></span><div><h2 className="text-base font-bold text-[#173b2a]">Inspection Monitoring</h2><p className="mt-1 text-xs text-slate-500">{inspections.length.toLocaleString()} inspection records</p></div></div></div><div className="overflow-x-auto"><table className="veritas-data-table w-full min-w-[900px] text-left"><thead><tr><th className="px-5 py-3">Project</th><th className="px-5 py-3">Programme</th><th className="px-5 py-3">Location</th><th className="px-5 py-3">Team</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Updated</th></tr></thead><tbody>{inspections.slice(0,100).map((item)=><tr key={item.id}><td className="px-5 py-3 text-xs font-bold text-[#173b2a]">{item.projectName}</td><td className="px-5 py-3 text-xs">{item.programme}</td><td className="px-5 py-3 text-xs">{item.state} · {item.lga}</td><td className="px-5 py-3 text-xs">{item.teamName || "—"}</td><td className="px-5 py-3"><span className={`rounded-full border px-2 py-1 text-[10px] font-bold ${statusTone(item.status)}`}>{item.status}</span></td><td className="px-5 py-3 text-xs text-slate-500">{item.updatedAt ? new Date(item.updatedAt).toLocaleDateString() : "—"}</td></tr>)}</tbody></table></div></section>
 }
