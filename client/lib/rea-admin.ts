@@ -1,4 +1,4 @@
-export type ReaStaffRole = "REA Administrator" | "Programme Manager" | "Verification Officer" | "Claims Officer" | "Analyst" | "Viewer";
+export type ReaStaffRole = "REA Administrator" | "Programme Manager" | "M&E Officer" | "Verification Officer" | "Claims Officer" | "Analyst" | "Viewer";
 export type ReaStaffStatus = "Active" | "Suspended" | "Invited";
 
 export type ReaStaffAccount = {
@@ -29,7 +29,7 @@ export type AuditEvent = {
 export const REA_STAFF_STORAGE_KEY = "veritas-rea-staff-accounts";
 export const REA_AUDIT_STORAGE_KEY = "veritas-rea-audit-trail";
 
-export const reaAccessModules = ["Overview", "Claims", "Field Inspections", "Verification", "Consultants", "Reports", "Users", "Audit Trail"];
+export const reaAccessModules = ["Overview", "Projects", "Project Map", "Claims", "Field Inspections", "Verification", "Findings", "Consultants", "Analytics", "Reports", "Users", "Audit Trail"];
 
 export function normalizeReaAccess(value: unknown, fallback: string[] = []): string[] {
   const source = Array.isArray(value) ? value : fallback;
@@ -79,6 +79,18 @@ export const defaultReaStaff: ReaStaffAccount[] = [
     access: ["Overview", "Verification", "Analytics", "Reports"],
   },
   {
+    id: "rea-me-005",
+    name: "M&E Officer",
+    email: "me.officer@demo.ng",
+    department: "Monitoring & Evaluation",
+    role: "M&E Officer",
+    status: "Active",
+    password: "ME2026!Demo",
+    lastLogin: "Not yet",
+    createdAt: "2026-10-02T20:00:00.000Z",
+    access: ["Overview", "Projects", "Project Map", "Field Inspections", "Verification", "Findings", "Analytics", "Reports"],
+  },
+  {
     id: "rea-claims-004",
     name: "Zainab Musa",
     email: "zainab.musa@rea.gov.ng",
@@ -118,7 +130,7 @@ export function readReaStaff(): ReaStaffAccount[] {
     const accounts = parsed.flatMap((value, index): ReaStaffAccount[] => {
       if (!isRecord(value)) return [];
       const fallback = defaultReaStaff[index % defaultReaStaff.length];
-      const role = typeof value.role === "string" && ["REA Administrator", "Programme Manager", "Verification Officer", "Claims Officer", "Analyst", "Viewer"].includes(value.role)
+      const role = typeof value.role === "string" && ["REA Administrator", "Programme Manager", "M&E Officer", "Verification Officer", "Claims Officer", "Analyst", "Viewer"].includes(value.role)
         ? value.role as ReaStaffRole
         : fallback.role;
       const status = value.status === "Suspended" || value.status === "Invited" ? value.status : "Active";
