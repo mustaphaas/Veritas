@@ -163,7 +163,7 @@ export default function ReaVerificationManagement(){
   const dateHeading = tab === "verified" ? "Verified" : "Returned";
   const rowDate = (item: InspectionAssignment) => tab === "verified" ? verifiedAt(item) : reinspectionAt(item);
 
-  return <section className="rea-v-workspace"><div className="rea-v-shell">
+  return <section className="veritas-module-shell veritas-verification-module rea-v-workspace"><div className="rea-v-shell">
     <div className="rea-v-heading"><div><p className="rea-v-kicker">REA final verification</p><h2>Verification</h2><p>Consultant-approved reports move to Awaiting REA. REA can verify a report or return it for re-inspection, and all completed decisions remain available in their respective registers.</p></div><div className="rea-v-flow" aria-label="Verification workflow"><span>Field Officer</span><b>→</b><span>Consultant Admin</span><b>→</b><span className="rea-v-flow-active">REA</span><b>→</b><span>Verified / Re-inspection</span></div></div>
     <div className="grid gap-3 sm:grid-cols-3">
       <article className="rea-v-card-approved flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4"><span className="rea-v-icon"><ClipboardCheck aria-hidden="true"/></span><div><strong className="block text-2xl">{awaiting.length}</strong><small>Awaiting REA</small></div></article>
