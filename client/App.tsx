@@ -1,6 +1,7 @@
 import "./global.css";
 import "./nep-inspired.css";
 import "./final-overrides.css";
+import "./government-ui.css";
 import "./lib/gps-reliability";
 
 import { Toaster } from "@/components/ui/toaster";
