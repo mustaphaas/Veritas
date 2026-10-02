@@ -58,6 +58,8 @@ type Inspection = {
   submittedAt?: string | null;
   teamName?: string;
   form?: Record<string, string>;
+  sectionAssignments?: Record<string, string>;
+  version?: number;
 };
 
 type MeMember = { id: string; name: string; email: string };
@@ -76,6 +78,16 @@ const navigation: Array<{ label: Tab; icon: typeof LayoutDashboard; adminOnly?: 
   { label: "Findings", icon: AlertTriangle },
   { label: "Analytics", icon: BarChart3 },
   { label: "Reports", icon: FileText },
+];
+
+const meInspectionSections = [
+  { id: "project", title: "Project Details", description: "Confirm the project and implementation details.", fields: ["Project reference confirmed", "Programme and component", "Contractor details"] },
+  { id: "site", title: "Site Assessment", description: "Record physical site observations and installation condition.", fields: ["Site condition", "GPS/location notes", "Access and surroundings"] },
+  { id: "equipment", title: "Equipment & Infrastructure", description: "Capture installed equipment and technical observations.", fields: ["Equipment installed", "Capacity / specification", "Condition and operation"] },
+  { id: "beneficiaries", title: "Beneficiary Verification", description: "Record beneficiary and service information.", fields: ["Beneficiary count", "Community served", "Service availability"] },
+  { id: "evidence", title: "Photos & Evidence", description: "Record evidence references and inspection notes.", fields: ["Photo references", "Supporting documents", "Evidence notes"] },
+  { id: "hse", title: "HSE / Environment", description: "Capture health, safety and environmental observations.", fields: ["HSE observations", "Environmental observations", "Corrective actions"] },
+  { id: "final", title: "Final Observations", description: "Complete the final inspection assessment.", fields: ["Overall observation", "Outstanding issues", "Recommendation"] },
 ];
 
 async function fetchMeWorkspace(token: string): Promise<MePayload> {
@@ -115,6 +127,7 @@ export default function MEDashboard() {
   const [teams, setTeams] = useState<MeTeam[]>([]);
   const [staff, setStaff] = useState<MeStaff[]>([]);
   const [workspaceRole, setWorkspaceRole] = useState(session?.roleLabel || "");
+  const [currentUserId, setCurrentUserId] = useState("");
   const [teamName, setTeamName] = useState("");
   const [teamLeadId, setTeamLeadId] = useState("");
   const [memberIds, setMemberIds] = useState<string[]>([]);
@@ -143,6 +156,7 @@ export default function MEDashboard() {
       setTeams(Array.isArray(workspace.teams) ? workspace.teams : []);
       setStaff(Array.isArray(workspace.staff) ? workspace.staff : []);
       setWorkspaceRole(workspace.staffRole || session.roleLabel || "");
+      setCurrentUserId(workspace.currentUserId || "");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Unable to load the M&E workspace.");
     } finally {
@@ -247,6 +261,20 @@ export default function MEDashboard() {
     } finally { setAdminSaving(false); }
   };
 
+  const saveAssignedSectionField = async (inspectionId: string, field: string, value: string) => {
+    if (!session?.apiToken) return;
+    setInspections((current) => current.map((item) => item.id === inspectionId
+      ? { ...item, form: { ...(item.form || {}), [field]: value }, status: "In Progress" }
+      : item
+    ));
+    try {
+      await meMutation(session.apiToken, `/api/field/rea-inspections/${inspectionId}`, { formPatch: { [field]: value } }, "PATCH");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to save assigned inspection section.");
+      await loadWorkspace();
+    }
+  };
+
   const resetFilters = () => {
     setQuery("");
     setProgrammeFilter("All programmes");
@@ -343,7 +371,7 @@ export default function MEDashboard() {
               </section>
             </div>}
             {activeTab === "Projects" && <DataTableProjects projects={visibleProjects}/>}
-            {activeTab === "Inspections" && <DataTableInspections inspections={visibleInspections}/>}
+            {activeTab === "Inspections" && <DataTableInspections inspections={visibleInspections} currentUserId={currentUserId} isMeAdmin={isMeAdmin} onSaveField={saveAssignedSectionField}/>}
             {activeTab === "Verification" && <DataTableProjects projects={visibleProjects.filter((project)=>!project.verified)} verificationMode/>}
 
             {activeTab === "Findings" && <section className="veritas-data-panel overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div className="border-b border-[#e3ece6] px-5 py-4"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 text-rose-600"><AlertTriangle className="h-4 w-4"/></span><div><h2 className="text-base font-bold text-[#173b2a]">Findings & Corrective Attention</h2><p className="mt-1 text-xs text-slate-500">Read-only register of inspection records with outstanding or risk signals.</p></div></div></div>{findings.length ? <div className="divide-y divide-slate-100">{findings.map((item)=><div key={item.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"><div><p className="text-xs font-bold text-[#173b2a]">{item.projectName}</p><p className="mt-1 text-[10px] text-slate-500">{item.state} · {item.lga} · {item.teamName || "Inspection team"}</p></div><span className={`rounded-full border px-2 py-1 text-[10px] font-bold ${statusTone(item.status)}`}>{item.status}</span></div>)}</div> : <div className="p-8 text-center text-xs text-slate-500">No risk or corrective-action signals are currently recorded.</div>}</section>}
@@ -370,362 +398,85 @@ function DataTableProjects({ projects, verificationMode = false }: { projects: P
   return <section className="veritas-data-panel overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center justify-between border-b border-[#e3ece6] px-5 py-4"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#cce5d4] bg-[#eef8f1] text-[#08733f]"><MapPinned className="h-4 w-4"/></span><div><h2 className="text-base font-bold text-[#173b2a]">{verificationMode ? "Pending Verification" : "Projects Monitored"}</h2><p className="mt-1 text-xs text-slate-500">{projects.length.toLocaleString()} records in current view</p></div></div></div><div className="overflow-x-auto"><table className="veritas-data-table w-full min-w-[900px] text-left"><thead><tr><th className="px-5 py-3">Project</th><th className="px-5 py-3">Programme</th><th className="px-5 py-3">Location</th><th className="px-5 py-3">Contractor</th><th className="px-5 py-3">Component</th><th className="px-5 py-3">Status</th></tr></thead><tbody>{projects.slice(0,100).map((project)=><tr key={project.id || project.name}><td className="px-5 py-3 text-xs font-bold text-[#173b2a]">{project.name}</td><td className="px-5 py-3 text-xs">{project.programme}</td><td className="px-5 py-3 text-xs">{project.state}{project.lga ? ` · ${project.lga}` : ""}</td><td className="px-5 py-3 text-xs">{project.contractor}</td><td className="px-5 py-3 text-xs">{project.component}</td><td className="px-5 py-3"><span className={`rounded-full border px-2 py-1 text-[10px] font-bold ${project.verified ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>{project.verified ? "Verified" : project.status || "Pending"}</span></td></tr>)}</tbody></table></div></section>
 }
 
-function DataTableInspections({ inspections }: { inspections: Inspection[] }) {
-  return <section className="veritas-data-panel overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center justify-between border-b border-[#e3ece6] px-5 py-4"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#cce5d4] bg-[#eef8f1] text-[#08733f]"><CheckCircle2 className="h-4 w-4"/></span><div><h2 className="text-base font-bold text-[#173b2a]">Inspection Monitoring</h2><p className="mt-1 text-xs text-slate-500">{inspections.length.toLocaleString()} inspection records</p></div></div></div><div className="overflow-x-auto"><table className="veritas-data-table w-full min-w-[900px] text-left"><thead><tr><th className="px-5 py-3">Project</th><th className="px-5 py-3">Programme</th><th className="px-5 py-3">Location</th><th className="px-5 py-3">Team</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Updated</th></tr></thead><tbody>{inspections.slice(0,100).map((item)=><tr key={item.id}><td className="px-5 py-3 text-xs font-bold text-[#173b2a]">{item.projectName}</td><td className="px-5 py-3 text-xs">{item.programme}</td><td className="px-5 py-3 text-xs">{item.state} · {item.lga}</td><td className="px-5 py-3 text-xs">{item.teamName || "—"}</td><td className="px-5 py-3"><span className={`rounded-full border px-2 py-1 text-[10px] font-bold ${statusTone(item.status)}`}>{item.status}</span></td><td className="px-5 py-3 text-xs text-slate-500">{item.updatedAt ? new Date(item.updatedAt).toLocaleDateString() : "—"}</td></tr>)}</tbody></table></div></section>
-}
-
-
-type AnalyticsProject = Project;
-type AnalyticsInspection = Inspection;
-
-function analyticsMonthLabel(value?: string | null) {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return {
-    key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
-    label: date.toLocaleDateString(undefined, { month: "short", year: "2-digit" }),
-    time: new Date(date.getFullYear(), date.getMonth(), 1).getTime(),
-  };
-}
-
-function MEAnalytics({
-  projects,
+function DataTableInspections({
   inspections,
-  teams,
+  currentUserId,
   isMeAdmin,
-  verificationRate,
+  onSaveField,
 }: {
-  projects: AnalyticsProject[];
-  inspections: AnalyticsInspection[];
-  teams: MeTeam[];
+  inspections: Inspection[];
+  currentUserId: string;
   isMeAdmin: boolean;
-  verificationRate: number;
+  onSaveField: (inspectionId: string, field: string, value: string) => Promise<void>;
 }) {
-  const analytics = useMemo(() => {
-    const verifiedProjects = projects.filter((project) => project.verified).length;
-    const pendingProjects = Math.max(0, projects.length - verifiedProjects);
-    const verificationData = [
-      { name: "Verified", value: verifiedProjects, fill: "#0b7a43" },
-      { name: "Pending", value: pendingProjects, fill: "#e6a31a" },
-    ];
-
-    const statusData = [
-      { name: "In Progress", value: inspections.filter((item) => item.status === "In Progress").length, fill: "#2563eb" },
-      { name: "Submitted", value: inspections.filter((item) => item.status === "Submitted").length, fill: "#7c3aed" },
-      { name: "Verified", value: inspections.filter((item) => /verified|approved/i.test(item.status)).length, fill: "#0b7a43" },
-      { name: "Re-Inspection", value: inspections.filter((item) => /re-?inspection/i.test(item.status)).length, fill: "#dc5c5c" },
-    ];
-
-    const programmeData = [...new Set(projects.map((project) => project.programme).filter(Boolean))].map((programme) => {
-      const programmeProjects = projects.filter((project) => project.programme === programme);
-      const programmeInspections = inspections.filter((inspection) => inspection.programme === programme);
-      const verified = programmeProjects.filter((project) => project.verified).length;
-      return {
-        name: programme,
-        projects: programmeProjects.length,
-        verified,
-        pending: Math.max(0, programmeProjects.length - verified),
-        reinspection: programmeInspections.filter((inspection) => /re-?inspection/i.test(inspection.status)).length,
-      };
-    }).sort((a, b) => b.projects - a.projects);
-
-    const monthMap = new Map<string, { key: string; month: string; time: number; submitted: number; verified: number; reinspection: number }>();
-    inspections.forEach((inspection) => {
-      const month = analyticsMonthLabel(inspection.updatedAt || inspection.submittedAt);
-      if (!month) return;
-      const current = monthMap.get(month.key) || { key: month.key, month: month.label, time: month.time, submitted: 0, verified: 0, reinspection: 0 };
-      if (inspection.status === "Submitted") current.submitted += 1;
-      if (/verified|approved/i.test(inspection.status)) current.verified += 1;
-      if (/re-?inspection/i.test(inspection.status)) current.reinspection += 1;
-      monthMap.set(month.key, current);
-    });
-    const trendData = [...monthMap.values()].sort((a, b) => a.time - b.time).slice(-8);
-
-    const stateMap = new Map<string, { name: string; projects: number; verified: number; reinspection: number }>();
-    projects.forEach((project) => {
-      const name = project.state || "Unknown";
-      const current = stateMap.get(name) || { name, projects: 0, verified: 0, reinspection: 0 };
-      current.projects += 1;
-      if (project.verified) current.verified += 1;
-      stateMap.set(name, current);
-    });
-    inspections.forEach((inspection) => {
-      if (!/re-?inspection/i.test(inspection.status)) return;
-      const current = stateMap.get(inspection.state || "Unknown");
-      if (current) current.reinspection += 1;
-    });
-    const stateData = [...stateMap.values()]
-      .map((item) => ({ ...item, verificationRate: item.projects ? Math.round((item.verified / item.projects) * 100) : 0 }))
-      .sort((a, b) => b.projects - a.projects)
-      .slice(0, 8);
-
-    const contractorMap = new Map<string, { name: string; inspections: number; completed: number; reinspection: number }>();
-    inspections.forEach((inspection) => {
-      const name = inspection.contractor || "Unassigned";
-      const current = contractorMap.get(name) || { name, inspections: 0, completed: 0, reinspection: 0 };
-      current.inspections += 1;
-      if (/submitted|approved|verified/i.test(inspection.status)) current.completed += 1;
-      if (/re-?inspection/i.test(inspection.status)) current.reinspection += 1;
-      contractorMap.set(name, current);
-    });
-    const contractorData = [...contractorMap.values()].sort((a, b) => b.inspections - a.inspections).slice(0, 8);
-
-    const teamData = teams.map((team) => {
-      const teamInspections = inspections.filter((inspection) => inspection.teamName === team.name);
-      const projectIds = new Set(teamInspections.map((inspection) => inspection.projectId));
-      return {
-        name: team.name,
-        projects: projectIds.size,
-        completed: teamInspections.filter((inspection) => /submitted|approved|verified/i.test(inspection.status)).length,
-        reinspection: teamInspections.filter((inspection) => /re-?inspection/i.test(inspection.status)).length,
-      };
-    }).sort((a, b) => b.projects - a.projects);
-
-    return { verificationData, statusData, programmeData, trendData, stateData, contractorData, teamData };
-  }, [projects, inspections, teams]);
-
-  const totalInspections = inspections.length;
-  const completionRate = totalInspections
-    ? Math.round((inspections.filter((item) => /submitted|approved|verified/i.test(item.status)).length / totalInspections) * 100)
-    : 0;
-  const reinspectionCount = inspections.filter((item) => /re-?inspection/i.test(item.status)).length;
-  const analyticsSummary = [
-    {
-      label: "Verification",
-      value: `${verificationRate}%`,
-      detail: `${projects.filter((project) => project.verified).length} of ${projects.length} projects`,
-      progress: verificationRate,
-      icon: ShieldCheck,
-      iconClass: "bg-emerald-600 text-white",
-      barClass: "bg-emerald-600",
-      surfaceClass: "border-emerald-100 bg-emerald-50/65",
-    },
-    {
-      label: "Completion",
-      value: `${completionRate}%`,
-      detail: `${inspections.filter((item) => /submitted|approved|verified/i.test(item.status)).length} of ${totalInspections} inspections`,
-      progress: completionRate,
-      icon: CheckCircle2,
-      iconClass: "bg-violet-600 text-white",
-      barClass: "bg-violet-600",
-      surfaceClass: "border-violet-100 bg-violet-50/60",
-    },
-    {
-      label: "Re-Inspection",
-      value: reinspectionCount.toLocaleString(),
-      detail: reinspectionCount === 1 ? "case requiring another inspection" : "cases requiring another inspection",
-      progress: totalInspections ? Math.min(100, Math.round((reinspectionCount / totalInspections) * 100)) : 0,
-      icon: RotateCcw,
-      iconClass: "bg-rose-600 text-white",
-      barClass: "bg-rose-500",
-      surfaceClass: "border-rose-100 bg-rose-50/60",
-    },
-  ];
-
-  const cardMotion = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.35 } };
+  const [selectedId, setSelectedId] = useState("");
+  const selected = inspections.find((item) => item.id === selectedId) || null;
+  const assignedSections = selected
+    ? meInspectionSections.filter((section) => isMeAdmin || selected.sectionAssignments?.[section.id] === currentUserId)
+    : [];
+  const locked = selected ? ["Submitted","Approved","Verified"].includes(selected.status) : false;
 
   return <div className="space-y-4">
-    <motion.section {...cardMotion} className="overflow-hidden rounded-2xl border border-[#d7e7db] bg-white shadow-[0_8px_30px_rgba(23,59,42,0.06)]">
-      <div className="grid gap-0 xl:grid-cols-[minmax(280px,.78fr)_minmax(0,1.72fr)]">
-        <div className="relative overflow-hidden border-b border-[#e6eee8] bg-[linear-gradient(135deg,#f4faf6_0%,#ffffff_70%)] p-5 xl:border-b-0 xl:border-r">
-          <div className="absolute -right-8 -top-10 h-28 w-28 rounded-full bg-[#dff0e4]/65 blur-2xl" />
-          <div className="relative">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <span className="inline-flex items-center gap-2 rounded-full border border-[#cfe5d6] bg-white px-3 py-1 text-[9px] font-extrabold uppercase tracking-[0.13em] text-[#08733f] shadow-sm">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#08733f]" />
-                M&E Intelligence
-              </span>
-              <span className="rounded-full border border-slate-200 bg-white/90 px-2.5 py-1 text-[9px] font-bold text-slate-500">
-                {isMeAdmin ? "All M&E teams" : "Assigned portfolio"}
-              </span>
-            </div>
-            <h2 className="text-[20px] font-extrabold tracking-[-0.025em] text-[#173b2a]">Portfolio Analytics</h2>
-            <p className="mt-2 max-w-md text-[11px] leading-5 text-slate-500">
-              {isMeAdmin
-                ? "Live performance signals across all M&E teams and assigned projects."
-                : "Live performance signals from projects assigned to your M&E teams only."}
-            </p>
-            <div className="mt-4 flex items-center gap-2 text-[10px] font-semibold text-slate-400">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.08)]" />
-              Filters update every chart and metric on this page
-            </div>
-          </div>
-        </div>
-
-        <div className="grid gap-3 p-4 sm:grid-cols-3 sm:p-5">
-          {analyticsSummary.map((metric, index) => {
-            const Icon = metric.icon;
-            return <motion.article
-              key={metric.label}
-              initial={{ opacity: 0, y: 10, scale: 0.985 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ duration: 0.32, delay: 0.06 + index * 0.05 }}
-              whileHover={{ y: -2 }}
-              className={`group rounded-2xl border p-3.5 shadow-[0_5px_16px_rgba(23,59,42,0.04)] transition-all hover:shadow-[0_9px_24px_rgba(23,59,42,0.08)] ${metric.surfaceClass}`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <span className={`flex h-9 w-9 items-center justify-center rounded-xl shadow-sm transition-transform duration-300 group-hover:scale-105 ${metric.iconClass}`}>
-                  <Icon className="h-4 w-4" />
-                </span>
-                <span className="text-[9px] font-bold uppercase tracking-[0.09em] text-slate-400">{metric.label}</span>
-              </div>
-              <div className="mt-4 flex items-end justify-between gap-3">
-                <p className="text-[27px] font-extrabold leading-none tracking-[-0.035em] text-[#173b2a]">{metric.value}</p>
-                <span className="text-[9px] font-bold text-slate-400">{metric.progress}%</span>
-              </div>
-              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/80 ring-1 ring-black/[0.03]">
-                <motion.div
-                  className={`h-full rounded-full ${metric.barClass}`}
-                  initial={{ width: 0 }}
-                  animate={{ width: `${metric.progress}%` }}
-                  transition={{ duration: 0.7, delay: 0.15 + index * 0.06, ease: "easeOut" }}
-                />
-              </div>
-              <p className="mt-2 min-h-[30px] text-[9.5px] leading-[15px] text-slate-500">{metric.detail}</p>
-            </motion.article>;
-          })}
+    <section className="veritas-data-panel overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b border-[#e3ece6] px-5 py-4">
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#cce5d4] bg-[#eef8f1] text-[#08733f]"><CheckCircle2 className="h-4 w-4"/></span>
+          <div><h2 className="text-base font-bold text-[#173b2a]">Inspection Monitoring</h2><p className="mt-1 text-xs text-slate-500">{inspections.length.toLocaleString()} inspection records · open a project to view your assigned sections</p></div>
         </div>
       </div>
-    </motion.section>
+      <div className="overflow-x-auto">
+        <table className="veritas-data-table w-full min-w-[980px] text-left">
+          <thead><tr><th className="px-5 py-3">Project</th><th className="px-5 py-3">Programme</th><th className="px-5 py-3">Location</th><th className="px-5 py-3">Team</th><th className="px-5 py-3">My Sections</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Action</th></tr></thead>
+          <tbody>{inspections.slice(0,100).map((item) => {
+            const mine = meInspectionSections.filter((section) => item.sectionAssignments?.[section.id] === currentUserId);
+            return <tr key={item.id}>
+              <td className="px-5 py-3 text-xs font-bold text-[#173b2a]">{item.projectName}</td>
+              <td className="px-5 py-3 text-xs">{item.programme}</td>
+              <td className="px-5 py-3 text-xs">{item.state} · {item.lga}</td>
+              <td className="px-5 py-3 text-xs">{item.teamName || "—"}</td>
+              <td className="px-5 py-3"><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${mine.length ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{isMeAdmin ? "Admin view" : `${mine.length} assigned`}</span></td>
+              <td className="px-5 py-3"><span className={`rounded-full border px-2 py-1 text-[10px] font-bold ${statusTone(item.status)}`}>{item.status}</span></td>
+              <td className="px-5 py-3"><button type="button" onClick={()=>setSelectedId(item.id)} className="rounded-lg border border-[#b9dfc5] bg-white px-3 py-2 text-[10px] font-bold text-[#08733f] hover:bg-[#f2faf4]">View Sections</button></td>
+            </tr>;
+          })}</tbody>
+        </table>
+      </div>
+    </section>
 
-    <div className="grid gap-4 xl:grid-cols-2">
-      <AnalyticsPanel title="Verification Progress" subtitle="Verified versus pending projects" delay={0.04}>
-        {projects.length ? <div className="relative h-[280px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie data={analytics.verificationData} dataKey="value" nameKey="name" innerRadius={72} outerRadius={100} paddingAngle={3} isAnimationActive animationDuration={700}>
-                {analytics.verificationData.map((entry) => <Cell key={entry.name} fill={entry.fill} />)}
-              </Pie>
-              <Tooltip contentStyle={{ borderRadius: 12, borderColor: "#dce8df", fontSize: 12 }} />
-              <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <div className="mb-7 text-center"><p className="text-3xl font-extrabold text-[#173b2a]">{verificationRate}%</p><p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">verified</p></div>
-          </div>
-        </div> : <AnalyticsEmpty text="No assigned projects to analyse." />}
-      </AnalyticsPanel>
+    {selected && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex flex-col gap-3 border-b border-[#e3ece6] bg-[#fbfefb] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div><p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#08733f]">{isMeAdmin ? "Inspection Sections" : "My Assigned Sections"}</p><h3 className="mt-1 text-base font-extrabold text-[#173b2a]">{selected.projectName}</h3><p className="mt-1 text-xs text-slate-500">{selected.teamName || "M&E Team"} · {selected.state} / {selected.lga}</p></div>
+        <button type="button" onClick={()=>setSelectedId("")} className="self-start rounded-lg border border-slate-200 px-3 py-2 text-[10px] font-bold text-slate-500">Close</button>
+      </div>
 
-      <AnalyticsPanel title="Inspection Status" subtitle="Current inspection workflow distribution" delay={0.08}>
-        {totalInspections ? <div className="h-[280px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={analytics.statusData} layout="vertical" margin={{ top: 8, right: 24, left: 16, bottom: 8 }}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#edf1ee" />
-              <XAxis type="number" allowDecimals={false} tick={{ fontSize: 10 }} />
-              <YAxis type="category" dataKey="name" width={92} tick={{ fontSize: 10 }} />
-              <Tooltip contentStyle={{ borderRadius: 12, borderColor: "#dce8df", fontSize: 12 }} />
-              <Bar dataKey="value" radius={[0, 8, 8, 0]} isAnimationActive animationDuration={650}>
-                {analytics.statusData.map((entry) => <Cell key={entry.name} fill={entry.fill} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div> : <AnalyticsEmpty text="No inspection records in the current portfolio." />}
-      </AnalyticsPanel>
-    </div>
-
-    <AnalyticsPanel title="Programme Performance" subtitle="Projects, verification and re-inspection by programme" delay={0.12}>
-      {analytics.programmeData.length ? <div className="h-[320px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={analytics.programmeData} margin={{ top: 14, right: 18, left: -10, bottom: 4 }}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#edf1ee" />
-            <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-            <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
-            <Tooltip contentStyle={{ borderRadius: 12, borderColor: "#dce8df", fontSize: 12 }} />
-            <Legend wrapperStyle={{ fontSize: 11 }} />
-            <Bar dataKey="verified" name="Verified" stackId="projects" fill="#0b7a43" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={700} />
-            <Bar dataKey="pending" name="Pending" stackId="projects" fill="#e6a31a" isAnimationActive animationDuration={700} />
-            <Bar dataKey="reinspection" name="Re-Inspection" fill="#dc5c5c" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={700} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div> : <AnalyticsEmpty text="No programme data in the current portfolio." />}
-    </AnalyticsPanel>
-
-    <div className="grid gap-4 xl:grid-cols-[1.15fr_.85fr]">
-      <AnalyticsPanel title="Verification & Re-Inspection Trend" subtitle="Inspection records grouped by their latest recorded activity month" delay={0.16}>
-        {analytics.trendData.length ? <div className="h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={analytics.trendData} margin={{ top: 10, right: 16, left: -12, bottom: 4 }}>
-              <defs>
-                <linearGradient id="meVerified" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#0b7a43" stopOpacity={0.24}/><stop offset="95%" stopColor="#0b7a43" stopOpacity={0}/></linearGradient>
-                <linearGradient id="meReinspection" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#dc5c5c" stopOpacity={0.2}/><stop offset="95%" stopColor="#dc5c5c" stopOpacity={0}/></linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#edf1ee" />
-              <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
-              <Tooltip contentStyle={{ borderRadius: 12, borderColor: "#dce8df", fontSize: 12 }} />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Area type="monotone" dataKey="verified" name="Verified" stroke="#0b7a43" fill="url(#meVerified)" strokeWidth={2.5} isAnimationActive animationDuration={850} />
-              <Area type="monotone" dataKey="reinspection" name="Re-Inspection" stroke="#dc5c5c" fill="url(#meReinspection)" strokeWidth={2.5} isAnimationActive animationDuration={850} />
-              <Line type="monotone" dataKey="submitted" name="Submitted" stroke="#7c3aed" strokeWidth={2} dot={{ r: 3 }} isAnimationActive animationDuration={850} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div> : <AnalyticsEmpty text="No dated inspection activity is available for a trend yet." />}
-      </AnalyticsPanel>
-
-      <AnalyticsPanel title="State Performance" subtitle="Largest assigned state portfolios and verification rate" delay={0.2}>
-        {analytics.stateData.length ? <div className="space-y-3 pt-2">
-          {analytics.stateData.map((state, index) => <motion.div key={state.name} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.28, delay: index * 0.035 }}>
-            <div className="mb-1.5 flex items-center justify-between gap-3"><div><span className="text-xs font-bold text-[#173b2a]">{state.name}</span><span className="ml-2 text-[10px] text-slate-400">{state.projects} projects</span></div><span className="text-xs font-extrabold text-[#08733f]">{state.verificationRate}%</span></div>
-            <div className="h-2 overflow-hidden rounded-full bg-slate-100"><motion.div className="h-full rounded-full bg-[#0b7a43]" initial={{ width: 0 }} animate={{ width: `${state.verificationRate}%` }} transition={{ duration: 0.65, delay: 0.08 + index * 0.035 }} /></div>
-          </motion.div>)}
-        </div> : <AnalyticsEmpty text="No state performance data available." />}
-      </AnalyticsPanel>
-    </div>
-
-    <div className={isMeAdmin ? "grid gap-4 xl:grid-cols-2" : "grid gap-4"}>
-      <AnalyticsPanel title="Contractor Performance" subtitle="Inspection workload, completed reviews and re-inspections" delay={0.24}>
-        {analytics.contractorData.length ? <div className="h-[330px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={analytics.contractorData} layout="vertical" margin={{ top: 6, right: 18, left: 30, bottom: 4 }}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#edf1ee" />
-              <XAxis type="number" allowDecimals={false} tick={{ fontSize: 10 }} />
-              <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 9 }} />
-              <Tooltip contentStyle={{ borderRadius: 12, borderColor: "#dce8df", fontSize: 12 }} />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="completed" name="Completed" fill="#0b7a43" radius={[0, 6, 6, 0]} isAnimationActive animationDuration={700} />
-              <Bar dataKey="reinspection" name="Re-Inspection" fill="#dc5c5c" radius={[0, 6, 6, 0]} isAnimationActive animationDuration={700} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div> : <AnalyticsEmpty text="No contractor inspection data available." />}
-      </AnalyticsPanel>
-
-      {isMeAdmin && <AnalyticsPanel title="Team Performance" subtitle="Assigned projects, completed inspections and re-inspections" delay={0.28}>
-        {analytics.teamData.length ? <div className="h-[330px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={analytics.teamData} margin={{ top: 10, right: 18, left: -6, bottom: 4 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#edf1ee" />
-              <XAxis dataKey="name" tick={{ fontSize: 9 }} interval={0} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
-              <Tooltip contentStyle={{ borderRadius: 12, borderColor: "#dce8df", fontSize: 12 }} />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="projects" name="Assigned projects" fill="#2563eb" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={720} />
-              <Bar dataKey="completed" name="Completed" fill="#0b7a43" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={720} />
-              <Bar dataKey="reinspection" name="Re-Inspection" fill="#dc5c5c" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={720} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div> : <AnalyticsEmpty text="Create M&E teams and assign projects to see team performance." />}
-      </AnalyticsPanel>}
-    </div>
+      {!assignedSections.length && !isMeAdmin ? <div className="p-8 text-center">
+        <ClipboardCheck className="mx-auto h-8 w-8 text-slate-300"/>
+        <p className="mt-3 text-sm font-bold text-slate-600">No section assigned to you</p>
+        <p className="mt-1 text-xs text-slate-400">Your M&E Admin or Team Lead must assign at least one form section to your account.</p>
+      </div> : <div className="grid gap-4 p-4 lg:grid-cols-2">
+        {assignedSections.map((section) => {
+          const completed = section.fields.filter((field) => String(selected.form?.[field] || "").trim()).length;
+          return <article key={section.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div><h4 className="text-sm font-extrabold text-[#173b2a]">{section.title}</h4><p className="mt-1 text-[10px] leading-4 text-slate-500">{section.description}</p></div>
+              <span className="rounded-full bg-[#edf8f0] px-2 py-1 text-[9px] font-bold text-[#08733f]">{completed}/{section.fields.length}</span>
+            </div>
+            <div className="mt-4 space-y-3">
+              {section.fields.map((field) => <label key={field} className="block">
+                <span className="text-[10px] font-bold text-slate-600">{field}</span>
+                <textarea
+                  disabled={locked || (!isMeAdmin && selected.sectionAssignments?.[section.id] !== currentUserId)}
+                  value={selected.form?.[field] || ""}
+                  onChange={(event)=>void onSaveField(selected.id, field, event.target.value)}
+                  rows={field.toLowerCase().includes("observation") || field.toLowerCase().includes("notes") ? 4 : 2}
+                  className="mt-1.5 w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs text-[#173b2a] outline-none focus:border-[#08733f] focus:ring-2 focus:ring-[#08733f]/10 disabled:bg-slate-50 disabled:text-slate-400"
+                  placeholder="Enter inspection information…"
+                />
+              </label>)}
+            </div>
+          </article>;
+        })}
+      </div>}
+    </section>}
   </div>;
-}
-
-function AnalyticsPanel({ title, subtitle, delay, children }: { title: string; subtitle: string; delay: number; children: ReactNode }) {
-  return <motion.section
-    initial={{ opacity: 0, y: 14 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.38, delay }}
-    whileHover={{ y: -2 }}
-    className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_28px_rgba(23,59,42,0.06)] transition-shadow hover:shadow-[0_12px_34px_rgba(23,59,42,0.09)]"
-  >
-    <div className="flex items-center justify-between border-b border-[#edf2ee] px-5 py-4">
-      <div><h3 className="text-sm font-extrabold tracking-tight text-[#173b2a]">{title}</h3><p className="mt-1 text-[10px] leading-4 text-slate-500">{subtitle}</p></div>
-      <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#d7eadc] bg-[#f1f8f3] text-[#08733f]"><BarChart3 className="h-4 w-4" /></span>
-    </div>
-    <div className="p-4 sm:p-5">{children}</div>
-  </motion.section>;
-}
-
-function AnalyticsEmpty({ text }: { text: string }) {
-  return <div className="flex min-h-[220px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-[#fbfcfb] px-5 text-center text-xs text-slate-400">{text}</div>;
 }
