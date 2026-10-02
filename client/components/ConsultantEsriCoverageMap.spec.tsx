@@ -123,6 +123,7 @@ describe("ConsultantEsriCoverageMap", () => {
       />,
     );
 
+    expect(await screen.findByTestId("consultant-esri-map-shell")).toBeTruthy();
     const map = await screen.findByTestId("consultant-esri-map");
     await waitFor(() => {
       expect((map as ArcgisMapStub).map).toBeTruthy();
