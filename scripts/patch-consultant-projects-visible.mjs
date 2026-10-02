@@ -3,6 +3,16 @@ import fs from "node:fs";
 const dashboardPath = "client/pages/ConsultantAdminDashboard.tsx";
 let dashboard = fs.readFileSync(dashboardPath, "utf8");
 
+const alreadyApplied =
+  dashboard.includes("unallocatedProjects: Project[]") &&
+  dashboard.includes("view === \"Projects\" && unallocatedProjects.map") &&
+  dashboard.includes("unallocatedProjects={unallocatedProjects}") &&
+  dashboard.includes("const portfolioProjectCount");
+if (alreadyApplied) {
+  console.log("Consultant Projects visibility is already applied.");
+  process.exit(0);
+}
+
 function replaceOnce(source, search, replacement, label) {
   if (source.includes(replacement)) return source;
   if (!source.includes(search)) throw new Error(`${label} anchor not found`);
