@@ -408,4 +408,4 @@ export default function ReaVerificationManagement(){
       </div>
     </section>
   );
-}}
+}
