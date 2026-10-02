@@ -1,7 +1,7 @@
 /* REA verification workflow workspace */
 .rea-v-workspace {
   font-family: "Montserrat", Inter, ui-sans-serif, system-ui, sans-serif;
-  background: #f6f8f6;
+  background: #ffffff;
   min-height: calc(100vh - 94px);
   padding: 22px 28px 40px;
 }
