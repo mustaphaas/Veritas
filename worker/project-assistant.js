@@ -8,7 +8,7 @@
 const LIST_VERB = /\b(list|show|display|browse|find|view|see|give me|open)\b/i;
 const PROJECT_SUBJECT = /\b(projects?|mini[\s-]*grids?|minigrids?|grid[\s-]*extensions?|standalone\s+solar(?:\s+systems?)?|sas)\b/i;
 const GENERIC_VERIFY = /\b(?:verify|check|validate|inspect)\s+(?:(?:a|one|any|the|all)\s+)?(?:project|mini[\s-]*grid|minigrid|mini[\s-]*grids|minigrids|grid[\s-]*extension|grid[\s-]*extensions|standalone\s+solar|sas)\b[?.!\s]*$/i;
-const WANT_TO_VERIFY = /\b(?:want|need|like)\s+to\s+(?:verify|check|validate|inspect)\s+(?:(?:a|one|any|the)\s+)?(?:project|mini[\s-]*grid|minigrid)\b/i;
+const WANT_TO_VERIFY = /\b(?:want|need|like)\s+to\s+(?:verify|check|validate|inspect)\s+(?:(?:a|one|any|the)\s+)?(?:project|mini[\s-]*grid|minigrid)\b/i;\nconst PROJECT_VERIFY_INTENT = /^\s*(?:please\s+)?(?:verify|check|validate|inspect)\b[\s\S]{0,100}\b(?:project|mini[\s-]*grid|minigrid|grid[\s-]*extension|standalone\s+solar|sas)\b/i;
 const PROJECT_RECORD = /\b(?:show|open|view|review|give me|tell me about)\b[\s\S]{0,70}\b(?:project\s+record|project\s+details?|project\s+profile|record|details?|profile)\b|\bproject\s+(?:record|details?|profile)\b/i;
 
 const PROJECT_COLUMNS = \`id,name,programme,component,contractor,consultant_firm AS consultantFirm,
@@ -66,7 +66,7 @@ export function isProjectListQuestion(question) {
 
 export function isGenericProjectVerificationRequest(question) {
   const q = String(question || "").trim();
-  return GENERIC_VERIFY.test(q) || WANT_TO_VERIFY.test(q);
+  return GENERIC_VERIFY.test(q) || WANT_TO_VERIFY.test(q) || PROJECT_VERIFY_INTENT.test(q);
 }
 
 export function isProjectRecordQuestion(question) {
