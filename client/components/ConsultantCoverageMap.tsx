@@ -440,8 +440,8 @@ export default function ConsultantCoverageMap({
 
   return (
     <div className="bg-white" data-testid="consultant-coverage-map">
-      <div className="grid lg:grid-cols-[minmax(0,1fr)_250px]">
-        <div className="relative min-h-[390px] overflow-hidden bg-[#f8fbf9] p-3">
+      <div className="grid items-stretch lg:grid-cols-[minmax(0,1fr)_250px]">
+        <div className="relative h-[420px] min-w-0 overflow-hidden bg-[#eef4f0]">
           <div className="absolute left-4 top-4 z-10 rounded-lg border border-[#d6e9da] bg-white/95 px-3 py-2 shadow-sm backdrop-blur">
             <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[#128149]">
               {!selectedState
@@ -514,7 +514,7 @@ export default function ConsultantCoverageMap({
           )}
         </div>
 
-        <aside className="max-h-[414px] overflow-y-auto border-t border-slate-100 bg-white p-3 lg:border-l lg:border-t-0">
+        <aside className="h-[420px] overflow-y-auto border-t border-slate-100 bg-white p-3 lg:border-l lg:border-t-0">
           <p className="mb-2 text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">
             {selectedLga
               ? `${selectedLga} projects`
