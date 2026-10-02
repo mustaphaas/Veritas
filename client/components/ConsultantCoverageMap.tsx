@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { MapPin } from "lucide-react";
+import ConsultantEsriCoverageMap from "./ConsultantEsriCoverageMap";
 import {
   getAssignmentDisplayStatus,
   type InspectionAssignment,
@@ -479,97 +480,37 @@ export default function ConsultantCoverageMap({
             <div className="flex h-[390px] items-center justify-center text-xs font-semibold text-slate-500">
               Loading Nigeria project coverage…
             </div>
-          ) : !selectedState ? (
-            <svg
-              viewBox={`0 0 ${NATIONAL_VIEW.width} ${NATIONAL_VIEW.height}`}
-              className="h-[390px] w-full"
-              role="img"
-              aria-label="Nigeria consultant project coverage by state"
-            >
-              {stateFeatures.map((feature) => {
-                const name = stateName(feature);
-                const count = stateCounts.get(name) ?? 0;
-                return (
-                  <path
-                    key={name}
-                    data-testid={`consultant-map-state-${name}`}
-                    d={pathForFeature(feature, nationalProjector)}
-                    fill={densityFill(count, maximumStateCount)}
-                    stroke="#ffffff"
-                    strokeWidth="1.25"
-                    onClick={() => {
-                      if (!count) return;
-                      setSelectedState(name);
-                      setSelectedLga(null);
-                      setSelectedProject(null);
-                    }}
-                    className={count ? "cursor-pointer transition hover:brightness-95" : "cursor-default"}
-                  />
-                );
-              })}
-              <ProjectDots
-                assignments={locatedAssignments}
-                projector={nationalProjector}
-                selectedId={selectedProject?.id}
-                onSelect={openProject}
-              />
-            </svg>
-          ) : !selectedLga ? (
-            <svg
-              viewBox={`0 0 ${DETAIL_VIEW.width} ${DETAIL_VIEW.height}`}
-              className="h-[390px] w-full"
-              role="img"
-              aria-label={`${selectedState} consultant projects by local government`}
-            >
-              {selectedStateLgas.map((feature) => {
-                const name = lgaName(feature);
-                const count = lgaCounts.get(name) ?? 0;
-                return (
-                  <path
-                    key={name}
-                    data-testid={`consultant-map-lga-${name}`}
-                    d={pathForFeature(feature, stateProjector)}
-                    fill={densityFill(count, maximumLgaCount)}
-                    stroke="#ffffff"
-                    strokeWidth="1.2"
-                    onClick={() => {
-                      if (!count) return;
-                      setSelectedLga(name);
-                      setSelectedProject(null);
-                    }}
-                    className={count ? "cursor-pointer transition hover:brightness-95" : "cursor-default"}
-                  />
-                );
-              })}
-              <ProjectDots
-                assignments={stateAssignments}
-                projector={stateProjector}
-                selectedId={selectedProject?.id}
-                onSelect={openProject}
-              />
-            </svg>
           ) : (
-            <svg
-              viewBox={`0 0 ${DETAIL_VIEW.width} ${DETAIL_VIEW.height}`}
-              className="h-[390px] w-full"
-              role="img"
-              aria-label={`${selectedLga} project locations`}
-            >
-              {selectedLgaFeature && (
-                <path
-                  d={pathForFeature(selectedLgaFeature, lgaProjector)}
-                  fill="#e5f3e9"
-                  stroke="#6cad80"
-                  strokeWidth="1.5"
-                />
-              )}
-              <ProjectDots
-                assignments={lgaAssignments}
-                projector={lgaProjector}
-                selectedId={selectedProject?.id}
-                onSelect={setSelectedProject}
-              />
-            </svg>
+            <ConsultantEsriCoverageMap
+              stateFeatures={stateFeatures}
+              stateCounts={stateCounts}
+              lgaFeatures={selectedStateLgas}
+              lgaCounts={lgaCounts}
+              projects={visibleList.map(({ item, coordinate, lga }) => ({
+                id: item.id,
+                state: item.state,
+                lga,
+                latitude: coordinate?.latitude ?? null,
+                longitude: coordinate?.longitude ?? null,
+                color: statusColor(item),
+              }))}
+              selectedState={selectedState}
+              selectedLga={selectedLga}
+              selectedProjectId={selectedProject?.id}
+              onSelectState={(state) => {
+                setSelectedState(state);
+                setSelectedLga(null);
+                setSelectedProject(null);
+              }}
+              onSelectLga={(lga) => {
+                setSelectedLga(lga);
+                setSelectedProject(null);
+              }}
+              onSelectProject={(projectId) => {
+                const project = filteredAssignments.find((item) => item.id === projectId);
+                if (project) openProject(project);
+              }}
+            />
           )}
         </div>
 
