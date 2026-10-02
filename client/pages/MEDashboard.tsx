@@ -159,8 +159,8 @@ export default function MEDashboard() {
     const submitted = filteredInspections.filter((item) => item.status === "Submitted").length;
     const verified = filteredInspections.filter((item) => item.status === "Verified" || item.status === "Approved").length;
     const inProgress = filteredInspections.filter((item) => item.status === "In Progress").length;
-    const flagged = filteredInspections.filter((item) => /re-?inspection|risk|issue/i.test(item.status) || /critical|outstanding|failed/i.test(JSON.stringify(item.form || {}))).length;
-    return { submitted, verified, inProgress, flagged };
+    const reinspection = filteredInspections.filter((item) => /re-?inspection/i.test(item.status)).length;
+    return { submitted, verified, inProgress, reinspection };
   }, [filteredInspections]);
 
   const visibleProjects = useMemo(() => {
@@ -202,7 +202,7 @@ export default function MEDashboard() {
     { label: "Inspections Completed", value: inspectionSummary.submitted + inspectionSummary.verified, detail: "Submitted or completed reviews", icon: ClipboardCheck, card: "border-violet-200 bg-violet-50", iconClass: "bg-violet-600 text-white", valueClass: "text-violet-800" },
     { label: "Verified Projects", value: totals.verified, detail: `${totals.verificationRate}% of monitored projects`, icon: ShieldCheck, card: "border-emerald-200 bg-emerald-50", iconClass: "bg-emerald-700 text-white", valueClass: "text-emerald-800" },
     { label: "Pending Review", value: Math.max(totals.pending, inspectionSummary.submitted), detail: "Requires monitoring attention", icon: Gauge, card: "border-orange-200 bg-orange-50", iconClass: "bg-orange-600 text-white", valueClass: "text-orange-800" },
-    { label: "Projects at Risk", value: inspectionSummary.flagged, detail: "Findings or reinspection signals", icon: AlertTriangle, card: "border-rose-200 bg-rose-50", iconClass: "bg-rose-600 text-white", valueClass: "text-rose-800" },
+    { label: "Re-Inspection", value: inspectionSummary.reinspection, detail: "Projects requiring another inspection", icon: AlertTriangle, card: "border-rose-200 bg-rose-50", iconClass: "bg-rose-600 text-white", valueClass: "text-rose-800" },
   ];
 
   const createTeam = async () => {
@@ -243,7 +243,7 @@ export default function MEDashboard() {
             <button className="rounded-md p-2 text-slate-600 hover:bg-slate-100" aria-label="Open navigation"><Menu className="h-5 w-5" /></button>
             <div>
               <h1 className="text-lg font-bold tracking-tight text-[#142a1f] sm:text-[22px]">M&E Dashboard</h1>
-              <p className="mt-1 hidden text-xs text-slate-500 sm:block">Monitor assigned M&E team portfolios, inspections, verification and project risk.</p>
+              <p className="mt-1 hidden text-xs text-slate-500 sm:block">Monitor assigned M&E team portfolios, inspections, verification and re-inspection.</p>
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
@@ -295,7 +295,7 @@ export default function MEDashboard() {
               <section className="veritas-overview-panel overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                 <div className="flex items-center justify-between border-b border-[#e3ece6] bg-white px-5 py-4"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#f1d7b2] bg-[#fff8ed] text-[#c87812]"><Activity className="h-4 w-4"/></span><div><h2 className="text-base font-bold tracking-[-0.01em] text-[#173b2a]">Monitoring Attention</h2><p className="mt-1 text-xs text-slate-500">Items requiring M&E review</p></div></div></div>
                 <div className="space-y-2 p-4">
-                  {[["Pending verification", totals.pending],["Submitted inspections", inspectionSummary.submitted],["In progress inspections", inspectionSummary.inProgress],["Flagged / reinspection", inspectionSummary.flagged]].map(([label,value])=><div key={String(label)} className="flex items-center justify-between rounded-lg border border-slate-100 bg-[#fafcfb] px-3 py-3"><span className="text-xs font-semibold text-slate-600">{label}</span><span className="text-sm font-bold text-[#173b2a]">{Number(value).toLocaleString()}</span></div>)}
+                  {[["Pending verification", totals.pending],["Submitted inspections", inspectionSummary.submitted],["In progress inspections", inspectionSummary.inProgress],["Re-Inspection", inspectionSummary.flagged]].map(([label,value])=><div key={String(label)} className="flex items-center justify-between rounded-lg border border-slate-100 bg-[#fafcfb] px-3 py-3"><span className="text-xs font-semibold text-slate-600">{label}</span><span className="text-sm font-bold text-[#173b2a]">{Number(value).toLocaleString()}</span></div>)}
                 </div>
               </section>
             </div>
@@ -331,11 +331,11 @@ export default function MEDashboard() {
             {activeTab === "Findings" && <section className="veritas-data-panel overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div className="border-b border-[#e3ece6] px-5 py-4"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 text-rose-600"><AlertTriangle className="h-4 w-4"/></span><div><h2 className="text-base font-bold text-[#173b2a]">Findings & Corrective Attention</h2><p className="mt-1 text-xs text-slate-500">Read-only register of inspection records with outstanding or risk signals.</p></div></div></div>{findings.length ? <div className="divide-y divide-slate-100">{findings.map((item)=><div key={item.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"><div><p className="text-xs font-bold text-[#173b2a]">{item.projectName}</p><p className="mt-1 text-[10px] text-slate-500">{item.state} · {item.lga} · {item.teamName || "Inspection team"}</p></div><span className={`rounded-full border px-2 py-1 text-[10px] font-bold ${statusTone(item.status)}`}>{item.status}</span></div>)}</div> : <div className="p-8 text-center text-xs text-slate-500">No risk or corrective-action signals are currently recorded.</div>}</section>}
 
             {activeTab === "Analytics" && <div className="veritas-kpi-grid grid gap-3 lg:grid-cols-3">
-              {[["Verification rate", `${totals.verificationRate}%`, "Share of projects verified"],["Inspection completion", filteredInspections.length ? `${Math.round(((inspectionSummary.submitted + inspectionSummary.verified) / filteredInspections.length) * 100)}%` : "0%", "Submitted or completed inspections"],["At-risk signals", inspectionSummary.flagged.toLocaleString(), "Projects/inspections requiring attention"]].map(([label,value,detail])=><article key={label} className="veritas-kpi-card p-4"><p className="text-xs font-bold text-slate-600">{label}</p><p className="mt-2 text-[28px] font-bold tracking-tight text-[#173b2a]">{value}</p><p className="mt-2 text-[10px] text-slate-500">{detail}</p></article>)}
+              {[["Verification rate", `${totals.verificationRate}%`, "Share of projects verified"],["Inspection completion", filteredInspections.length ? `${Math.round(((inspectionSummary.submitted + inspectionSummary.verified) / filteredInspections.length) * 100)}%` : "0%", "Submitted or completed inspections"],["Re-Inspection", inspectionSummary.flagged.toLocaleString(), "Inspections returned for re-inspection"]].map(([label,value,detail])=><article key={label} className="veritas-kpi-card p-4"><p className="text-xs font-bold text-slate-600">{label}</p><p className="mt-2 text-[28px] font-bold tracking-tight text-[#173b2a]">{value}</p><p className="mt-2 text-[10px] text-slate-500">{detail}</p></article>)}
             </div>}
 
             {activeTab === "Reports" && <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {["Monthly M&E Report","Programme Performance Report","State Performance Report","Projects at Risk Report","Outstanding Findings Report","Verification Progress Report"].map((report)=><article key={report} className="veritas-entity-card rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#cce5d4] bg-[#eef8f1] text-[#08733f]"><FileText className="h-4 w-4"/></span><h3 className="mt-3 text-sm font-bold text-[#173b2a]">{report}</h3><p className="mt-2 text-xs leading-5 text-slate-500">Prepared for M&E monitoring and management review using the current filtered portfolio.</p></article>)}
+              {["Monthly M&E Report","Programme Performance Report","State Performance Report","Re-Inspection Report","Outstanding Findings Report","Verification Progress Report"].map((report)=><article key={report} className="veritas-entity-card rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#cce5d4] bg-[#eef8f1] text-[#08733f]"><FileText className="h-4 w-4"/></span><h3 className="mt-3 text-sm font-bold text-[#173b2a]">{report}</h3><p className="mt-2 text-xs leading-5 text-slate-500">Prepared for M&E monitoring and management review using the current filtered portfolio.</p></article>)}
             </div>}
           </div>
         </div>
