@@ -73,7 +73,7 @@ export default function ReaAnalyticsDashboard({projects}:{projects:Project[]}){
   const strongest=programmeData[0];
   const leadingState=stateData[0];
 
-  return <div className="space-y-4 pb-9 pt-4">
+  return <div className="veritas-module-shell veritas-analytics-module space-y-5 pb-9 pt-4">
     <style>{`
       @keyframes analyticsReveal{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
       @keyframes analyticsGlow{0%,100%{opacity:.32;transform:scale(1)}50%{opacity:.48;transform:scale(1.08)}}
