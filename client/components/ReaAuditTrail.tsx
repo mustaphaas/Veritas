@@ -75,8 +75,8 @@ export default function ReaAuditTrail(){
 
   if (!token) return <div className="p-8 text-sm text-slate-500">Sign in to view the audit trail.</div>;
 
-  return <div className="space-y-4 pb-8 pt-4">
-    <section className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+  return <div className="veritas-module-shell veritas-audit-module space-y-5 pb-8 pt-4">
+    <section className="veritas-page-header flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
       <div>
         <div className="flex items-center gap-2"><Activity className="h-5 w-5 text-[#08733f]"/><h2 className="text-xl font-bold text-[#173b2a]">Audit Trail</h2></div>
         <p className="mt-1 text-xs text-slate-500">Every recorded action across REA staff, consultants and field officers, pulled live from the database.</p>
@@ -89,7 +89,7 @@ export default function ReaAuditTrail(){
 
     {error && <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-semibold text-amber-800">{error}</div>}
 
-    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <section className="veritas-kpi-grid grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {stats.map(([label,value,Icon,detail],index)=><article key={label} className="group min-h-[112px] rounded-lg border border-slate-200 bg-white p-4 text-center shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#9dceb0] hover:shadow-md">
         <div className="flex h-full flex-col items-center justify-center">
           <div className={`flex h-10 w-10 items-center justify-center rounded-lg transition-all duration-200 group-hover:bg-[#08733f] group-hover:text-white ${index===2?"bg-emerald-50 text-emerald-700":index===3?"bg-amber-50 text-amber-700":"bg-blue-50 text-blue-700"}`}><Icon className="h-5 w-5 transition-transform duration-200 group-hover:scale-110"/></div>
@@ -100,13 +100,13 @@ export default function ReaAuditTrail(){
       </article>)}
     </section>
 
-    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row">
+    <section className="veritas-data-panel overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="veritas-filter-bar flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row">
         <div className="relative flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Search staff name, email address or action" className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-xs outline-none focus:border-[#08733f]"/></div>
         <select value={category} onChange={event=>setCategory(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600"><option>All activity</option>{categories.map(value=><option key={value}>{value}</option>)}</select>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1040px] table-fixed text-left">
+        <table className="veritas-data-table w-full min-w-[1040px] table-fixed text-left">
           <colgroup><col className="w-[14%]"/><col className="w-[17%]"/><col className="w-[20%]"/><col className="w-[25%]"/><col className="w-[13%]"/><col className="w-[11%]"/></colgroup>
           <thead className="bg-slate-50 text-[10px] uppercase tracking-[0.1em] text-slate-500"><tr><th className="px-5 py-3.5">Date & time</th><th className="px-4 py-3.5">Staff name</th><th className="px-4 py-3.5">Email address</th><th className="px-4 py-3.5">Action</th><th className="px-4 py-3.5">Category</th><th className="px-4 py-3.5 text-center">Result</th></tr></thead>
           <tbody>{visible.map(event=><tr key={event.id} className="border-t border-slate-100 transition-colors hover:bg-[#f8fcf9]">
