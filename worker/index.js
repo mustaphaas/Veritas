@@ -3,6 +3,7 @@ import { analyticsCatalog, analyticsAnswerPrompt, deterministicAnalyticsPlan, ex
 import { handleSatelliteVerify, handleSatelliteVerificationHistory } from "./satellite-verify.js";
 import { runSatelliteAnalysis, satelliteAnalysisAnswer, satelliteCardPayload, shouldRunSatelliteAnalysis } from "./satellite-analysis.js";
 import { handleNightLightImpact, nightLightCardPayload, nightLightImpactAnswer, runNightLightAnalysis, shouldRunNightLightAnalysis } from "./nightlight-analysis.js";
+import { runProjectAssistant, shouldRunProjectAssistant } from "./project-assistant.js";
 
 const BUILD_ID = "veritas-2026-09-11-public-rea-team-r4";
 const encoder = new TextEncoder();
@@ -1151,6 +1152,34 @@ async function veritasResponse(request, env) {
     projectId: typeof body?.projectId === "string" ? body.projectId : "",
     mapProjectId: typeof body?.mapProjectId === "string" ? body.mapProjectId : "",
   };
+  if (shouldRunProjectAssistant(question, satelliteHints)) {
+    try {
+      const projectResult = await runProjectAssistant(env, question, satelliteHints);
+      if (projectResult) {
+        return json({
+          answer: projectResult.answer,
+          sources: [],
+          choices: projectResult.choices || [],
+          choiceMode: projectResult.choiceMode || "project",
+          mode: projectResult.kind === "profile" ? "veritas-project-profile" : "veritas-project-select",
+          build: BUILD_ID,
+        });
+      }
+    } catch (error) {
+      console.error(JSON.stringify({
+        event: "veritas_project_assistant_failure",
+        message: error instanceof Error ? error.message : "Unknown error",
+        build: BUILD_ID,
+      }));
+      return json({
+        answer: "I could not load the project register for that request. Please try again shortly.",
+        sources: [],
+        mode: "veritas-project-select",
+        build: BUILD_ID,
+      }, 503);
+    }
+  }
+
   if (await shouldRunNightLightAnalysis(env, question, satelliteHints)) {
     try {
       const nightLightResult = await runNightLightAnalysis(request, env, question, satelliteHints);
