@@ -79,18 +79,6 @@ export const defaultReaStaff: ReaStaffAccount[] = [
     access: ["Overview", "Verification", "Analytics", "Reports"],
   },
   {
-    id: "rea-me-005",
-    name: "M&E Officer",
-    email: "me.officer@demo.ng",
-    department: "Monitoring & Evaluation",
-    role: "M&E Officer",
-    status: "Active",
-    password: "ME2026!Demo",
-    lastLogin: "Not yet",
-    createdAt: "2026-10-02T20:00:00.000Z",
-    access: ["Overview", "Projects", "Project Map", "Field Inspections", "Verification", "Findings", "Analytics", "Reports"],
-  },
-  {
     id: "rea-claims-004",
     name: "Zainab Musa",
     email: "zainab.musa@rea.gov.ng",
