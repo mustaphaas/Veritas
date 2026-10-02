@@ -61,14 +61,14 @@ type DisplayMessage = VeritasMessage & {
   satellite?: SatelliteCardData;
   nightLight?: NightLightCardData;
   choices?: SatelliteChoice[];
-  choiceMode?: "satellite" | "nightlight";
+  choiceMode?: "satellite" | "nightlight" | "project";
 };
 
 const welcome: DisplayMessage = {
   id: "welcome",
   role: "assistant",
   content:
-    "Welcome to Veritas. I can analyse current REA, Field Officer and Consultant Admin data, including projects, programmes, contractors, assignments, inspection forms, reports and verification performance.",
+    "Welcome to Veritas. Ask me about any project, programme, contractor, inspection or verification issue. I can also open project lists, let you select the exact project you mean, and run the relevant checks from the live Veritas register.",
 };
 
 const quickActions = [
@@ -103,10 +103,10 @@ const quickActions = [
 ];
 
 const questionExamples = [
-  "How many field officers and assignments are currently in Veritas?",
+  "Verify a project",
+  "List all Mini Grids",
   "Which projects are still pending verification?",
-  "What can the Consultant Admin review and approve?",
-  "What fields are in the Mini Grid inspection form?",
+  "How many field officers and assignments are currently in Veritas?",
 ];
 
 function id() {
@@ -416,7 +416,7 @@ export default function VeritasAssistant() {
         satellite?: SatelliteCardData;
         nightLight?: NightLightCardData;
         choices?: SatelliteChoice[];
-        choiceMode?: "satellite" | "nightlight";
+        choiceMode?: "satellite" | "nightlight" | "project";
         error?: string;
       };
 
@@ -457,13 +457,15 @@ export default function VeritasAssistant() {
 
   // A tapped candidate retires its picker so it cannot be replayed against a
   // different project, then re-asks with the chosen id as an explicit hint.
-  const chooseProject = (messageId: string, choice: SatelliteChoice, mode?: "satellite" | "nightlight") => {
+  const chooseProject = (messageId: string, choice: SatelliteChoice, mode?: "satellite" | "nightlight" | "project") => {
     setMessages((current) =>
       current.map((message) => (message.id === messageId ? { ...message, choices: undefined } : message)),
     );
     const prompt = mode === "nightlight"
       ? `Analyse the NASA VIIRS night-time light impact for ${choice.name}.`
-      : `Verify ${choice.name} by satellite imagery.`;
+      : mode === "project"
+        ? `Open the project record for ${choice.name}.`
+        : `Verify ${choice.name} by satellite imagery.`;
     void send(prompt, choice.id);
   };
 
