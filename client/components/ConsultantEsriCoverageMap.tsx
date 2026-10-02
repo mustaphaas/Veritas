@@ -522,11 +522,11 @@ export default function ConsultantEsriCoverageMap({
   ]);
 
   return (
-    <div className="relative h-[390px] overflow-hidden rounded-lg border border-slate-200 bg-[#eef4f0]">
+    <div className="absolute inset-0 overflow-hidden bg-[#eef4f0]" data-testid="consultant-esri-map-shell">
       <arcgis-map
         ref={mapRef}
         data-testid="consultant-esri-map"
-        className="block h-full w-full"
+        className="absolute inset-0 block h-full w-full"
         aria-label={
           selectedLga
             ? `${selectedLga} project locations on Esri map`
