@@ -184,20 +184,20 @@ export default function ReaFieldInspections() {
   if (!token) return <div className="p-8 text-sm text-slate-500">Sign in to use Field Inspections.</div>;
 
   return (
-    <div className="py-5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="veritas-module-shell veritas-field-inspections-module py-5">
+      <div className="veritas-page-header flex flex-col gap-4 rounded-2xl border border-[#dfe9e2] bg-white p-5 shadow-sm lg:flex-row lg:items-end lg:justify-between">
         <div><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#08733f]">REA Operations</p><h2 className="mt-1 text-2xl font-bold tracking-tight text-[#173b2a]">Field Inspections</h2><p className="mt-1 text-sm text-slate-500">Assign REA inspection teams and work together on one shared inspection form.</p></div>
         <div className="flex gap-2"><button onClick={openTeamModal} className="inline-flex items-center gap-2 rounded-lg border border-[#b9dfc5] bg-white px-4 py-2.5 text-xs font-bold text-[#08733f]"><UserPlus className="h-4 w-4" /> Create Team</button><button onClick={() => setAssignModal(true)} className="inline-flex items-center gap-2 rounded-lg bg-[#08733f] px-4 py-2.5 text-xs font-bold text-white"><Plus className="h-4 w-4" /> Assign Project</button></div>
       </div>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
-        <aside className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <aside className="veritas-data-panel rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3"><div><h3 className="text-sm font-bold text-[#173b2a]">Inspection Teams</h3><p className="text-[11px] text-slate-500">{teams.length} active teams</p></div><button onClick={() => void load()} className="rounded-md p-2 text-slate-500 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /></button></div>
           <div className="max-h-[620px] overflow-auto p-2">{teams.map((team, index) => <div key={team.id} className="mb-2"><button type="button" onClick={() => selectTeam(team)} className={`w-full rounded-lg border p-3 text-left ${selectedTeam?.id === team.id ? "border-[#9ed1ae] bg-[#f4fbf6]" : "border-slate-100 hover:bg-slate-50"}`}><div className="flex items-start gap-2"><div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white ${colors[index % colors.length]}`}><Users className="h-4 w-4" /></div><div className="min-w-0 flex-1"><p className="truncate text-xs font-bold text-[#173b2a]">{team.name}</p><p className="mt-0.5 text-[10px] text-slate-500">Lead: {team.teamLeadName}</p></div><button type="button" onClick={(event) => { event.stopPropagation(); void deleteTeam(team); }} className="rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Delete team"><Trash2 className="h-4 w-4" /></button></div><p className="mt-2 text-[10px] text-slate-500">{team.members.length} REA staff</p></button></div>)}</div>
         </aside>
 
         <main className="min-w-0">
-          <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="veritas-data-panel rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"><div><div className="flex items-center gap-2"><h3 className="text-sm font-bold text-[#173b2a]">Collaborative Inspections</h3><span className="rounded-full bg-[#eaf8ef] px-2.5 py-1 text-[10px] font-bold text-[#08733f]">{inspections.length} assigned</span></div><p className="mt-1 text-xs text-slate-500">Everyone works in the same inspection. Changes are saved continuously.</p></div><div className="flex items-center gap-2 text-[10px] font-semibold text-slate-500"><Cloud className="h-4 w-4 text-[#08733f]" />{saving ? "Saving…" : message}</div></div>
 
             {!selected ? (
