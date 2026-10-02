@@ -599,3 +599,298 @@ body.veritas-project-map-open [data-veritas-project-map="true"] {
     transform: none !important;
   }
 }
+
+
+/* =========================================================
+   Veritas unified admin design system
+   Visual-only hooks used across REA dashboard modules.
+   ========================================================= */
+
+:root {
+  --veritas-green: #08733f;
+  --veritas-green-dark: #173b2a;
+  --veritas-green-soft: #edf8f1;
+  --veritas-surface: #ffffff;
+  --veritas-surface-soft: #f8fbf9;
+  --veritas-border: #dfe9e2;
+  --veritas-border-soft: #edf3ef;
+  --veritas-muted: #64748b;
+  --veritas-radius-card: 18px;
+  --veritas-radius-control: 12px;
+  --veritas-shadow-card: 0 10px 30px rgba(21, 70, 43, .055);
+  --veritas-shadow-hover: 0 16px 34px rgba(21, 70, 43, .09);
+}
+
+.veritas-module-shell {
+  color: #263c31;
+}
+
+.veritas-module-shell > * + * {
+  scroll-margin-top: 1rem;
+}
+
+.veritas-page-header {
+  border-color: var(--veritas-border) !important;
+  background:
+    linear-gradient(105deg, rgba(244, 251, 246, .9) 0%, #ffffff 46%, #ffffff 100%) !important;
+  box-shadow: var(--veritas-shadow-card) !important;
+}
+
+.veritas-page-header h1,
+.veritas-page-header h2,
+.veritas-page-header h3 {
+  color: var(--veritas-green-dark) !important;
+  letter-spacing: -.02em;
+}
+
+.veritas-page-header p {
+  line-height: 1.55;
+}
+
+.veritas-kpi-grid > article,
+.veritas-kpi-grid > div {
+  border-color: var(--veritas-border) !important;
+  border-radius: var(--veritas-radius-card) !important;
+  background:
+    linear-gradient(145deg, #ffffff 0%, #fbfdfb 100%) !important;
+  box-shadow: var(--veritas-shadow-card) !important;
+  transition:
+    transform .22s ease,
+    border-color .22s ease,
+    box-shadow .22s ease !important;
+}
+
+.veritas-kpi-grid > article:hover,
+.veritas-kpi-grid > div:hover {
+  transform: translateY(-2px);
+  border-color: #bedbc7 !important;
+  box-shadow: var(--veritas-shadow-hover) !important;
+}
+
+.veritas-kpi-card {
+  min-height: 132px;
+}
+
+.veritas-kpi-card > :first-child {
+  box-shadow: 0 7px 18px rgba(21,70,43,.08);
+}
+
+.veritas-filter-bar {
+  border-color: var(--veritas-border) !important;
+  border-radius: var(--veritas-radius-card) !important;
+  background: #ffffff !important;
+  box-shadow: 0 8px 24px rgba(21,70,43,.045) !important;
+}
+
+.veritas-filter-bar input,
+.veritas-filter-bar select,
+.veritas-module-shell input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.veritas-module-shell select,
+.veritas-module-shell textarea {
+  border-color: #dbe6df !important;
+  border-radius: var(--veritas-radius-control) !important;
+  background-color: #fbfdfb !important;
+  transition:
+    border-color .18s ease,
+    box-shadow .18s ease,
+    background-color .18s ease !important;
+}
+
+.veritas-filter-bar input:focus,
+.veritas-filter-bar select:focus,
+.veritas-module-shell input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
+.veritas-module-shell select:focus,
+.veritas-module-shell textarea:focus {
+  outline: none !important;
+  border-color: #80bf94 !important;
+  background: #ffffff !important;
+  box-shadow: 0 0 0 4px rgba(8,115,63,.075) !important;
+}
+
+.veritas-data-panel {
+  border-color: var(--veritas-border) !important;
+  border-radius: var(--veritas-radius-card) !important;
+  background: #ffffff !important;
+  box-shadow: var(--veritas-shadow-card) !important;
+}
+
+.veritas-data-panel > :first-child:not(table):not(.overflow-x-auto) {
+  border-color: var(--veritas-border-soft) !important;
+}
+
+.veritas-data-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.veritas-data-table thead {
+  background: #f7faf8 !important;
+}
+
+.veritas-data-table thead th {
+  color: #718079 !important;
+  font-size: 10px !important;
+  font-weight: 750 !important;
+  letter-spacing: .08em !important;
+}
+
+.veritas-data-table tbody tr {
+  transition: background-color .16s ease;
+}
+
+.veritas-data-table tbody tr:hover {
+  background: #f8fcf9 !important;
+}
+
+.veritas-data-table tbody td {
+  border-color: #eef3ef !important;
+}
+
+.veritas-entity-grid > .veritas-entity-card,
+.veritas-entity-card {
+  border-color: var(--veritas-border) !important;
+  background:
+    linear-gradient(145deg, #ffffff 0%, #fbfdfb 100%) !important;
+  box-shadow: var(--veritas-shadow-card) !important;
+  transition:
+    transform .22s ease,
+    box-shadow .22s ease,
+    border-color .22s ease !important;
+}
+
+.veritas-entity-card:hover {
+  transform: translateY(-3px) !important;
+  border-color: #b9d8c3 !important;
+  box-shadow: var(--veritas-shadow-hover) !important;
+}
+
+.veritas-modal-card {
+  border: 1px solid var(--veritas-border) !important;
+  border-radius: 22px !important;
+  box-shadow: 0 26px 70px rgba(15, 45, 28, .20) !important;
+}
+
+.veritas-modal-card > :first-child {
+  border-color: var(--veritas-border-soft) !important;
+}
+
+.veritas-segmented-tabs button {
+  transition:
+    background-color .18s ease,
+    color .18s ease,
+    box-shadow .18s ease,
+    transform .18s ease !important;
+}
+
+.veritas-segmented-tabs button:hover {
+  transform: translateY(-1px);
+}
+
+.veritas-attention-panel {
+  box-shadow: 0 10px 28px rgba(180,119,0,.06);
+}
+
+/* Make dense admin copy easier to scan without changing information density. */
+.veritas-module-shell .text-\[8px\] {
+  font-size: 10px !important;
+  line-height: 1.35 !important;
+}
+
+.veritas-module-shell .text-\[9px\] {
+  font-size: 10.5px !important;
+  line-height: 1.4 !important;
+}
+
+.veritas-module-shell .text-\[10px\] {
+  font-size: 11px !important;
+  line-height: 1.45 !important;
+}
+
+.veritas-module-shell .text-\[11px\] {
+  font-size: 11.5px !important;
+  line-height: 1.45 !important;
+}
+
+/* Verification adopts the same surface hierarchy while preserving workflow CSS. */
+.veritas-verification-module .rea-v-shell {
+  border-radius: 20px;
+}
+
+.veritas-verification-module .rea-v-heading,
+.veritas-verification-module .rea-v-table-wrap {
+  border-color: var(--veritas-border) !important;
+  border-radius: var(--veritas-radius-card) !important;
+  box-shadow: var(--veritas-shadow-card);
+}
+
+.veritas-verification-module .rea-v-table-wrap {
+  overflow: hidden;
+}
+
+.veritas-verification-module .rea-v-card-approved,
+.veritas-verification-module .rea-v-card-verified,
+.veritas-verification-module .rea-v-shell article {
+  border-radius: 16px !important;
+}
+
+/* Field Inspections: stronger hierarchy, no workflow changes. */
+.veritas-field-inspections-module aside.veritas-data-panel,
+.veritas-field-inspections-module main .veritas-data-panel {
+  border-radius: 18px !important;
+}
+
+.veritas-field-inspections-module button {
+  transition:
+    background-color .18s ease,
+    color .18s ease,
+    border-color .18s ease,
+    box-shadow .18s ease,
+    transform .18s ease;
+}
+
+.veritas-field-inspections-module button:hover {
+  border-color: #c4ddcc;
+}
+
+/* Reports/analytics share the same panel vocabulary. */
+.veritas-reports-module .veritas-entity-card,
+.veritas-analytics-module .veritas-data-panel {
+  border-radius: 18px !important;
+}
+
+.veritas-analytics-module .analytics-reveal {
+  box-shadow: var(--veritas-shadow-card) !important;
+}
+
+/* Consistent primary/secondary interaction feel. */
+.veritas-module-shell button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.veritas-module-shell button:focus-visible,
+.veritas-module-shell a:focus-visible {
+  outline: 2px solid rgba(8,115,63,.35);
+  outline-offset: 2px;
+}
+
+/* Keep hover motion restrained on touch/smaller layouts. */
+@media (max-width: 1023px) {
+  .veritas-kpi-grid > article:hover,
+  .veritas-kpi-grid > div:hover,
+  .veritas-entity-card:hover {
+    transform: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .veritas-kpi-grid > article,
+  .veritas-kpi-grid > div,
+  .veritas-entity-card,
+  .veritas-segmented-tabs button,
+  .veritas-module-shell button,
+  .veritas-module-shell input,
+  .veritas-module-shell select,
+  .veritas-module-shell textarea {
+    transition: none !important;
+  }
+}
