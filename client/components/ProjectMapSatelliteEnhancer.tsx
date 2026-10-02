@@ -292,7 +292,7 @@ function popupHtml(project: ReaMapProjectRecord, state: ProjectMapSharedState) {
     state.layers.Contractors && project.contractor ? `Contractor: ${escapeHtml(project.contractor)}` : "",
     state.layers.Inspections ? `Verification: ${project.verified ? "Verified" : "Pending"}` : "",
   ].filter(Boolean);
-  return `<div style="min-width:210px;font-family:system-ui,sans-serif">
+  return `<div style="min-width:210px;font-family:Inter,Arial,sans-serif">
     <strong>${escapeHtml(project.name)}</strong><br/>
     <span style="font-size:11px;color:#64748b">${escapeHtml(project.community || project.lga || project.state)}</span><br/>
     <span style="font-size:11px;color:#08733f;font-weight:700">${escapeHtml(project.programme)} · ${escapeHtml(project.status)}</span>
