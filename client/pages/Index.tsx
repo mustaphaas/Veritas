@@ -486,21 +486,23 @@ export default function Index() {
                       <div><h2 className="text-base font-bold tracking-[-0.01em] text-[#173b2a]">National Project Coverage</h2><p className="mt-1 text-xs text-slate-500">Explore national delivery by project count, installed capacity, or households reached</p></div>
                     </div>
                   </div>
-                  <div className="grid w-full gap-2 sm:grid-cols-3 xl:max-w-[570px]" aria-label="Map viewing mode">
-                    {mapModeOptions.map((option) => {
-                      const selected = mapMode === option.value;
-                      const palette = option.value === "projects"
-                        ? { card: "border-[#bfe0ca] bg-gradient-to-br from-[#edf9f1] to-white", icon: "bg-[#08733f] text-white", text: "text-[#08733f]", ring: "shadow-[0_10px_24px_rgba(8,115,63,.12)]", hint: "Project footprint" }
-                        : option.value === "capacity"
-                          ? { card: "border-[#cbdcf0] bg-gradient-to-br from-[#eef5fc] to-white", icon: "bg-[#3772ad] text-white", text: "text-[#285f96]", ring: "shadow-[0_10px_24px_rgba(55,114,173,.12)]", hint: "Installed capacity" }
-                          : { card: "border-[#ebd8a9] bg-gradient-to-br from-[#fff8e8] to-white", icon: "bg-[#d28a00] text-white", text: "text-[#a96f00]", ring: "shadow-[0_10px_24px_rgba(210,138,0,.12)]", hint: "Beneficiary reach" };
-                      const Icon = option.value === "projects" ? FolderKanban : option.value === "capacity" ? Zap : Home;
-                      return <button key={option.value} type="button" onClick={() => setMapMode(option.value)} aria-pressed={selected} className={`group flex min-h-[54px] items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left transition-all duration-200 hover:border-[#aacfb6] hover:bg-white ${palette.card} ${selected ? `ring-1 ring-[#cfe7d6] ${palette.ring}` : "opacity-95 hover:opacity-100"}`}>
-                        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105 ${palette.icon}`}><Icon className="h-4 w-4" /></span>
-                        <span className="min-w-0"><strong className={`block text-[11px] font-bold leading-tight ${palette.text}`}>{option.label.replace("View by ", "")}</strong><span className="mt-0.5 block text-[8.5px] font-medium tracking-[0.03em] text-slate-400">{palette.hint}</span></span>
-                        <span className={`ml-auto h-2 w-2 shrink-0 rounded-full transition-all ${selected ? palette.icon.split(" ")[0] + " ring-2 ring-white" : "bg-slate-200"}`} />
-                      </button>;
-                    })}
+                  <div className="flex w-full flex-col gap-1.5 xl:max-w-[520px]">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">View coverage by</span>
+                    <div className="grid grid-cols-3 gap-1 rounded-xl border border-[#dce7df] bg-[#f6f9f7] p-1" aria-label="Map viewing mode">
+                      {mapModeOptions.map((option) => {
+                        const selected = mapMode === option.value;
+                        const palette = option.value === "projects"
+                          ? { active: "bg-white text-[#08733f] shadow-sm", icon: "bg-[#e7f5eb] text-[#08733f]", hint: "Project footprint" }
+                          : option.value === "capacity"
+                            ? { active: "bg-white text-[#285f96] shadow-sm", icon: "bg-[#edf4fb] text-[#3772ad]", hint: "Installed capacity" }
+                            : { active: "bg-white text-[#9b6800] shadow-sm", icon: "bg-[#fff5dc] text-[#c98300]", hint: "Beneficiary reach" };
+                        const Icon = option.value === "projects" ? FolderKanban : option.value === "capacity" ? Zap : Home;
+                        return <button key={option.value} type="button" onClick={() => setMapMode(option.value)} aria-pressed={selected} className={`group flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-all duration-200 ${selected ? palette.active : "text-slate-500 hover:bg-white/70"}`}>
+                          <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${palette.icon}`}><Icon className="h-3.5 w-3.5" /></span>
+                          <span className="min-w-0"><strong className="block truncate text-[10.5px] font-bold leading-tight">{option.shortLabel}{option.value === "capacity" ? " (MW)" : ""}</strong><span className="mt-0.5 block truncate text-[8px] font-medium text-slate-400">{palette.hint}</span></span>
+                        </button>;
+                      })}
+                    </div>
                   </div>
                 </div>
               </div>
