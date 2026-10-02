@@ -56,10 +56,11 @@ function hasUsableCloudSession(session:AuthSession){
 function hydrateSession(session:AuthSession):AuthSession|null{
  if(!hasUsableCloudSession(session))return null;
  if(session.role==="rea"){
-  const staff=readReaStaff().find(account=>account.email.toLowerCase()===session.email.toLowerCase());
-  if(staff?.status==="Suspended")return null;
-  if(!staff)return {...session,path:reaStaffPath(session.roleLabel)};
-  return {...session,roleLabel:staff.role,name:staff.name,initials:initials(staff.name),email:staff.email,path:reaStaffPath(staff.role),access:[...staff.access]};
+  // REA staff are database-backed. Once a cloud session has been issued,
+  // never re-authorize it against the legacy browser-local staff store.
+  // Stale local records can otherwise overwrite the D1 role/access or
+  // invalidate a valid M&E session immediately after login.
+  return {...session,path:reaStaffPath(session.roleLabel)};
  }
  if(session.role==="consultant"){
   const consultant=readConsultants().find(account=>account.adminEmail.toLowerCase()===session.email.toLowerCase());
@@ -110,7 +111,7 @@ export function AuthProvider({children}:{children:ReactNode}){
   if(cloudRole==="consultant"){
    try{const profile=await fetchConsultantProfileWithToken(cloud.token);const record=profile?.consultant;if(record?.id){consultantId=record.id;const current=readConsultants();writeConsultants([record,...current.filter(item=>item.id!==record.id&&item.adminEmail.toLowerCase()!==String(record.adminEmail||"").toLowerCase())]);}}catch{return null}
   }
-  const local=authenticateDemoAccount(email,password);
+  const local=cloudRole==="rea"?null:authenticateDemoAccount(email,password);
   if(local&&local.role!==cloudRole)return null;
   const account:LoginAccount=local??{role:cloudRole,roleLabel:cloudRole==="rea"?(cloud.user.staffRole||"REA Staff"):cloudRole==="consultant"?"Consultant Admin":"Field Officer",name:cloud.user.name||email,initials:initials(cloud.user.name||email),email:cloud.user.email||email,password,path:cloudRole==="rea"?reaStaffPath(cloud.user.staffRole):cloudRole==="consultant"?"/consultant-admin":"/field-officer",consultantId,access:cloudRole==="rea"?cloud.user.access:undefined};
   if(cloudRole==="consultant"&&consultantId)account.consultantId=consultantId;
