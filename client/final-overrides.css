@@ -426,3 +426,94 @@ aside > div.flex.h-\[94px\].items-center.gap-3.px-4 > div:first-child img {
     display: none !important;
   }
 }
+
+
+/* 2026-10 overview polish: smoother REA navigation reveal and modern hover motion. */
+@media (min-width: 1024px) {
+  .veritas-rea-main {
+    transition: padding-left .28s cubic-bezier(.22,.61,.36,1) !important;
+  }
+
+  .veritas-rea-side-rail {
+    transition:
+      width .28s cubic-bezier(.22,.61,.36,1),
+      box-shadow .28s ease,
+      border-color .28s ease !important;
+  }
+
+  .veritas-rea-side-rail button {
+    position: relative;
+    transform-origin: left center;
+    transition:
+      width .28s cubic-bezier(.22,.61,.36,1),
+      min-width .28s cubic-bezier(.22,.61,.36,1),
+      padding .28s cubic-bezier(.22,.61,.36,1),
+      gap .28s cubic-bezier(.22,.61,.36,1),
+      background-color .2s ease,
+      color .2s ease,
+      border-color .2s ease,
+      box-shadow .2s ease,
+      transform .2s ease !important;
+  }
+
+  .veritas-rea-side-rail button:hover {
+    transform: translateX(2px);
+    box-shadow: 0 8px 18px rgba(18, 96, 54, .08) !important;
+  }
+
+  .veritas-rea-side-rail button svg {
+    transition: transform .22s ease, stroke-width .22s ease !important;
+  }
+
+  .veritas-rea-side-rail button:hover svg {
+    transform: scale(1.08);
+  }
+
+  .veritas-rea-nav-label {
+    display: inline-block;
+    opacity: 1;
+    transform: translateX(0);
+    transition:
+      opacity .2s ease .06s,
+      transform .28s cubic-bezier(.22,.61,.36,1) .04s !important;
+  }
+
+  .veritas-rea-side-rail:not(:hover):not(:focus-within) .veritas-rea-nav-label {
+    opacity: 0;
+    transform: translateX(-8px);
+    transition:
+      opacity .12s ease,
+      transform .18s ease !important;
+  }
+
+  .veritas-rea-side-rail button[aria-current="page"]::after {
+    content: "";
+    position: absolute;
+    right: 10px;
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: #16a15a;
+    box-shadow: 0 0 0 5px rgba(22,161,90,.10);
+    opacity: 0;
+    transform: scale(.7);
+    transition: opacity .2s ease, transform .2s ease;
+  }
+
+  .veritas-rea-side-rail:hover button[aria-current="page"]::after,
+  .veritas-rea-side-rail:focus-within button[aria-current="page"]::after {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .veritas-rea-main,
+  .veritas-rea-side-rail,
+  .veritas-rea-side-rail button,
+  .veritas-rea-side-rail button svg,
+  .veritas-rea-nav-label {
+    transition: none !important;
+    animation: none !important;
+  }
+}
