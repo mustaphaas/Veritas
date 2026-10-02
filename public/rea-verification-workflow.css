@@ -701,3 +701,117 @@ section.mt-3.flex.gap-3.overflow-x-auto.pb-1 > :nth-child(2) > div > div:last-ch
     justify-content: center !important;
   }
 }
+
+
+
+/* Verification alignment pass: mirror Overview KPI proportions and keep actions on one row. */
+.veritas-verification-modern .veritas-verification-summary.veritas-overview-kpis {
+  display:grid !important;
+  grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+  gap:12px !important;
+  overflow:visible !important;
+}
+
+.veritas-verification-modern .veritas-overview-kpi-card.rea-v-summary-card {
+  min-height:112px !important;
+  min-width:0 !important;
+  padding:16px !important;
+  border:1px solid #dfe7e2 !important;
+  border-radius:16px !important;
+  background:#fff !important;
+  box-shadow:0 4px 18px rgba(21,70,43,.045) !important;
+}
+
+.veritas-verification-modern .rea-v-kpi-layout {
+  display:flex !important;
+  align-items:flex-start !important;
+  gap:12px !important;
+  height:100% !important;
+}
+
+.veritas-verification-modern .rea-v-kpi-icon {
+  display:inline-flex !important;
+  width:40px !important;
+  height:40px !important;
+  flex:0 0 40px !important;
+  align-items:center !important;
+  justify-content:center !important;
+  border-radius:11px !important;
+  color:#fff !important;
+  box-shadow:none !important;
+}
+
+.veritas-verification-modern .rea-v-kpi-icon svg {
+  width:19px !important;
+  height:19px !important;
+  stroke-width:1.9 !important;
+}
+
+.veritas-verification-modern .rea-v-kpi-icon-awaiting { background:#d97706 !important; }
+.veritas-verification-modern .rea-v-kpi-icon-verified { background:#08733f !important; }
+.veritas-verification-modern .rea-v-kpi-icon-reinspection { background:#c35f24 !important; }
+
+.veritas-verification-modern .rea-v-kpi-copy {
+  min-width:0 !important;
+  flex:1 !important;
+}
+
+.veritas-verification-modern .rea-v-kpi-label {
+  margin:0 !important;
+  color:#5e6c64 !important;
+  font-size:11px !important;
+  font-weight:700 !important;
+}
+
+.veritas-verification-modern .rea-v-kpi-value {
+  display:block !important;
+  margin-top:6px !important;
+  color:#173b2a !important;
+  font-size:25px !important;
+  line-height:1 !important;
+  font-weight:750 !important;
+  letter-spacing:-.025em !important;
+}
+
+.veritas-verification-modern .rea-v-kpi-detail {
+  margin:8px 0 0 !important;
+  color:#7a8780 !important;
+  font-size:10px !important;
+  line-height:1.45 !important;
+}
+
+.veritas-verification-modern .rea-v-table {
+  min-width:1320px !important;
+}
+
+.veritas-verification-modern .rea-v-action-row {
+  display:flex !important;
+  flex-direction:row !important;
+  align-items:center !important;
+  flex-wrap:nowrap !important;
+  gap:8px !important;
+  width:100% !important;
+}
+
+.veritas-verification-modern .rea-v-action-row-view .rea-v-action-button,
+.veritas-verification-modern .rea-v-action-row-review .rea-v-action-button {
+  min-width:92px !important;
+  min-height:34px !important;
+  flex:1 1 0 !important;
+  white-space:nowrap !important;
+}
+
+.veritas-verification-modern .rea-v-action-row-view,
+.veritas-verification-modern .rea-v-action-row-review {
+  min-width:190px !important;
+}
+
+.veritas-verification-modern .rea-v-table td:nth-last-child(-n+2) {
+  vertical-align:middle !important;
+}
+
+@media (max-width:760px) {
+  .veritas-verification-modern .veritas-verification-summary.veritas-overview-kpis {
+    grid-template-columns:1fr !important;
+  }
+}
