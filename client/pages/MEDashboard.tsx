@@ -480,3 +480,359 @@ function DataTableInspections({
     </section>}
   </div>;
 }
+
+
+type AnalyticsProject = Project;
+type AnalyticsInspection = Inspection;
+
+function analyticsMonthLabel(value?: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return {
+    key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
+    label: date.toLocaleDateString(undefined, { month: "short", year: "2-digit" }),
+    time: new Date(date.getFullYear(), date.getMonth(), 1).getTime(),
+  };
+}
+
+function MEAnalytics({
+  projects,
+  inspections,
+  teams,
+  isMeAdmin,
+  verificationRate,
+}: {
+  projects: AnalyticsProject[];
+  inspections: AnalyticsInspection[];
+  teams: MeTeam[];
+  isMeAdmin: boolean;
+  verificationRate: number;
+}) {
+  const analytics = useMemo(() => {
+    const verifiedProjects = projects.filter((project) => project.verified).length;
+    const pendingProjects = Math.max(0, projects.length - verifiedProjects);
+    const verificationData = [
+      { name: "Verified", value: verifiedProjects, fill: "#0b7a43" },
+      { name: "Pending", value: pendingProjects, fill: "#e6a31a" },
+    ];
+
+    const statusData = [
+      { name: "In Progress", value: inspections.filter((item) => item.status === "In Progress").length, fill: "#2563eb" },
+      { name: "Submitted", value: inspections.filter((item) => item.status === "Submitted").length, fill: "#7c3aed" },
+      { name: "Verified", value: inspections.filter((item) => /verified|approved/i.test(item.status)).length, fill: "#0b7a43" },
+      { name: "Re-Inspection", value: inspections.filter((item) => /re-?inspection/i.test(item.status)).length, fill: "#dc5c5c" },
+    ];
+
+    const programmeData = [...new Set(projects.map((project) => project.programme).filter(Boolean))].map((programme) => {
+      const programmeProjects = projects.filter((project) => project.programme === programme);
+      const programmeInspections = inspections.filter((inspection) => inspection.programme === programme);
+      const verified = programmeProjects.filter((project) => project.verified).length;
+      return {
+        name: programme,
+        projects: programmeProjects.length,
+        verified,
+        pending: Math.max(0, programmeProjects.length - verified),
+        reinspection: programmeInspections.filter((inspection) => /re-?inspection/i.test(inspection.status)).length,
+      };
+    }).sort((a, b) => b.projects - a.projects);
+
+    const monthMap = new Map<string, { key: string; month: string; time: number; submitted: number; verified: number; reinspection: number }>();
+    inspections.forEach((inspection) => {
+      const month = analyticsMonthLabel(inspection.updatedAt || inspection.submittedAt);
+      if (!month) return;
+      const current = monthMap.get(month.key) || { key: month.key, month: month.label, time: month.time, submitted: 0, verified: 0, reinspection: 0 };
+      if (inspection.status === "Submitted") current.submitted += 1;
+      if (/verified|approved/i.test(inspection.status)) current.verified += 1;
+      if (/re-?inspection/i.test(inspection.status)) current.reinspection += 1;
+      monthMap.set(month.key, current);
+    });
+    const trendData = [...monthMap.values()].sort((a, b) => a.time - b.time).slice(-8);
+
+    const stateMap = new Map<string, { name: string; projects: number; verified: number; reinspection: number }>();
+    projects.forEach((project) => {
+      const name = project.state || "Unknown";
+      const current = stateMap.get(name) || { name, projects: 0, verified: 0, reinspection: 0 };
+      current.projects += 1;
+      if (project.verified) current.verified += 1;
+      stateMap.set(name, current);
+    });
+    inspections.forEach((inspection) => {
+      if (!/re-?inspection/i.test(inspection.status)) return;
+      const current = stateMap.get(inspection.state || "Unknown");
+      if (current) current.reinspection += 1;
+    });
+    const stateData = [...stateMap.values()]
+      .map((item) => ({ ...item, verificationRate: item.projects ? Math.round((item.verified / item.projects) * 100) : 0 }))
+      .sort((a, b) => b.projects - a.projects)
+      .slice(0, 8);
+
+    const contractorMap = new Map<string, { name: string; inspections: number; completed: number; reinspection: number }>();
+    inspections.forEach((inspection) => {
+      const name = inspection.contractor || "Unassigned";
+      const current = contractorMap.get(name) || { name, inspections: 0, completed: 0, reinspection: 0 };
+      current.inspections += 1;
+      if (/submitted|approved|verified/i.test(inspection.status)) current.completed += 1;
+      if (/re-?inspection/i.test(inspection.status)) current.reinspection += 1;
+      contractorMap.set(name, current);
+    });
+    const contractorData = [...contractorMap.values()].sort((a, b) => b.inspections - a.inspections).slice(0, 8);
+
+    const teamData = teams.map((team) => {
+      const teamInspections = inspections.filter((inspection) => inspection.teamName === team.name);
+      const projectIds = new Set(teamInspections.map((inspection) => inspection.projectId));
+      return {
+        name: team.name,
+        projects: projectIds.size,
+        completed: teamInspections.filter((inspection) => /submitted|approved|verified/i.test(inspection.status)).length,
+        reinspection: teamInspections.filter((inspection) => /re-?inspection/i.test(inspection.status)).length,
+      };
+    }).sort((a, b) => b.projects - a.projects);
+
+    return { verificationData, statusData, programmeData, trendData, stateData, contractorData, teamData };
+  }, [projects, inspections, teams]);
+
+  const totalInspections = inspections.length;
+  const completionRate = totalInspections
+    ? Math.round((inspections.filter((item) => /submitted|approved|verified/i.test(item.status)).length / totalInspections) * 100)
+    : 0;
+  const reinspectionCount = inspections.filter((item) => /re-?inspection/i.test(item.status)).length;
+  const analyticsSummary = [
+    {
+      label: "Verification",
+      value: `${verificationRate}%`,
+      detail: `${projects.filter((project) => project.verified).length} of ${projects.length} projects`,
+      progress: verificationRate,
+      icon: ShieldCheck,
+      iconClass: "bg-emerald-600 text-white",
+      barClass: "bg-emerald-600",
+      surfaceClass: "border-emerald-100 bg-emerald-50/65",
+    },
+    {
+      label: "Completion",
+      value: `${completionRate}%`,
+      detail: `${inspections.filter((item) => /submitted|approved|verified/i.test(item.status)).length} of ${totalInspections} inspections`,
+      progress: completionRate,
+      icon: CheckCircle2,
+      iconClass: "bg-violet-600 text-white",
+      barClass: "bg-violet-600",
+      surfaceClass: "border-violet-100 bg-violet-50/60",
+    },
+    {
+      label: "Re-Inspection",
+      value: reinspectionCount.toLocaleString(),
+      detail: reinspectionCount === 1 ? "case requiring another inspection" : "cases requiring another inspection",
+      progress: totalInspections ? Math.min(100, Math.round((reinspectionCount / totalInspections) * 100)) : 0,
+      icon: RotateCcw,
+      iconClass: "bg-rose-600 text-white",
+      barClass: "bg-rose-500",
+      surfaceClass: "border-rose-100 bg-rose-50/60",
+    },
+  ];
+
+  const cardMotion = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.35 } };
+
+  return <div className="space-y-4">
+    <motion.section {...cardMotion} className="overflow-hidden rounded-2xl border border-[#d7e7db] bg-white shadow-[0_8px_30px_rgba(23,59,42,0.06)]">
+      <div className="grid gap-0 xl:grid-cols-[minmax(280px,.78fr)_minmax(0,1.72fr)]">
+        <div className="relative overflow-hidden border-b border-[#e6eee8] bg-[linear-gradient(135deg,#f4faf6_0%,#ffffff_70%)] p-5 xl:border-b-0 xl:border-r">
+          <div className="absolute -right-8 -top-10 h-28 w-28 rounded-full bg-[#dff0e4]/65 blur-2xl" />
+          <div className="relative">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <span className="inline-flex items-center gap-2 rounded-full border border-[#cfe5d6] bg-white px-3 py-1 text-[9px] font-extrabold uppercase tracking-[0.13em] text-[#08733f] shadow-sm">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#08733f]" />
+                M&E Intelligence
+              </span>
+              <span className="rounded-full border border-slate-200 bg-white/90 px-2.5 py-1 text-[9px] font-bold text-slate-500">
+                {isMeAdmin ? "All M&E teams" : "Assigned portfolio"}
+              </span>
+            </div>
+            <h2 className="text-[20px] font-extrabold tracking-[-0.025em] text-[#173b2a]">Portfolio Analytics</h2>
+            <p className="mt-2 max-w-md text-[11px] leading-5 text-slate-500">
+              {isMeAdmin
+                ? "Live performance signals across all M&E teams and assigned projects."
+                : "Live performance signals from projects assigned to your M&E teams only."}
+            </p>
+            <div className="mt-4 flex items-center gap-2 text-[10px] font-semibold text-slate-400">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.08)]" />
+              Filters update every chart and metric on this page
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-3 p-4 sm:grid-cols-3 sm:p-5">
+          {analyticsSummary.map((metric, index) => {
+            const Icon = metric.icon;
+            return <motion.article
+              key={metric.label}
+              initial={{ opacity: 0, y: 10, scale: 0.985 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.32, delay: 0.06 + index * 0.05 }}
+              whileHover={{ y: -2 }}
+              className={`group rounded-2xl border p-3.5 shadow-[0_5px_16px_rgba(23,59,42,0.04)] transition-all hover:shadow-[0_9px_24px_rgba(23,59,42,0.08)] ${metric.surfaceClass}`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <span className={`flex h-9 w-9 items-center justify-center rounded-xl shadow-sm transition-transform duration-300 group-hover:scale-105 ${metric.iconClass}`}>
+                  <Icon className="h-4 w-4" />
+                </span>
+                <span className="text-[9px] font-bold uppercase tracking-[0.09em] text-slate-400">{metric.label}</span>
+              </div>
+              <div className="mt-4 flex items-end justify-between gap-3">
+                <p className="text-[27px] font-extrabold leading-none tracking-[-0.035em] text-[#173b2a]">{metric.value}</p>
+                <span className="text-[9px] font-bold text-slate-400">{metric.progress}%</span>
+              </div>
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/80 ring-1 ring-black/[0.03]">
+                <motion.div
+                  className={`h-full rounded-full ${metric.barClass}`}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${metric.progress}%` }}
+                  transition={{ duration: 0.7, delay: 0.15 + index * 0.06, ease: "easeOut" }}
+                />
+              </div>
+              <p className="mt-2 min-h-[30px] text-[9.5px] leading-[15px] text-slate-500">{metric.detail}</p>
+            </motion.article>;
+          })}
+        </div>
+      </div>
+    </motion.section>
+
+    <div className="grid gap-4 xl:grid-cols-2">
+      <AnalyticsPanel title="Verification Progress" subtitle="Verified versus pending projects" delay={0.04}>
+        {projects.length ? <div className="relative h-[280px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie data={analytics.verificationData} dataKey="value" nameKey="name" innerRadius={72} outerRadius={100} paddingAngle={3} isAnimationActive animationDuration={700}>
+                {analytics.verificationData.map((entry) => <Cell key={entry.name} fill={entry.fill} />)}
+              </Pie>
+              <Tooltip contentStyle={{ borderRadius: 12, borderColor: "#dce8df", fontSize: 12 }} />
+              <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <div className="mb-7 text-center"><p className="text-3xl font-extrabold text-[#173b2a]">{verificationRate}%</p><p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">verified</p></div>
+          </div>
+        </div> : <AnalyticsEmpty text="No assigned projects to analyse." />}
+      </AnalyticsPanel>
+
+      <AnalyticsPanel title="Inspection Status" subtitle="Current inspection workflow distribution" delay={0.08}>
+        {totalInspections ? <div className="h-[280px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={analytics.statusData} layout="vertical" margin={{ top: 8, right: 24, left: 16, bottom: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#edf1ee" />
+              <XAxis type="number" allowDecimals={false} tick={{ fontSize: 10 }} />
+              <YAxis type="category" dataKey="name" width={92} tick={{ fontSize: 10 }} />
+              <Tooltip contentStyle={{ borderRadius: 12, borderColor: "#dce8df", fontSize: 12 }} />
+              <Bar dataKey="value" radius={[0, 8, 8, 0]} isAnimationActive animationDuration={650}>
+                {analytics.statusData.map((entry) => <Cell key={entry.name} fill={entry.fill} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div> : <AnalyticsEmpty text="No inspection records in the current portfolio." />}
+      </AnalyticsPanel>
+    </div>
+
+    <AnalyticsPanel title="Programme Performance" subtitle="Projects, verification and re-inspection by programme" delay={0.12}>
+      {analytics.programmeData.length ? <div className="h-[320px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={analytics.programmeData} margin={{ top: 14, right: 18, left: -10, bottom: 4 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#edf1ee" />
+            <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+            <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
+            <Tooltip contentStyle={{ borderRadius: 12, borderColor: "#dce8df", fontSize: 12 }} />
+            <Legend wrapperStyle={{ fontSize: 11 }} />
+            <Bar dataKey="verified" name="Verified" stackId="projects" fill="#0b7a43" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={700} />
+            <Bar dataKey="pending" name="Pending" stackId="projects" fill="#e6a31a" isAnimationActive animationDuration={700} />
+            <Bar dataKey="reinspection" name="Re-Inspection" fill="#dc5c5c" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={700} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div> : <AnalyticsEmpty text="No programme data in the current portfolio." />}
+    </AnalyticsPanel>
+
+    <div className="grid gap-4 xl:grid-cols-[1.15fr_.85fr]">
+      <AnalyticsPanel title="Verification & Re-Inspection Trend" subtitle="Inspection records grouped by their latest recorded activity month" delay={0.16}>
+        {analytics.trendData.length ? <div className="h-[300px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={analytics.trendData} margin={{ top: 10, right: 16, left: -12, bottom: 4 }}>
+              <defs>
+                <linearGradient id="meVerified" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#0b7a43" stopOpacity={0.24}/><stop offset="95%" stopColor="#0b7a43" stopOpacity={0}/></linearGradient>
+                <linearGradient id="meReinspection" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#dc5c5c" stopOpacity={0.2}/><stop offset="95%" stopColor="#dc5c5c" stopOpacity={0}/></linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#edf1ee" />
+              <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
+              <Tooltip contentStyle={{ borderRadius: 12, borderColor: "#dce8df", fontSize: 12 }} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Area type="monotone" dataKey="verified" name="Verified" stroke="#0b7a43" fill="url(#meVerified)" strokeWidth={2.5} isAnimationActive animationDuration={850} />
+              <Area type="monotone" dataKey="reinspection" name="Re-Inspection" stroke="#dc5c5c" fill="url(#meReinspection)" strokeWidth={2.5} isAnimationActive animationDuration={850} />
+              <Line type="monotone" dataKey="submitted" name="Submitted" stroke="#7c3aed" strokeWidth={2} dot={{ r: 3 }} isAnimationActive animationDuration={850} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div> : <AnalyticsEmpty text="No dated inspection activity is available for a trend yet." />}
+      </AnalyticsPanel>
+
+      <AnalyticsPanel title="State Performance" subtitle="Largest assigned state portfolios and verification rate" delay={0.2}>
+        {analytics.stateData.length ? <div className="space-y-3 pt-2">
+          {analytics.stateData.map((state, index) => <motion.div key={state.name} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.28, delay: index * 0.035 }}>
+            <div className="mb-1.5 flex items-center justify-between gap-3"><div><span className="text-xs font-bold text-[#173b2a]">{state.name}</span><span className="ml-2 text-[10px] text-slate-400">{state.projects} projects</span></div><span className="text-xs font-extrabold text-[#08733f]">{state.verificationRate}%</span></div>
+            <div className="h-2 overflow-hidden rounded-full bg-slate-100"><motion.div className="h-full rounded-full bg-[#0b7a43]" initial={{ width: 0 }} animate={{ width: `${state.verificationRate}%` }} transition={{ duration: 0.65, delay: 0.08 + index * 0.035 }} /></div>
+          </motion.div>)}
+        </div> : <AnalyticsEmpty text="No state performance data available." />}
+      </AnalyticsPanel>
+    </div>
+
+    <div className={isMeAdmin ? "grid gap-4 xl:grid-cols-2" : "grid gap-4"}>
+      <AnalyticsPanel title="Contractor Performance" subtitle="Inspection workload, completed reviews and re-inspections" delay={0.24}>
+        {analytics.contractorData.length ? <div className="h-[330px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={analytics.contractorData} layout="vertical" margin={{ top: 6, right: 18, left: 30, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#edf1ee" />
+              <XAxis type="number" allowDecimals={false} tick={{ fontSize: 10 }} />
+              <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 9 }} />
+              <Tooltip contentStyle={{ borderRadius: 12, borderColor: "#dce8df", fontSize: 12 }} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Bar dataKey="completed" name="Completed" fill="#0b7a43" radius={[0, 6, 6, 0]} isAnimationActive animationDuration={700} />
+              <Bar dataKey="reinspection" name="Re-Inspection" fill="#dc5c5c" radius={[0, 6, 6, 0]} isAnimationActive animationDuration={700} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div> : <AnalyticsEmpty text="No contractor inspection data available." />}
+      </AnalyticsPanel>
+
+      {isMeAdmin && <AnalyticsPanel title="Team Performance" subtitle="Assigned projects, completed inspections and re-inspections" delay={0.28}>
+        {analytics.teamData.length ? <div className="h-[330px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={analytics.teamData} margin={{ top: 10, right: 18, left: -6, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#edf1ee" />
+              <XAxis dataKey="name" tick={{ fontSize: 9 }} interval={0} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
+              <Tooltip contentStyle={{ borderRadius: 12, borderColor: "#dce8df", fontSize: 12 }} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Bar dataKey="projects" name="Assigned projects" fill="#2563eb" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={720} />
+              <Bar dataKey="completed" name="Completed" fill="#0b7a43" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={720} />
+              <Bar dataKey="reinspection" name="Re-Inspection" fill="#dc5c5c" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={720} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div> : <AnalyticsEmpty text="Create M&E teams and assign projects to see team performance." />}
+      </AnalyticsPanel>}
+    </div>
+  </div>;
+}
+
+function AnalyticsPanel({ title, subtitle, delay, children }: { title: string; subtitle: string; delay: number; children: ReactNode }) {
+  return <motion.section
+    initial={{ opacity: 0, y: 14 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.38, delay }}
+    whileHover={{ y: -2 }}
+    className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_28px_rgba(23,59,42,0.06)] transition-shadow hover:shadow-[0_12px_34px_rgba(23,59,42,0.09)]"
+  >
+    <div className="flex items-center justify-between border-b border-[#edf2ee] px-5 py-4">
+      <div><h3 className="text-sm font-extrabold tracking-tight text-[#173b2a]">{title}</h3><p className="mt-1 text-[10px] leading-4 text-slate-500">{subtitle}</p></div>
+      <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#d7eadc] bg-[#f1f8f3] text-[#08733f]"><BarChart3 className="h-4 w-4" /></span>
+    </div>
+    <div className="p-4 sm:p-5">{children}</div>
+  </motion.section>;
+}
+
+function AnalyticsEmpty({ text }: { text: string }) {
+  return <div className="flex min-h-[220px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-[#fbfcfb] px-5 text-center text-xs text-slate-400">{text}</div>;
+}
