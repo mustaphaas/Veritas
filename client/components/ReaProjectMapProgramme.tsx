@@ -1339,7 +1339,28 @@ export default function ReaProjectMapProgrammeHost() {
 
   useEffect(() => {
     document.body.classList.toggle("veritas-project-map-open", open);
-    return () => document.body.classList.remove("veritas-project-map-open");
+    document.querySelectorAll<HTMLButtonElement>('nav button[aria-label="Overview"]').forEach((button) => {
+      if (open) {
+        button.dataset.veritasPreviousCurrent = button.getAttribute("aria-current") ?? "";
+        button.setAttribute("aria-current", "false");
+      } else if (button.dataset.veritasPreviousCurrent !== undefined) {
+        const previous = button.dataset.veritasPreviousCurrent;
+        if (previous) button.setAttribute("aria-current", previous);
+        else button.removeAttribute("aria-current");
+        delete button.dataset.veritasPreviousCurrent;
+      }
+    });
+    return () => {
+      document.body.classList.remove("veritas-project-map-open");
+      document.querySelectorAll<HTMLButtonElement>('nav button[aria-label="Overview"]').forEach((button) => {
+        const previous = button.dataset.veritasPreviousCurrent;
+        if (previous !== undefined) {
+          if (previous) button.setAttribute("aria-current", previous);
+          else button.removeAttribute("aria-current");
+          delete button.dataset.veritasPreviousCurrent;
+        }
+      });
+    };
   }, [open]);
 
   useEffect(() => {
