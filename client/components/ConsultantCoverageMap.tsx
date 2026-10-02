@@ -79,11 +79,14 @@ function pointOnSegment(
   const [x, y] = point;
   const [x1, y1] = start;
   const [x2, y2] = end;
+  const lengthSquared = (x2 - x1) ** 2 + (y2 - y1) ** 2;
+  if (lengthSquared <= Number.EPSILON) {
+    return Math.abs(x - x1) <= 1e-9 && Math.abs(y - y1) <= 1e-9;
+  }
   const cross = (y - y1) * (x2 - x1) - (x - x1) * (y2 - y1);
   if (Math.abs(cross) > 1e-9) return false;
   const dot = (x - x1) * (x2 - x1) + (y - y1) * (y2 - y1);
   if (dot < 0) return false;
-  const lengthSquared = (x2 - x1) ** 2 + (y2 - y1) ** 2;
   return dot <= lengthSquared;
 }
 
