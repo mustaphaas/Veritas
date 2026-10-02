@@ -24,7 +24,7 @@ test("M&E Analytics uses charts and restrained motion", () => {
 
 test("M&E Admin gets team performance while officers remain assignment scoped", () => {
   assert.match(page, /isMeAdmin && <AnalyticsPanel title="Team Performance"/);
-  assert.match(page, /Analytics is limited to projects assigned to your M&E teams/);
+  assert.match(page, /assigned to your M&E teams only/);
 });
 
 test("Re-Inspection analytics counts actual re-inspection statuses", () => {
