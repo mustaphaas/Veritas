@@ -58,7 +58,7 @@ describe("ConsultantCoverageMap", () => {
     expect(pointInFeature([8.5, 10.5], lgaFeature)).toBe(false);
   });
 
-  it("drills from state to LGA and selects the project", async () => {
+  it("renders Esri coverage and selects a project from the consultant portfolio", async () => {
     render(
       <ConsultantCoverageMap
         assignments={[assignment]}
@@ -70,13 +70,7 @@ describe("ConsultantCoverageMap", () => {
       />,
     );
 
-    const state = await screen.findByTestId("consultant-map-state-Kaduna");
-    fireEvent.click(state);
-
-    const lga = await screen.findByTestId("consultant-map-lga-Igabi");
-    fireEvent.click(lga);
-
-    expect(await screen.findByRole("img", { name: "Igabi project locations" })).toBeTruthy();
+    expect(await screen.findByTestId("consultant-esri-map")).toBeTruthy();
 
     fireEvent.click(screen.getByTestId("consultant-map-project-assignment-1"));
 
@@ -89,6 +83,8 @@ describe("ConsultantCoverageMap", () => {
         "Wrong stored LGA",
       );
     });
+
+    expect(screen.getByText("Igabi · Project locations")).toBeTruthy();
   });
 
   it("applies filters passed through React props", async () => {
@@ -103,7 +99,7 @@ describe("ConsultantCoverageMap", () => {
       />,
     );
 
-    await screen.findByTestId("consultant-map-state-Kaduna");
+    await screen.findByTestId("consultant-esri-map");
     expect(screen.queryByTestId("consultant-map-project-assignment-1")).toBeNull();
     expect(screen.getByText("No consultant projects match the current filters.")).toBeTruthy();
   });
