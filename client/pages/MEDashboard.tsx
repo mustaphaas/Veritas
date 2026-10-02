@@ -18,6 +18,7 @@ import {
   Menu,
   Search,
   ShieldCheck,
+  UserPlus,
   UsersRound,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
@@ -41,10 +42,16 @@ type Inspection = {
   form?: Record<string, string>;
 };
 
-type Tab = "Overview" | "Projects" | "Inspections" | "Verification" | "Findings" | "Analytics" | "Reports";
+type MeMember = { id: string; name: string; email: string };
+type MeTeam = { id: string; name: string; teamLeadId: string; teamLeadName: string; status: string; members: MeMember[] };
+type MeStaff = { id: string; name: string; email: string; role: string };
+type MePayload = { currentUserId: string; staffRole?: string; staff?: MeStaff[]; teams?: MeTeam[]; projects?: Array<{id:string;name:string;programme:string;component:string;contractor:string;state:string;lga:string;community:string}>; inspections?: Inspection[] };
 
-const navigation: Array<{ label: Tab; icon: typeof LayoutDashboard }> = [
+type Tab = "Overview" | "Teams" | "Projects" | "Inspections" | "Verification" | "Findings" | "Analytics" | "Reports";
+
+const navigation: Array<{ label: Tab; icon: typeof LayoutDashboard; adminOnly?: boolean }> = [
   { label: "Overview", icon: LayoutDashboard },
+  { label: "Teams", icon: UsersRound, adminOnly: true },
   { label: "Projects", icon: FolderKanban },
   { label: "Inspections", icon: ClipboardCheck },
   { label: "Verification", icon: FileCheck2 },
@@ -53,13 +60,24 @@ const navigation: Array<{ label: Tab; icon: typeof LayoutDashboard }> = [
   { label: "Reports", icon: FileText },
 ];
 
-async function fetchInspectionPortfolio(token: string) {
+async function fetchMeWorkspace(token: string): Promise<MePayload> {
   const response = await fetch("/api/field/rea-inspections", {
     headers: { Authorization: `Bearer ${token}` },
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || "Unable to load M&E inspection data.");
-  return Array.isArray(payload.inspections) ? payload.inspections as Inspection[] : [];
+  return payload as MePayload;
+}
+
+async function meMutation(token: string, path: string, body?: unknown, method = "POST") {
+  const response = await fetch(path, {
+    method,
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || "Unable to update the M&E workspace.");
+  return payload;
 }
 
 function statusTone(status: string) {
@@ -76,31 +94,50 @@ export default function MEDashboard() {
   const [activeTab, setActiveTab] = useState<Tab>("Overview");
   const [projects, setProjects] = useState<Project[]>([]);
   const [inspections, setInspections] = useState<Inspection[]>([]);
+  const [teams, setTeams] = useState<MeTeam[]>([]);
+  const [staff, setStaff] = useState<MeStaff[]>([]);
+  const [workspaceRole, setWorkspaceRole] = useState(session?.roleLabel || "");
+  const [teamName, setTeamName] = useState("");
+  const [teamLeadId, setTeamLeadId] = useState("");
+  const [memberIds, setMemberIds] = useState<string[]>([]);
+  const [selectedTeamId, setSelectedTeamId] = useState("");
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [adminSaving, setAdminSaving] = useState(false);
+  const [adminMessage, setAdminMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [programmeFilter, setProgrammeFilter] = useState("All programmes");
   const [stateFilter, setStateFilter] = useState("All states");
 
-  useEffect(() => {
+  const loadWorkspace = async () => {
     if (!session?.apiToken) return;
-    let cancelled = false;
     setLoading(true);
     setError("");
-    Promise.all([
-      fetchReaMapProjects(session.apiToken).then((records) => records.map(reaRecordToDashboardProject)),
-      fetchInspectionPortfolio(session.apiToken),
-    ]).then(([projectRecords, inspectionRecords]) => {
-      if (cancelled) return;
+    try {
+      const [projectRecords, workspace] = await Promise.all([
+        fetchReaMapProjects(session.apiToken).then((records) => records.map(reaRecordToDashboardProject)),
+        fetchMeWorkspace(session.apiToken),
+      ]);
       setProjects(projectRecords);
-      setInspections(inspectionRecords);
-    }).catch((reason) => {
-      if (!cancelled) setError(reason instanceof Error ? reason.message : "Unable to load the M&E workspace.");
-    }).finally(() => {
-      if (!cancelled) setLoading(false);
-    });
-    return () => { cancelled = true; };
+      setInspections(Array.isArray(workspace.inspections) ? workspace.inspections : []);
+      setTeams(Array.isArray(workspace.teams) ? workspace.teams : []);
+      setStaff(Array.isArray(workspace.staff) ? workspace.staff : []);
+      setWorkspaceRole(workspace.staffRole || session.roleLabel || "");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to load the M&E workspace.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadWorkspace();
   }, [session?.apiToken]);
+
+  const isMeAdmin = workspaceRole === "M&E Admin";
+  const visibleNavigation = navigation.filter((item) => !item.adminOnly || isMeAdmin);
 
   const programmeOptions = useMemo(() => ["All programmes", ...[...new Set(projects.map((project) => project.programme).filter(Boolean))].sort()], [projects]);
   const stateOptions = useMemo(() => ["All states", ...[...new Set(projects.map((project) => project.state).filter(Boolean))].sort()], [projects]);
@@ -168,6 +205,30 @@ export default function MEDashboard() {
     { label: "Projects at Risk", value: inspectionSummary.flagged, detail: "Findings or reinspection signals", icon: AlertTriangle, card: "border-rose-200 bg-rose-50", iconClass: "bg-rose-600 text-white", valueClass: "text-rose-800" },
   ];
 
+  const createTeam = async () => {
+    if (!session?.apiToken || !teamName.trim() || !teamLeadId) return;
+    setAdminSaving(true); setAdminMessage(""); setError("");
+    try {
+      await meMutation(session.apiToken, "/api/field/rea-inspections/teams", { name: teamName.trim(), teamLeadId, memberIds });
+      setTeamName(""); setTeamLeadId(""); setMemberIds([]); setAdminMessage("M&E team created.");
+      await loadWorkspace();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to create M&E team.");
+    } finally { setAdminSaving(false); }
+  };
+
+  const assignProject = async () => {
+    if (!session?.apiToken || !selectedTeamId || !selectedProjectId) return;
+    setAdminSaving(true); setAdminMessage(""); setError("");
+    try {
+      await meMutation(session.apiToken, "/api/field/rea-inspections/assign", { teamId: selectedTeamId, projectId: selectedProjectId, dueDate: dueDate || null });
+      setSelectedProjectId(""); setDueDate(""); setAdminMessage("Project assigned to M&E team.");
+      await loadWorkspace();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to assign project.");
+    } finally { setAdminSaving(false); }
+  };
+
   const resetFilters = () => {
     setQuery("");
     setProgrammeFilter("All programmes");
@@ -182,7 +243,7 @@ export default function MEDashboard() {
             <button className="rounded-md p-2 text-slate-600 hover:bg-slate-100" aria-label="Open navigation"><Menu className="h-5 w-5" /></button>
             <div>
               <h1 className="text-lg font-bold tracking-tight text-[#142a1f] sm:text-[22px]">M&E Dashboard</h1>
-              <p className="mt-1 hidden text-xs text-slate-500 sm:block">Monitor programme delivery, inspections, verification and project risk across Nigeria.</p>
+              <p className="mt-1 hidden text-xs text-slate-500 sm:block">Monitor assigned M&E team portfolios, inspections, verification and project risk.</p>
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
@@ -196,7 +257,7 @@ export default function MEDashboard() {
 
         <nav className="veritas-rea-side-rail border-b border-slate-200 bg-white" aria-label="M&E dashboard navigation">
           <div className="veritas-rea-side-rail-inner mx-auto flex max-w-[1580px] items-center gap-1 overflow-x-auto px-4 sm:px-7 lg:px-7">
-            {navigation.map(({ label, icon: Icon }) => {
+            {visibleNavigation.map(({ label, icon: Icon }) => {
               const active = activeTab === label;
               return <button key={label} type="button" onClick={() => setActiveTab(label)} aria-current={active ? "page" : undefined} aria-label={label} className={`group flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-xs font-bold transition-all duration-300 ease-out ${active ? "border-[#08733f] text-[#08733f]" : "border-transparent text-slate-500 hover:border-[#b8dfc5] hover:text-[#173b2a]"}`}>
                 <Icon className="h-4 w-4" /><span className="veritas-rea-nav-label">{label}</span>
@@ -208,6 +269,7 @@ export default function MEDashboard() {
         <div className="veritas-dashboard-content mx-auto max-w-[1580px] px-4 py-0 sm:px-7 lg:px-7">
           {error && <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-semibold text-rose-700">{error}</div>}
           {loading && <div className="mt-3 rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs text-slate-500">Loading live M&E portfolio…</div>}
+          {adminMessage && <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700">{adminMessage}</div>}
 
           <section className="veritas-overview-filter-bar mt-0 rounded-xl border border-[#d6e9da] bg-[#f7fcf8] p-4">
             <div className="grid gap-4 md:grid-cols-[minmax(0,1.6fr)_minmax(180px,.7fr)_minmax(180px,.7fr)_140px] md:items-end">
@@ -219,6 +281,7 @@ export default function MEDashboard() {
           </section>
 
           {activeTab === "Overview" && <>
+            <div className="mt-3 flex items-center justify-between rounded-lg border border-[#d6e9da] bg-white px-4 py-2.5 text-xs"><span className="font-semibold text-[#173b2a]">{isMeAdmin ? "M&E Admin national management view" : "Your portfolio is limited to projects assigned to your M&E teams."}</span><span className="text-slate-500">{teams.length} team{teams.length === 1 ? "" : "s"} · {projects.length} project{projects.length === 1 ? "" : "s"}</span></div>
             <section className="veritas-overview-kpis mt-3 flex gap-3 overflow-x-auto pb-1">
               {kpis.map(({ label, value, detail, icon: Icon, card, iconClass, valueClass }) => <article key={label} className={`veritas-overview-kpi-card min-h-[108px] min-w-[210px] flex-1 rounded-xl border p-3.5 text-left shadow-sm ${card}`}><div className="flex h-full items-start gap-3"><div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-sm ${iconClass}`}><Icon className="h-5 w-5"/></div><div className="min-w-0 flex-1"><p className="text-xs font-bold text-slate-700">{label}</p><p className={`mt-1.5 text-[22px] font-bold leading-none tracking-tight ${valueClass}`}>{value.toLocaleString()}</p><p className="mt-2 text-[10px] leading-4 text-slate-600">{detail}</p></div></div></article>)}
             </section>
@@ -239,6 +302,28 @@ export default function MEDashboard() {
           </>}
 
           <div className={activeTab === "Overview" ? "pb-8" : "py-4"}>
+            {activeTab === "Teams" && isMeAdmin && <div className="grid gap-4 xl:grid-cols-[.9fr_1.1fr]">
+              <section className="veritas-data-panel rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#cce5d4] bg-[#eef8f1] text-[#08733f]"><UserPlus className="h-4 w-4"/></span><div><h2 className="text-base font-bold text-[#173b2a]">Create M&E Team</h2><p className="mt-1 text-xs text-slate-500">Choose a team lead and the officers who will share the assigned project portfolio.</p></div></div>
+                <div className="mt-5 grid gap-3">
+                  <input value={teamName} onChange={(e)=>setTeamName(e.target.value)} placeholder="Team name" className="h-10 rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-[#08733f]"/>
+                  <select value={teamLeadId} onChange={(e)=>{setTeamLeadId(e.target.value);setMemberIds((current)=>current.includes(e.target.value)?current:[...current,e.target.value].filter(Boolean));}} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-[#08733f]"><option value="">Select team lead</option>{staff.map((person)=><option key={person.id} value={person.id}>{person.name} · {person.role}</option>)}</select>
+                  <div className="rounded-xl border border-slate-200 p-3"><p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-slate-500">Team members</p><div className="grid gap-2 sm:grid-cols-2">{staff.map((person)=><label key={person.id} className="flex items-center gap-2 rounded-lg border border-slate-100 p-2 text-xs text-slate-600"><input type="checkbox" checked={memberIds.includes(person.id)} onChange={()=>setMemberIds((current)=>current.includes(person.id)?current.filter((id)=>id!==person.id):[...current,person.id])}/><span>{person.name}<small className="ml-1 text-slate-400">({person.role})</small></span></label>)}</div></div>
+                  <button type="button" disabled={adminSaving || !teamName.trim() || !teamLeadId} onClick={()=>void createTeam()} className="h-10 rounded-lg bg-[#08733f] px-4 text-xs font-bold text-white disabled:opacity-50">Create Team</button>
+                </div>
+              </section>
+
+              <section className="veritas-data-panel rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#cce5d4] bg-[#eef8f1] text-[#08733f]"><FolderKanban className="h-4 w-4"/></span><div><h2 className="text-base font-bold text-[#173b2a]">Assign Project to Team</h2><p className="mt-1 text-xs text-slate-500">Officers will only see projects assigned to teams they belong to.</p></div></div>
+                <div className="mt-5 grid gap-3 md:grid-cols-2">
+                  <select value={selectedTeamId} onChange={(e)=>setSelectedTeamId(e.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-[#08733f]"><option value="">Select M&E team</option>{teams.filter((team)=>team.status==="Active").map((team)=><option key={team.id} value={team.id}>{team.name}</option>)}</select>
+                  <select value={selectedProjectId} onChange={(e)=>setSelectedProjectId(e.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-[#08733f]"><option value="">Select project</option>{projects.map((project)=><option key={project.id} value={project.id}>{project.name} · {project.state}</option>)}</select>
+                  <input type="date" value={dueDate} onChange={(e)=>setDueDate(e.target.value)} className="h-10 rounded-lg border border-slate-200 px-3 text-xs outline-none focus:border-[#08733f]"/>
+                  <button type="button" disabled={adminSaving || !selectedTeamId || !selectedProjectId} onClick={()=>void assignProject()} className="h-10 rounded-lg bg-[#08733f] px-4 text-xs font-bold text-white disabled:opacity-50">Assign Project</button>
+                </div>
+                <div className="mt-5 overflow-x-auto rounded-xl border border-slate-200"><table className="veritas-data-table w-full min-w-[620px] text-left"><thead><tr><th className="px-4 py-3">Team</th><th className="px-4 py-3">Lead</th><th className="px-4 py-3">Members</th><th className="px-4 py-3">Assigned projects</th></tr></thead><tbody>{teams.map((team)=><tr key={team.id}><td className="px-4 py-3 text-xs font-bold text-[#173b2a]">{team.name}</td><td className="px-4 py-3 text-xs">{team.teamLeadName}</td><td className="px-4 py-3 text-xs">{team.members.length}</td><td className="px-4 py-3 text-xs">{inspections.filter((inspection)=>inspection.teamName===team.name).length}</td></tr>)}</tbody></table></div>
+              </section>
+            </div>}
             {activeTab === "Projects" && <DataTableProjects projects={visibleProjects}/>}
             {activeTab === "Inspections" && <DataTableInspections inspections={visibleInspections}/>}
             {activeTab === "Verification" && <DataTableProjects projects={visibleProjects.filter((project)=>!project.verified)} verificationMode/>}
