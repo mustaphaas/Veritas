@@ -478,15 +478,15 @@ export default function Index() {
           <section className="mt-3 flex gap-3 overflow-x-auto pb-1">{metrics.map(({ label, value, detail, icon: Icon, action }) => { const palette = label === "Installed Capacity" ? { card: "border-emerald-200 bg-emerald-50", icon: "bg-emerald-700 text-white", value: "text-emerald-800", progress: "bg-emerald-700" } : label === "Projects" ? { card: "border-sky-200 bg-sky-50", icon: "bg-sky-600 text-white", value: "text-sky-800", progress: "bg-sky-600" } : label === "Households Reached" ? { card: "border-violet-200 bg-violet-50", icon: "bg-violet-600 text-white", value: "text-violet-800", progress: "bg-violet-600" } : label === "Verification Rate" ? { card: "border-cyan-200 bg-cyan-50", icon: "bg-cyan-700 text-white", value: "text-cyan-800", progress: "bg-cyan-700" } : { card: "border-orange-200 bg-orange-50", icon: "bg-orange-600 text-white", value: "text-orange-800", progress: "bg-orange-600" }; const cardClassName = `min-h-[108px] min-w-[210px] flex-1 rounded-xl border p-3.5 text-left shadow-sm ${palette.card}`; const cardContent = <div className="flex h-full items-start gap-3"><div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-sm ${palette.icon}`}><Icon className="h-5 w-5" /></div><div className="min-w-0 flex-1"><p className="text-xs font-bold text-slate-700">{label}</p><p className={`mt-1.5 text-[22px] font-bold leading-none tracking-tight ${palette.value}`}>{value}</p><p className="mt-2 text-[10px] leading-4 text-slate-600">{detail}</p>{label === "Verification Rate" && <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/80"><div className={`h-full rounded-full ${palette.progress}`} style={{ width: value }} /></div>}</div></div>; return action ? <button key={label} type="button" onClick={() => setActiveNav(action)} className={cardClassName} aria-label={`${label}: ${value}. Open verification queue`}>{cardContent}</button> : <article key={label} className={cardClassName}>{cardContent}</article>; })}</section>
           <div className="mt-4 grid items-start gap-4">
             <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-              <div className="border-b border-[#e3ece6] bg-gradient-to-r from-white via-[#fbfefc] to-[#f3faf5] px-5 py-5">
-                <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+              <div className="border-b border-[#e3ece6] bg-white px-5 py-4">
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                   <div>
                     <div className="flex items-center gap-3">
-                      <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[#cce5d4] bg-[#eaf8ef] text-[#08733f] shadow-sm"><MapIcon className="h-5 w-5" /></span>
+                      <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#cce5d4] bg-[#eef8f1] text-[#08733f]"><MapIcon className="h-4 w-4" /></span>
                       <div><h2 className="text-base font-bold tracking-[-0.01em] text-[#173b2a]">National Project Coverage</h2><p className="mt-1 text-xs text-slate-500">Explore national delivery by project count, installed capacity, or households reached</p></div>
                     </div>
                   </div>
-                  <div className="grid w-full gap-3 sm:grid-cols-3 xl:max-w-[760px]" aria-label="Map viewing mode">
+                  <div className="grid w-full gap-2 sm:grid-cols-3 xl:max-w-[570px]" aria-label="Map viewing mode">
                     {mapModeOptions.map((option) => {
                       const selected = mapMode === option.value;
                       const palette = option.value === "projects"
@@ -495,10 +495,10 @@ export default function Index() {
                           ? { card: "border-[#cbdcf0] bg-gradient-to-br from-[#eef5fc] to-white", icon: "bg-[#3772ad] text-white", text: "text-[#285f96]", ring: "shadow-[0_10px_24px_rgba(55,114,173,.12)]", hint: "Installed capacity" }
                           : { card: "border-[#ebd8a9] bg-gradient-to-br from-[#fff8e8] to-white", icon: "bg-[#d28a00] text-white", text: "text-[#a96f00]", ring: "shadow-[0_10px_24px_rgba(210,138,0,.12)]", hint: "Beneficiary reach" };
                       const Icon = option.value === "projects" ? FolderKanban : option.value === "capacity" ? Zap : Home;
-                      return <button key={option.value} type="button" onClick={() => setMapMode(option.value)} aria-pressed={selected} className={`group flex min-h-[76px] items-center gap-3 rounded-2xl border p-3 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${palette.card} ${selected ? `ring-2 ring-white ${palette.ring}` : "opacity-90 hover:opacity-100"}`}>
-                        <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl shadow-sm transition-transform duration-300 group-hover:scale-105 ${palette.icon}`}><Icon className="h-5 w-5" /></span>
-                        <span className="min-w-0"><strong className={`block text-[12px] font-extrabold ${palette.text}`}>{option.label.replace("View by ", "")}</strong><span className="mt-1 block text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-400">{palette.hint}</span></span>
-                        <span className={`ml-auto h-2.5 w-2.5 shrink-0 rounded-full transition-all ${selected ? palette.icon.split(" ")[0] + " ring-4 ring-white" : "bg-slate-200"}`} />
+                      return <button key={option.value} type="button" onClick={() => setMapMode(option.value)} aria-pressed={selected} className={`group flex min-h-[54px] items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left transition-all duration-200 hover:border-[#aacfb6] hover:bg-white ${palette.card} ${selected ? `ring-1 ring-[#cfe7d6] ${palette.ring}` : "opacity-95 hover:opacity-100"}`}>
+                        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105 ${palette.icon}`}><Icon className="h-4 w-4" /></span>
+                        <span className="min-w-0"><strong className={`block text-[11px] font-bold leading-tight ${palette.text}`}>{option.label.replace("View by ", "")}</strong><span className="mt-0.5 block text-[8.5px] font-medium tracking-[0.03em] text-slate-400">{palette.hint}</span></span>
+                        <span className={`ml-auto h-2 w-2 shrink-0 rounded-full transition-all ${selected ? palette.icon.split(" ")[0] + " ring-2 ring-white" : "bg-slate-200"}`} />
                       </button>;
                     })}
                   </div>
