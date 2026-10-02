@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -10,7 +10,6 @@ import {
   Cell,
   Legend,
   Line,
-  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -635,7 +634,7 @@ function MEAnalytics({
   </div>;
 }
 
-function AnalyticsPanel({ title, subtitle, delay, children }: { title: string; subtitle: string; delay: number; children: React.ReactNode }) {
+function AnalyticsPanel({ title, subtitle, delay, children }: { title: string; subtitle: string; delay: number; children: ReactNode }) {
   return <motion.section
     initial={{ opacity: 0, y: 14 }}
     animate={{ opacity: 1, y: 0 }}
