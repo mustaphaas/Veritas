@@ -486,9 +486,9 @@ export default function Index() {
                       <div><h2 className="text-base font-bold tracking-[-0.01em] text-[#173b2a]">National Project Coverage</h2><p className="mt-1 text-xs text-slate-500">Explore national delivery by project count, installed capacity, or households reached</p></div>
                     </div>
                   </div>
-                  <div className="flex w-full flex-col gap-1.5 xl:max-w-[520px]">
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">View coverage by</span>
-                    <div className="grid grid-cols-3 gap-1 rounded-xl border border-[#dce7df] bg-[#f6f9f7] p-1" aria-label="Map viewing mode">
+                  <div className="flex w-fit max-w-full items-center gap-2">
+                    <span className="shrink-0 whitespace-nowrap text-[9.5px] font-semibold uppercase tracking-[0.06em] text-slate-400">View coverage by</span>
+                    <div className="grid grid-cols-3 gap-0.5 rounded-xl border border-[#dce7df] bg-[#f6f9f7] p-1" aria-label="Map viewing mode">
                       {mapModeOptions.map((option) => {
                         const selected = mapMode === option.value;
                         const palette = option.value === "projects"
@@ -497,9 +497,9 @@ export default function Index() {
                             ? { active: "bg-white text-[#285f96] shadow-sm", icon: "bg-[#edf4fb] text-[#3772ad]", hint: "Installed capacity" }
                             : { active: "bg-white text-[#9b6800] shadow-sm", icon: "bg-[#fff5dc] text-[#c98300]", hint: "Beneficiary reach" };
                         const Icon = option.value === "projects" ? FolderKanban : option.value === "capacity" ? Zap : Home;
-                        return <button key={option.value} type="button" onClick={() => setMapMode(option.value)} aria-pressed={selected} className={`group flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-all duration-200 ${selected ? palette.active : "text-slate-500 hover:bg-white/70"}`}>
-                          <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${palette.icon}`}><Icon className="h-3.5 w-3.5" /></span>
-                          <span className="min-w-0"><strong className="block truncate text-[10.5px] font-bold leading-tight">{option.shortLabel}{option.value === "capacity" ? " (MW)" : ""}</strong><span className="mt-0.5 block truncate text-[8px] font-medium text-slate-400">{palette.hint}</span></span>
+                        return <button key={option.value} type="button" onClick={() => setMapMode(option.value)} aria-pressed={selected} className={`group flex min-w-0 items-center gap-1.5 rounded-lg px-1.5 py-1 text-left transition-all duration-200 ${selected ? palette.active : "text-slate-500 hover:bg-white/70"}`}>
+                          <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${palette.icon}`}><Icon className="h-3 w-3" /></span>
+                          <span className="min-w-0"><strong className="block truncate text-[10px] font-bold leading-tight">{option.shortLabel}{option.value === "capacity" ? " (MW)" : ""}</strong><span className="mt-px block truncate text-[7.5px] font-medium text-slate-400">{palette.hint}</span></span>
                         </button>;
                       })}
                     </div>
