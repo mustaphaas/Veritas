@@ -1,9 +1,9 @@
 .veritas-footer {
   position: relative !important;
   overflow: hidden !important;
-  background: #eef9f1 !important;
+  background: #ffffff !important;
   color: #405b4a !important;
-  border-top-color: #cfe8d6 !important;
+  border-top-color: #d9e7dd !important;
 }
 .veritas-footer > div:first-child {
   background: transparent !important;
@@ -28,8 +28,8 @@
   background-color: rgba(255, 255, 255, 0.76) !important;
 }
 .veritas-footer > div:last-child {
-  border-top-color: #cfe4d5 !important;
-  background: rgba(228, 244, 233, 0.92) !important;
+  border-top-color: #e2ebe4 !important;
+  background: #f8fbf9 !important;
 }
 .veritas-footer > div:last-child p {
   color: #5a7463 !important;
