@@ -1,5 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import {
   Activity,
   AlertTriangle,
@@ -249,7 +267,7 @@ export default function MEDashboard() {
           <div className="flex items-center gap-2 sm:gap-4">
             <span className="hidden items-center gap-2 text-xs font-semibold text-[#08733f] md:flex"><i className="h-2 w-2 rounded-full bg-[#08733f]" />Live data</span>
             <span className="hidden border-l border-slate-200 pl-4 text-xs text-slate-500 xl:block">Monitoring & Evaluation</span>
-            <button className="relative rounded-md p-2 text-slate-500 hover:bg-slate-100" aria-label="Notifications"><Bell className="h-5 w-5" /><span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full border border-white bg-[#df7d00] px-1 text-[8px] font-bold text-white">{inspectionSummary.flagged}</span></button>
+            <button className="relative rounded-md p-2 text-slate-500 hover:bg-slate-100" aria-label="Notifications"><Bell className="h-5 w-5" /><span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full border border-white bg-[#df7d00] px-1 text-[8px] font-bold text-white">{inspectionSummary.reinspection}</span></button>
             <div className="hidden items-center gap-2 sm:flex"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500"><UsersRound className="h-5 w-5" /></div><span className="hidden text-xs font-semibold text-[#142a1f] xl:inline">{session?.name ?? "M&E Officer"}</span></div>
             <button type="button" onClick={() => { logout(); navigate("/login", { replace: true }); }} className="flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-[11px] font-bold text-slate-600 hover:border-[#e2b5b5] hover:bg-red-50 hover:text-red-700"><LogOut className="h-4 w-4" /><span className="hidden xl:inline">Logout</span></button>
           </div>
@@ -295,7 +313,7 @@ export default function MEDashboard() {
               <section className="veritas-overview-panel overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                 <div className="flex items-center justify-between border-b border-[#e3ece6] bg-white px-5 py-4"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#f1d7b2] bg-[#fff8ed] text-[#c87812]"><Activity className="h-4 w-4"/></span><div><h2 className="text-base font-bold tracking-[-0.01em] text-[#173b2a]">Monitoring Attention</h2><p className="mt-1 text-xs text-slate-500">Items requiring M&E review</p></div></div></div>
                 <div className="space-y-2 p-4">
-                  {[["Pending verification", totals.pending],["Submitted inspections", inspectionSummary.submitted],["In progress inspections", inspectionSummary.inProgress],["Re-Inspection", inspectionSummary.flagged]].map(([label,value])=><div key={String(label)} className="flex items-center justify-between rounded-lg border border-slate-100 bg-[#fafcfb] px-3 py-3"><span className="text-xs font-semibold text-slate-600">{label}</span><span className="text-sm font-bold text-[#173b2a]">{Number(value).toLocaleString()}</span></div>)}
+                  {[["Pending verification", totals.pending],["Submitted inspections", inspectionSummary.submitted],["In progress inspections", inspectionSummary.inProgress],["Re-Inspection", inspectionSummary.reinspection]].map(([label,value])=><div key={String(label)} className="flex items-center justify-between rounded-lg border border-slate-100 bg-[#fafcfb] px-3 py-3"><span className="text-xs font-semibold text-slate-600">{label}</span><span className="text-sm font-bold text-[#173b2a]">{Number(value).toLocaleString()}</span></div>)}
                 </div>
               </section>
             </div>
@@ -330,9 +348,13 @@ export default function MEDashboard() {
 
             {activeTab === "Findings" && <section className="veritas-data-panel overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div className="border-b border-[#e3ece6] px-5 py-4"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 text-rose-600"><AlertTriangle className="h-4 w-4"/></span><div><h2 className="text-base font-bold text-[#173b2a]">Findings & Corrective Attention</h2><p className="mt-1 text-xs text-slate-500">Read-only register of inspection records with outstanding or risk signals.</p></div></div></div>{findings.length ? <div className="divide-y divide-slate-100">{findings.map((item)=><div key={item.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"><div><p className="text-xs font-bold text-[#173b2a]">{item.projectName}</p><p className="mt-1 text-[10px] text-slate-500">{item.state} · {item.lga} · {item.teamName || "Inspection team"}</p></div><span className={`rounded-full border px-2 py-1 text-[10px] font-bold ${statusTone(item.status)}`}>{item.status}</span></div>)}</div> : <div className="p-8 text-center text-xs text-slate-500">No risk or corrective-action signals are currently recorded.</div>}</section>}
 
-            {activeTab === "Analytics" && <div className="veritas-kpi-grid grid gap-3 lg:grid-cols-3">
-              {[["Verification rate", `${totals.verificationRate}%`, "Share of projects verified"],["Inspection completion", filteredInspections.length ? `${Math.round(((inspectionSummary.submitted + inspectionSummary.verified) / filteredInspections.length) * 100)}%` : "0%", "Submitted or completed inspections"],["Re-Inspection", inspectionSummary.flagged.toLocaleString(), "Inspections returned for re-inspection"]].map(([label,value,detail])=><article key={label} className="veritas-kpi-card p-4"><p className="text-xs font-bold text-slate-600">{label}</p><p className="mt-2 text-[28px] font-bold tracking-tight text-[#173b2a]">{value}</p><p className="mt-2 text-[10px] text-slate-500">{detail}</p></article>)}
-            </div>}
+            {activeTab === "Analytics" && <MEAnalytics
+              projects={filteredProjects}
+              inspections={filteredInspections}
+              teams={teams}
+              isMeAdmin={isMeAdmin}
+              verificationRate={totals.verificationRate}
+            />}
 
             {activeTab === "Reports" && <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {["Monthly M&E Report","Programme Performance Report","State Performance Report","Re-Inspection Report","Outstanding Findings Report","Verification Progress Report"].map((report)=><article key={report} className="veritas-entity-card rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#cce5d4] bg-[#eef8f1] text-[#08733f]"><FileText className="h-4 w-4"/></span><h3 className="mt-3 text-sm font-bold text-[#173b2a]">{report}</h3><p className="mt-2 text-xs leading-5 text-slate-500">Prepared for M&E monitoring and management review using the current filtered portfolio.</p></article>)}
@@ -350,4 +372,285 @@ function DataTableProjects({ projects, verificationMode = false }: { projects: P
 
 function DataTableInspections({ inspections }: { inspections: Inspection[] }) {
   return <section className="veritas-data-panel overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center justify-between border-b border-[#e3ece6] px-5 py-4"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#cce5d4] bg-[#eef8f1] text-[#08733f]"><CheckCircle2 className="h-4 w-4"/></span><div><h2 className="text-base font-bold text-[#173b2a]">Inspection Monitoring</h2><p className="mt-1 text-xs text-slate-500">{inspections.length.toLocaleString()} inspection records</p></div></div></div><div className="overflow-x-auto"><table className="veritas-data-table w-full min-w-[900px] text-left"><thead><tr><th className="px-5 py-3">Project</th><th className="px-5 py-3">Programme</th><th className="px-5 py-3">Location</th><th className="px-5 py-3">Team</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Updated</th></tr></thead><tbody>{inspections.slice(0,100).map((item)=><tr key={item.id}><td className="px-5 py-3 text-xs font-bold text-[#173b2a]">{item.projectName}</td><td className="px-5 py-3 text-xs">{item.programme}</td><td className="px-5 py-3 text-xs">{item.state} · {item.lga}</td><td className="px-5 py-3 text-xs">{item.teamName || "—"}</td><td className="px-5 py-3"><span className={`rounded-full border px-2 py-1 text-[10px] font-bold ${statusTone(item.status)}`}>{item.status}</span></td><td className="px-5 py-3 text-xs text-slate-500">{item.updatedAt ? new Date(item.updatedAt).toLocaleDateString() : "—"}</td></tr>)}</tbody></table></div></section>
+}
+
+
+type AnalyticsProject = Project;
+type AnalyticsInspection = Inspection;
+
+function analyticsMonthLabel(value?: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return {
+    key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
+    label: date.toLocaleDateString(undefined, { month: "short", year: "2-digit" }),
+    time: new Date(date.getFullYear(), date.getMonth(), 1).getTime(),
+  };
+}
+
+function MEAnalytics({
+  projects,
+  inspections,
+  teams,
+  isMeAdmin,
+  verificationRate,
+}: {
+  projects: AnalyticsProject[];
+  inspections: AnalyticsInspection[];
+  teams: MeTeam[];
+  isMeAdmin: boolean;
+  verificationRate: number;
+}) {
+  const analytics = useMemo(() => {
+    const verifiedProjects = projects.filter((project) => project.verified).length;
+    const pendingProjects = Math.max(0, projects.length - verifiedProjects);
+    const verificationData = [
+      { name: "Verified", value: verifiedProjects, fill: "#0b7a43" },
+      { name: "Pending", value: pendingProjects, fill: "#e6a31a" },
+    ];
+
+    const statusData = [
+      { name: "In Progress", value: inspections.filter((item) => item.status === "In Progress").length, fill: "#2563eb" },
+      { name: "Submitted", value: inspections.filter((item) => item.status === "Submitted").length, fill: "#7c3aed" },
+      { name: "Verified", value: inspections.filter((item) => /verified|approved/i.test(item.status)).length, fill: "#0b7a43" },
+      { name: "Re-Inspection", value: inspections.filter((item) => /re-?inspection/i.test(item.status)).length, fill: "#dc5c5c" },
+    ];
+
+    const programmeData = [...new Set(projects.map((project) => project.programme).filter(Boolean))].map((programme) => {
+      const programmeProjects = projects.filter((project) => project.programme === programme);
+      const programmeInspections = inspections.filter((inspection) => inspection.programme === programme);
+      const verified = programmeProjects.filter((project) => project.verified).length;
+      return {
+        name: programme,
+        projects: programmeProjects.length,
+        verified,
+        pending: Math.max(0, programmeProjects.length - verified),
+        reinspection: programmeInspections.filter((inspection) => /re-?inspection/i.test(inspection.status)).length,
+      };
+    }).sort((a, b) => b.projects - a.projects);
+
+    const monthMap = new Map<string, { key: string; month: string; time: number; submitted: number; verified: number; reinspection: number }>();
+    inspections.forEach((inspection) => {
+      const month = analyticsMonthLabel(inspection.updatedAt || inspection.submittedAt);
+      if (!month) return;
+      const current = monthMap.get(month.key) || { key: month.key, month: month.label, time: month.time, submitted: 0, verified: 0, reinspection: 0 };
+      if (inspection.status === "Submitted") current.submitted += 1;
+      if (/verified|approved/i.test(inspection.status)) current.verified += 1;
+      if (/re-?inspection/i.test(inspection.status)) current.reinspection += 1;
+      monthMap.set(month.key, current);
+    });
+    const trendData = [...monthMap.values()].sort((a, b) => a.time - b.time).slice(-8);
+
+    const stateMap = new Map<string, { name: string; projects: number; verified: number; reinspection: number }>();
+    projects.forEach((project) => {
+      const name = project.state || "Unknown";
+      const current = stateMap.get(name) || { name, projects: 0, verified: 0, reinspection: 0 };
+      current.projects += 1;
+      if (project.verified) current.verified += 1;
+      stateMap.set(name, current);
+    });
+    inspections.forEach((inspection) => {
+      if (!/re-?inspection/i.test(inspection.status)) return;
+      const current = stateMap.get(inspection.state || "Unknown");
+      if (current) current.reinspection += 1;
+    });
+    const stateData = [...stateMap.values()]
+      .map((item) => ({ ...item, verificationRate: item.projects ? Math.round((item.verified / item.projects) * 100) : 0 }))
+      .sort((a, b) => b.projects - a.projects)
+      .slice(0, 8);
+
+    const contractorMap = new Map<string, { name: string; inspections: number; completed: number; reinspection: number }>();
+    inspections.forEach((inspection) => {
+      const name = inspection.contractor || "Unassigned";
+      const current = contractorMap.get(name) || { name, inspections: 0, completed: 0, reinspection: 0 };
+      current.inspections += 1;
+      if (/submitted|approved|verified/i.test(inspection.status)) current.completed += 1;
+      if (/re-?inspection/i.test(inspection.status)) current.reinspection += 1;
+      contractorMap.set(name, current);
+    });
+    const contractorData = [...contractorMap.values()].sort((a, b) => b.inspections - a.inspections).slice(0, 8);
+
+    const teamData = teams.map((team) => {
+      const teamInspections = inspections.filter((inspection) => inspection.teamName === team.name);
+      const projectIds = new Set(teamInspections.map((inspection) => inspection.projectId));
+      return {
+        name: team.name,
+        projects: projectIds.size,
+        completed: teamInspections.filter((inspection) => /submitted|approved|verified/i.test(inspection.status)).length,
+        reinspection: teamInspections.filter((inspection) => /re-?inspection/i.test(inspection.status)).length,
+      };
+    }).sort((a, b) => b.projects - a.projects);
+
+    return { verificationData, statusData, programmeData, trendData, stateData, contractorData, teamData };
+  }, [projects, inspections, teams]);
+
+  const totalInspections = inspections.length;
+  const completionRate = totalInspections
+    ? Math.round((inspections.filter((item) => /submitted|approved|verified/i.test(item.status)).length / totalInspections) * 100)
+    : 0;
+  const reinspectionCount = inspections.filter((item) => /re-?inspection/i.test(item.status)).length;
+
+  const cardMotion = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.35 } };
+
+  return <div className="space-y-4">
+    <motion.section {...cardMotion} className="flex flex-col gap-3 rounded-xl border border-[#d6e9da] bg-gradient-to-r from-[#f6fbf7] to-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+      <div>
+        <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#08733f]">M&E intelligence</p>
+        <h2 className="mt-1 text-lg font-bold tracking-tight text-[#173b2a]">Portfolio Analytics</h2>
+        <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">
+          {isMeAdmin ? "National M&E team portfolio view." : "Analytics is limited to projects assigned to your M&E teams."} Charts use the current filtered live portfolio.
+        </p>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          ["Verification", `${verificationRate}%`],
+          ["Completion", `${completionRate}%`],
+          ["Re-Inspection", reinspectionCount.toLocaleString()],
+        ].map(([label, value]) => <div key={label} className="min-w-[105px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-center shadow-sm">
+          <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">{label}</p>
+          <p className="mt-1 text-lg font-extrabold text-[#173b2a]">{value}</p>
+        </div>)}
+      </div>
+    </motion.section>
+
+    <div className="grid gap-4 xl:grid-cols-2">
+      <AnalyticsPanel title="Verification Progress" subtitle="Verified versus pending projects" delay={0.04}>
+        {projects.length ? <div className="relative h-[280px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie data={analytics.verificationData} dataKey="value" nameKey="name" innerRadius={72} outerRadius={100} paddingAngle={3} isAnimationActive animationDuration={700}>
+                {analytics.verificationData.map((entry) => <Cell key={entry.name} fill={entry.fill} />)}
+              </Pie>
+              <Tooltip contentStyle={{ borderRadius: 12, borderColor: "#dce8df", fontSize: 12 }} />
+              <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <div className="mb-7 text-center"><p className="text-3xl font-extrabold text-[#173b2a]">{verificationRate}%</p><p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">verified</p></div>
+          </div>
+        </div> : <AnalyticsEmpty text="No assigned projects to analyse." />}
+      </AnalyticsPanel>
+
+      <AnalyticsPanel title="Inspection Status" subtitle="Current inspection workflow distribution" delay={0.08}>
+        {totalInspections ? <div className="h-[280px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={analytics.statusData} layout="vertical" margin={{ top: 8, right: 24, left: 16, bottom: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#edf1ee" />
+              <XAxis type="number" allowDecimals={false} tick={{ fontSize: 10 }} />
+              <YAxis type="category" dataKey="name" width={92} tick={{ fontSize: 10 }} />
+              <Tooltip contentStyle={{ borderRadius: 12, borderColor: "#dce8df", fontSize: 12 }} />
+              <Bar dataKey="value" radius={[0, 8, 8, 0]} isAnimationActive animationDuration={650}>
+                {analytics.statusData.map((entry) => <Cell key={entry.name} fill={entry.fill} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div> : <AnalyticsEmpty text="No inspection records in the current portfolio." />}
+      </AnalyticsPanel>
+    </div>
+
+    <AnalyticsPanel title="Programme Performance" subtitle="Projects, verification and re-inspection by programme" delay={0.12}>
+      {analytics.programmeData.length ? <div className="h-[320px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={analytics.programmeData} margin={{ top: 14, right: 18, left: -10, bottom: 4 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#edf1ee" />
+            <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+            <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
+            <Tooltip contentStyle={{ borderRadius: 12, borderColor: "#dce8df", fontSize: 12 }} />
+            <Legend wrapperStyle={{ fontSize: 11 }} />
+            <Bar dataKey="verified" name="Verified" stackId="projects" fill="#0b7a43" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={700} />
+            <Bar dataKey="pending" name="Pending" stackId="projects" fill="#e6a31a" isAnimationActive animationDuration={700} />
+            <Bar dataKey="reinspection" name="Re-Inspection" fill="#dc5c5c" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={700} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div> : <AnalyticsEmpty text="No programme data in the current portfolio." />}
+    </AnalyticsPanel>
+
+    <div className="grid gap-4 xl:grid-cols-[1.15fr_.85fr]">
+      <AnalyticsPanel title="Verification & Re-Inspection Trend" subtitle="Inspection records grouped by their latest recorded activity month" delay={0.16}>
+        {analytics.trendData.length ? <div className="h-[300px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={analytics.trendData} margin={{ top: 10, right: 16, left: -12, bottom: 4 }}>
+              <defs>
+                <linearGradient id="meVerified" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#0b7a43" stopOpacity={0.24}/><stop offset="95%" stopColor="#0b7a43" stopOpacity={0}/></linearGradient>
+                <linearGradient id="meReinspection" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#dc5c5c" stopOpacity={0.2}/><stop offset="95%" stopColor="#dc5c5c" stopOpacity={0}/></linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#edf1ee" />
+              <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
+              <Tooltip contentStyle={{ borderRadius: 12, borderColor: "#dce8df", fontSize: 12 }} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Area type="monotone" dataKey="verified" name="Verified" stroke="#0b7a43" fill="url(#meVerified)" strokeWidth={2.5} isAnimationActive animationDuration={850} />
+              <Area type="monotone" dataKey="reinspection" name="Re-Inspection" stroke="#dc5c5c" fill="url(#meReinspection)" strokeWidth={2.5} isAnimationActive animationDuration={850} />
+              <Line type="monotone" dataKey="submitted" name="Submitted" stroke="#7c3aed" strokeWidth={2} dot={{ r: 3 }} isAnimationActive animationDuration={850} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div> : <AnalyticsEmpty text="No dated inspection activity is available for a trend yet." />}
+      </AnalyticsPanel>
+
+      <AnalyticsPanel title="State Performance" subtitle="Largest assigned state portfolios and verification rate" delay={0.2}>
+        {analytics.stateData.length ? <div className="space-y-3 pt-2">
+          {analytics.stateData.map((state, index) => <motion.div key={state.name} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.28, delay: index * 0.035 }}>
+            <div className="mb-1.5 flex items-center justify-between gap-3"><div><span className="text-xs font-bold text-[#173b2a]">{state.name}</span><span className="ml-2 text-[10px] text-slate-400">{state.projects} projects</span></div><span className="text-xs font-extrabold text-[#08733f]">{state.verificationRate}%</span></div>
+            <div className="h-2 overflow-hidden rounded-full bg-slate-100"><motion.div className="h-full rounded-full bg-[#0b7a43]" initial={{ width: 0 }} animate={{ width: `${state.verificationRate}%` }} transition={{ duration: 0.65, delay: 0.08 + index * 0.035 }} /></div>
+          </motion.div>)}
+        </div> : <AnalyticsEmpty text="No state performance data available." />}
+      </AnalyticsPanel>
+    </div>
+
+    <div className={isMeAdmin ? "grid gap-4 xl:grid-cols-2" : "grid gap-4"}>
+      <AnalyticsPanel title="Contractor Performance" subtitle="Inspection workload, completed reviews and re-inspections" delay={0.24}>
+        {analytics.contractorData.length ? <div className="h-[330px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={analytics.contractorData} layout="vertical" margin={{ top: 6, right: 18, left: 30, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#edf1ee" />
+              <XAxis type="number" allowDecimals={false} tick={{ fontSize: 10 }} />
+              <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 9 }} />
+              <Tooltip contentStyle={{ borderRadius: 12, borderColor: "#dce8df", fontSize: 12 }} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Bar dataKey="completed" name="Completed" fill="#0b7a43" radius={[0, 6, 6, 0]} isAnimationActive animationDuration={700} />
+              <Bar dataKey="reinspection" name="Re-Inspection" fill="#dc5c5c" radius={[0, 6, 6, 0]} isAnimationActive animationDuration={700} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div> : <AnalyticsEmpty text="No contractor inspection data available." />}
+      </AnalyticsPanel>
+
+      {isMeAdmin && <AnalyticsPanel title="Team Performance" subtitle="Assigned projects, completed inspections and re-inspections" delay={0.28}>
+        {analytics.teamData.length ? <div className="h-[330px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={analytics.teamData} margin={{ top: 10, right: 18, left: -6, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#edf1ee" />
+              <XAxis dataKey="name" tick={{ fontSize: 9 }} interval={0} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
+              <Tooltip contentStyle={{ borderRadius: 12, borderColor: "#dce8df", fontSize: 12 }} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Bar dataKey="projects" name="Assigned projects" fill="#2563eb" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={720} />
+              <Bar dataKey="completed" name="Completed" fill="#0b7a43" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={720} />
+              <Bar dataKey="reinspection" name="Re-Inspection" fill="#dc5c5c" radius={[6, 6, 0, 0]} isAnimationActive animationDuration={720} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div> : <AnalyticsEmpty text="Create M&E teams and assign projects to see team performance." />}
+      </AnalyticsPanel>}
+    </div>
+  </div>;
+}
+
+function AnalyticsPanel({ title, subtitle, delay, children }: { title: string; subtitle: string; delay: number; children: React.ReactNode }) {
+  return <motion.section
+    initial={{ opacity: 0, y: 14 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.38, delay }}
+    whileHover={{ y: -2 }}
+    className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_8px_28px_rgba(23,59,42,0.06)] transition-shadow hover:shadow-[0_12px_34px_rgba(23,59,42,0.09)]"
+  >
+    <div className="flex items-center justify-between border-b border-[#edf2ee] px-5 py-4">
+      <div><h3 className="text-sm font-extrabold tracking-tight text-[#173b2a]">{title}</h3><p className="mt-1 text-[10px] leading-4 text-slate-500">{subtitle}</p></div>
+      <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#d7eadc] bg-[#f1f8f3] text-[#08733f]"><BarChart3 className="h-4 w-4" /></span>
+    </div>
+    <div className="p-4 sm:p-5">{children}</div>
+  </motion.section>;
+}
+
+function AnalyticsEmpty({ text }: { text: string }) {
+  return <div className="flex min-h-[220px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-[#fbfcfb] px-5 text-center text-xs text-slate-400">{text}</div>;
 }
