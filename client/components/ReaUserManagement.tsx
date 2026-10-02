@@ -10,7 +10,7 @@ type PortalUser = {
   status: "Active" | "Suspended"; createdAt?: string;
 };
 
-const STAFF_ROLES = ["Programme Manager", "Verification Officer", "Claims Officer", "Analyst", "Viewer"];
+const STAFF_ROLES = ["Programme Manager", "M&E Officer", "Verification Officer", "Claims Officer", "Analyst", "Viewer"];
 
 function roleLabel(role: string) {
   if (role === "rea_admin") return "REA Administrator";
