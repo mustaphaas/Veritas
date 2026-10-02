@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import ConsultantEsriCoverageMap from "./ConsultantEsriCoverageMap";
+import ConsultantEsriCoverageMap, { nigeriaConstraintGeometry, nigeriaMaskGeometry } from "./ConsultantEsriCoverageMap";
 
 class ArcgisMapStub extends HTMLElement {
   graphics = {
@@ -74,6 +74,15 @@ beforeAll(() => {
 });
 
 describe("ConsultantEsriCoverageMap", () => {
+  it("builds Nigeria-only navigation and outside-country mask geometry", () => {
+    const constraint = nigeriaConstraintGeometry([stateFeature]);
+    const mask = nigeriaMaskGeometry([stateFeature]);
+    expect(constraint.type).toBe("polygon");
+    expect(constraint.rings.length).toBe(1);
+    expect(mask.rings.length).toBe(2);
+    expect(mask.rings[0][0]).toEqual([-180, -80]);
+  });
+
   beforeEach(() => {
     vi.stubGlobal("$arcgis", undefined);
     Object.defineProperty(window, "$arcgis", {
