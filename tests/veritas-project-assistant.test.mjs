@@ -105,6 +105,11 @@ test("list all minigrids returns selectable project records instead of only an a
     "REA-DARES-KANO-001",
   ]);
   assert.match(result.answer, /2 Mini Grid projects/i);
+  assert.match(result.answer, /Register summary/i);
+  assert.match(result.answer, /1 external\/demo reference/i);
+  assert.equal(result.choices[0].state, "Kano");
+  assert.equal(result.choices[1].state, "Ogun");
+  assert.equal(result.choices[1].isDemo, true);
 });
 
 test("generic verify asks the user to choose a mappable project", async () => {
@@ -133,4 +138,12 @@ test("selecting a listed project opens a professional project profile", async ()
   assert.match(result.answer, /Verified/);
   assert.match(result.answer, /satellite imagery check/i);
   assert.match(result.answer, /VIIRS/i);
+});
+
+
+test("project register response avoids aggregate group wording", async () => {
+  const result = await runProjectAssistant(fakeEnv(), "list all minigrid projects");
+  assert.doesNotMatch(result.answer, /groups in the live production database/i);
+  assert.doesNotMatch(result.answer, /Projects 1/i);
+  assert.match(result.answer, /Browse the register below by state/i);
 });
