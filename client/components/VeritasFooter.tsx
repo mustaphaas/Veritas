@@ -9,7 +9,7 @@ const resourceLinks = [
 
 export default function VeritasFooter() {
   return (
-    <footer className="veritas-footer relative mt-10 overflow-hidden border-t border-[#cfe8d6] bg-[#eef9f1] text-[#405b4a]">
+    <footer className="veritas-footer relative mt-10 overflow-hidden border-t border-[#d9e7dd] bg-white text-[#405b4a]">
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
         <div className="absolute -right-16 -top-20 h-56 w-56 rounded-full border border-[#bfe4c9]/70 bg-white/35" />
         <div className="absolute right-24 top-10 h-24 w-24 rounded-full border border-[#cdebd5]/80" />
@@ -17,10 +17,10 @@ export default function VeritasFooter() {
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#79bf8d] to-transparent" />
       </div>
 
-      <div className="relative mx-auto grid w-full max-w-[1580px] gap-8 px-5 py-8 sm:px-7 lg:grid-cols-[1.2fr_.8fr_1fr] lg:gap-10 lg:px-8 xl:px-10">
+      <div className="relative mx-auto grid w-full max-w-[1580px] gap-8 px-5 py-8 sm:px-7 lg:grid-cols-[1.15fr_.75fr_1fr] lg:gap-12 lg:px-8 xl:px-10">
         <div className="min-w-0">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#b9dbc3] bg-white/75 text-[#08733f] shadow-sm">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#c8e0cf] bg-[#edf8f1] text-[#08733f] shadow-[0_6px_18px_rgba(20,90,52,.08)]">
               <ShieldCheck className="h-5 w-5" strokeWidth={1.6} />
             </div>
             <div className="min-w-0">
@@ -81,7 +81,7 @@ export default function VeritasFooter() {
         </div>
       </div>
 
-      <div className="relative border-t border-[#cfe4d5] bg-[#e4f4e9]/90">
+      <div className="relative border-t border-[#e2ebe4] bg-[#f8fbf9]">
         <div className="mx-auto flex w-full max-w-[1580px] flex-col gap-2 px-5 py-3.5 text-[9px] leading-4 text-[#5a7463] sm:px-7 md:flex-row md:flex-wrap md:items-center md:justify-between lg:px-8 xl:px-10">
           <p className="shrink-0">© 2026 Veritas · Rural Electrification Agency.</p>
           <p className="max-w-3xl text-left md:text-right">
