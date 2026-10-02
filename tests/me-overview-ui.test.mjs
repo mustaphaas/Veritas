@@ -24,7 +24,7 @@ test("M&E keeps role-specific monitoring content", () => {
   assert.match(page, /Projects Monitored/);
   assert.match(page, /Inspections Completed/);
   assert.match(page, /Pending Review/);
-  assert.match(page, /Projects at Risk/);
+  assert.match(page, /Re-Inspection/);
   assert.match(page, /Programme Performance/);
   assert.match(page, /Monitoring Attention/);
 });
