@@ -28,7 +28,7 @@ test("M&E roles are available to REA user management", () => {
 test("M&E dashboard keeps assignment-scoped monitoring content", () => {
   assert.match(page, /Projects Monitored/);
   assert.match(page, /Pending Review/);
-  assert.match(page, /Projects at Risk/);
+  assert.match(page, /Re-Inspection/);
   assert.match(page, /Your portfolio is limited to projects assigned to your M&E teams/);
   assert.doesNotMatch(page, /Create REA Staff|Reset Password|Delete User|Create Consultant/);
 });
