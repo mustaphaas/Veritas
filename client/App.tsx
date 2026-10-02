@@ -28,8 +28,6 @@ import VeritasFooter from "./components/VeritasFooter";
 import ReaProjectMapHost from "./components/ReaProjectMapProgramme";
 import ProjectMapFullscreenControl from "./components/ProjectMapFullscreenControl";
 import ProjectMapSatelliteEnhancer from "./components/ProjectMapSatelliteEnhancer";
-import ConsultantCoverageMapEnhancer from "./components/ConsultantCoverageMapEnhancer";
-import ConsultantProjectLgaDrilldown from "./components/ConsultantProjectLgaDrilldown";
 import ConsultantWorkflowBridge from "./components/ConsultantWorkflowBridge";
 import FieldOfficerCoordinateMock from "./components/FieldOfficerCoordinateMock";
 import FieldOfficerGpsKmDisplay from "./components/FieldOfficerGpsKmDisplay";
@@ -130,8 +128,6 @@ const App = () => (
             </Routes>
             <ConsultantWorkflowBridge />
             <ProjectMapGate />
-            <ConsultantCoverageMapEnhancer />
-            <ConsultantProjectLgaDrilldown />
             <FieldOfficerCoordinateMock />
             <FieldOfficerGpsKmDisplay />
             <FieldOfficerDraftsNavEnhancer />
