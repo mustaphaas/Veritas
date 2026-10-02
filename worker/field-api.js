@@ -115,20 +115,37 @@ async function listAssignments(env, user, url) {
   return response({ assignments: result.results.map(assignmentJson), serverTime: now() });
 }
 
+// Tenant comparison: normalised, and an empty value never matches (fail closed).
+function sameFirm(a, b) {
+  const x = String(a ?? "").trim().toLowerCase();
+  return x !== "" && x === String(b ?? "").trim().toLowerCase();
+}
+
 async function createAssignment(request, env, user) {
   if (!["consultant_admin", "rea_admin"].includes(user.role)) return response({ error: "Consultant or REA access required." }, 403);
+  if (user.role === "consultant_admin" && !String(user.consultantFirm ?? "").trim()) return response({ error: "Consultant firm is required." }, 403);
   const body = await request.json().catch(() => null), project = body?.project ?? body;
   const officer = await env.DB.prepare("SELECT id,name,consultant_firm FROM users WHERE role='field_officer' AND status='active' AND (id=? OR name=? OR lower(email)=? OR phone=?)")
     .bind(body?.officerId || "", body?.officer || "", String(body?.officerEmail || "").toLowerCase(), body?.officerPhone || "").first();
   if (!officer) return response({ error: "Active field officer not found." }, 422);
-  if (user.role === "consultant_admin" && officer.consultant_firm !== user.consultantFirm) return response({ error: "Officer is outside your consultant firm." }, 403);
+  if (user.role === "consultant_admin" && !sameFirm(officer.consultant_firm, user.consultantFirm)) return response({ error: "Officer is outside your consultant firm." }, 403);
   const required = ["id", "projectName", "programme", "component", "contractor", "state", "lga", "community", "latitude", "longitude", "dueDate"];
   if (required.some((key) => project?.[key] === undefined || project?.[key] === "")) return response({ error: "Complete project and assignment details are required." }, 400);
   const projectId = project.projectId || project.id, timestamp = now(), consultantFirm = user.role === "consultant_admin" ? user.consultantFirm : project.consultantFirm || officer.consultant_firm;
+  const isConsultant = user.role === "consultant_admin";
+  if (isConsultant) {
+    const existingProject = await env.DB.prepare("SELECT id,consultant_firm FROM projects WHERE id=?").bind(projectId).first();
+    if (existingProject && !sameFirm(existingProject.consultant_firm, user.consultantFirm)) return response({ error: "Project is outside your consultant firm." }, 403);
+  }
+  const existingAssignment = await env.DB.prepare("SELECT a.project_id,p.consultant_firm FROM assignments a JOIN projects p ON p.id=a.project_id WHERE a.id=?").bind(project.id).first();
+  if (existingAssignment) {
+    if (existingAssignment.project_id !== projectId) return response({ error: "Assignment ID is already in use for a different project." }, 409);
+    if (isConsultant && !sameFirm(existingAssignment.consultant_firm, user.consultantFirm)) return response({ error: "Assignment is outside your consultant firm." }, 403);
+  }
   await env.DB.prepare(`INSERT INTO projects(id,name,programme,component,contractor,consultant_firm,state,lga,community,latitude,longitude,geofence_radius_metres,created_at,updated_at)
-    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,programme=excluded.programme,component=excluded.component,contractor=excluded.contractor,consultant_firm=excluded.consultant_firm,state=excluded.state,lga=excluded.lga,community=excluded.community,latitude=excluded.latitude,longitude=excluded.longitude,updated_at=excluded.updated_at`)
+    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,programme=excluded.programme,component=excluded.component,contractor=excluded.contractor,state=excluded.state,lga=excluded.lga,community=excluded.community,latitude=excluded.latitude,longitude=excluded.longitude,updated_at=excluded.updated_at${isConsultant ? " WHERE lower(trim(projects.consultant_firm))=lower(trim(excluded.consultant_firm))" : ""}`)
     .bind(projectId, project.projectName, project.programme, project.component, project.contractor, consultantFirm, project.state, project.lga, project.community, Number(project.latitude), Number(project.longitude), Number(project.geofenceRadius || project.geofenceRadiusMetres || 250), timestamp, timestamp).run();
-  await env.DB.prepare("INSERT INTO assignments(id,project_id,officer_id,status,due_date,sync_revision,created_at,updated_at) VALUES(?,?,?,?,?,1,?,?) ON CONFLICT(id) DO UPDATE SET officer_id=excluded.officer_id,due_date=excluded.due_date,updated_at=excluded.updated_at,sync_revision=assignments.sync_revision+1")
+  await env.DB.prepare("INSERT INTO assignments(id,project_id,officer_id,status,due_date,sync_revision,created_at,updated_at) VALUES(?,?,?,?,?,1,?,?) ON CONFLICT(id) DO UPDATE SET officer_id=excluded.officer_id,due_date=excluded.due_date,updated_at=excluded.updated_at,sync_revision=assignments.sync_revision+1 WHERE assignments.project_id=excluded.project_id")
     .bind(project.id, projectId, officer.id, "Assigned", project.dueDate, timestamp, timestamp).run();
   await audit(env, request, user, project.id, "assignment-created", { officerId: officer.id, projectId });
   return response({ ok: true, assignmentId: project.id, serverTime: timestamp }, 201);
