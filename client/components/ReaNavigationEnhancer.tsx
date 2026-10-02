@@ -46,9 +46,9 @@ export default function ReaNavigationEnhancer() {
   if (!analyticsOpen) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 top-[94px] z-[19] overflow-y-auto bg-[#f6f8f6] lg:left-[190px]">
+    <div className="fixed bottom-0 left-0 right-0 top-[94px] z-[19] overflow-y-auto bg-white lg:left-[72px]">
       <div className="mx-auto max-w-[1580px] px-4 sm:px-7 lg:px-7">
-        <div className="sticky top-0 z-20 flex justify-end bg-[#f6f8f6]/90 pb-1 pt-3 backdrop-blur">
+        <div className="sticky top-0 z-20 flex justify-end bg-white/90 pb-1 pt-3 backdrop-blur">
           <button
             type="button"
             onClick={() => setAnalyticsOpen(false)}
