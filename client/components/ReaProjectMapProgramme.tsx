@@ -718,10 +718,10 @@ function ProjectMap({
       : `${selectedLga} · Project Locations`;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 top-[94px] z-[24] overflow-hidden bg-[#edf2ee] lg:left-[72px]">
+    <div className="veritas-project-map-workspace fixed bottom-0 left-0 right-0 top-[94px] z-[24] overflow-hidden bg-[#f6faf7] lg:left-[72px]">
       <style>{MAP_VISUAL_STYLES}</style>
       <section className="flex h-full min-w-0 flex-col">
-        <header className="flex min-h-[64px] items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 lg:px-5">
+        <header className="veritas-project-map-header flex min-h-[76px] items-center justify-between gap-4 border-b border-[#dfeae2] bg-white/95 px-4 shadow-[0_8px_24px_rgba(21,70,43,.05)] backdrop-blur lg:px-6">
           <div className="flex min-w-0 items-center gap-1 overflow-x-auto text-[11px] font-bold text-slate-500">
             <button
               type="button"
@@ -761,17 +761,17 @@ function ProjectMap({
           </div>
 
           <div className="hidden items-center gap-2 md:flex">
-            <span className="rounded-md border border-slate-200 bg-[#fafcfb] px-2.5 py-1.5 text-[9px] font-extrabold text-slate-600">
-              {displayMetrics.projects.toLocaleString()} Projects
+            <span className="inline-flex items-center gap-2 rounded-xl border border-[#d7e6dc] bg-[#f7fbf8] px-3 py-2 text-[9px] font-extrabold text-[#405b4a] shadow-sm">
+              <MapPinned className="h-3.5 w-3.5 text-[#08733f]" /> {displayMetrics.projects.toLocaleString()} Projects
             </span>
-            <span className="rounded-md border border-[#c6e2cf] bg-[#f0f9f3] px-2.5 py-1.5 text-[9px] font-extrabold text-[#138049]">
-              {displayMetrics.verified.toLocaleString()} Verified
+            <span className="inline-flex items-center gap-2 rounded-xl border border-[#c7e2d0] bg-[#edf8f1] px-3 py-2 text-[9px] font-extrabold text-[#08733f] shadow-sm">
+              <CheckCircle2 className="h-3.5 w-3.5" /> {displayMetrics.verified.toLocaleString()} Verified
             </span>
-            <span className="rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-[9px] font-extrabold text-blue-700">
-              {formatMw(displayMetrics.kw)}
+            <span className="inline-flex items-center gap-2 rounded-xl border border-[#cfdef1] bg-[#f1f6fc] px-3 py-2 text-[9px] font-extrabold text-[#285f96] shadow-sm">
+              <Zap className="h-3.5 w-3.5" /> {formatMw(displayMetrics.kw)}
             </span>
-            <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[9px] font-extrabold text-slate-600">
-              {displayMetrics.households.toLocaleString()} Households
+            <span className="inline-flex items-center gap-2 rounded-xl border border-[#eadcb8] bg-[#fff9e9] px-3 py-2 text-[9px] font-extrabold text-[#9e6900] shadow-sm">
+              <UsersRound className="h-3.5 w-3.5" /> {displayMetrics.households.toLocaleString()} Households
             </span>
             <button
               type="button"
@@ -784,28 +784,28 @@ function ProjectMap({
           </div>
         </header>
 
-        <div className="relative flex-1 overflow-hidden p-3 sm:p-4 lg:p-5">
+        <div className="relative flex-1 overflow-hidden p-3 sm:p-4 lg:p-6">
           <div
             ref={mapShellRef}
-            className="veritas-map-canvas relative h-full overflow-hidden rounded-2xl border border-[#cad8cf] shadow-[0_14px_38px_rgba(26,55,40,0.10)]"
+            className="veritas-map-canvas relative h-full overflow-hidden rounded-[24px] border border-[#cfe0d4] shadow-[0_18px_44px_rgba(21,70,43,.10)]"
           >
             <div className="absolute left-4 top-4 z-20 flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setFiltersOpen(true)}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-[#173b2a] shadow-sm transition hover:border-[#9dc9aa] hover:text-[#128149]"
+                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#cfe3d5] bg-white text-[#08733f] shadow-[0_8px_20px_rgba(21,70,43,.09)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#8dc7a0] hover:bg-[#f3faf5]"
                 aria-label="Open project map panel"
                 title="Open project map panel"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
-              <div className="hidden rounded-lg border border-slate-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur sm:block">
+              <div className="hidden rounded-2xl border border-[#dbe8df] bg-white/95 px-4 py-3 shadow-[0_8px_24px_rgba(21,70,43,.08)] backdrop-blur sm:block">
                 <p className="text-[9px] font-black uppercase tracking-[0.13em] text-[#128149]">{mapTitle}</p>
                 <p className="mt-0.5 text-[9px] text-slate-500">Dots are projects; colour identifies programme.</p>
               </div>
             </div>
 
-            <div className="absolute right-4 top-4 z-20 flex overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
+            <div className="absolute right-4 top-4 z-20 flex overflow-hidden rounded-2xl border border-[#d8e5dc] bg-white shadow-[0_8px_22px_rgba(21,70,43,.08)]">
               <button
                 type="button"
                 onClick={() => setZoom((value) => Math.min(1.85, Number((value + 0.15).toFixed(2))))}
@@ -1072,7 +1072,7 @@ function ProjectMap({
               </div>
             )}
 
-            <div className="absolute bottom-3 left-3 z-20 flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur">
+            <div className="absolute bottom-4 left-4 z-20 flex flex-wrap items-center gap-3 rounded-2xl border border-[#dbe8df] bg-white/95 px-4 py-3 shadow-[0_10px_26px_rgba(21,70,43,.08)] backdrop-blur">
               <span className="text-[8px] font-extrabold uppercase tracking-[0.09em] text-slate-500">Programme</span>
               {[
                 ["NEP", programmeColors.NEP],
@@ -1104,7 +1104,7 @@ function ProjectMap({
             onClick={() => setFiltersOpen(false)}
             aria-label="Close project map panel"
           />
-          <aside className="veritas-filter-panel absolute bottom-0 left-0 top-0 z-40 flex w-[310px] max-w-[88vw] flex-col border-r border-slate-200 bg-white shadow-[12px_0_30px_rgba(25,50,36,0.12)]">
+          <aside className="veritas-filter-panel absolute bottom-0 left-0 top-0 z-40 flex w-[330px] max-w-[90vw] flex-col border-r border-[#dbe8df] bg-white shadow-[18px_0_45px_rgba(21,70,43,.14)]">
             <div className="border-b border-slate-200 px-4 py-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -1129,7 +1129,7 @@ function ProjectMap({
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Search project ID or name"
-                  className="h-10 w-full rounded-md border border-slate-200 bg-[#fafcfb] pl-9 pr-3 text-[11px] font-medium outline-none focus:border-[#16824b] focus:ring-2 focus:ring-[#16824b]/10"
+                  className="h-11 w-full rounded-xl border border-[#dbe6df] bg-[#fbfdfb] pl-9 pr-3 text-[11px] font-medium outline-none transition focus:border-[#80bf94] focus:bg-white focus:ring-4 focus:ring-[#16824b]/8"
                 />
               </div>
             </div>
@@ -1154,7 +1154,7 @@ function ProjectMap({
                   <select
                     value={programme}
                     onChange={(event) => setProgramme(event.target.value)}
-                    className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-700 outline-none focus:border-[#16824b]"
+                    className="h-11 w-full rounded-xl border border-[#dbe6df] bg-[#fbfdfb] px-3 text-[11px] font-semibold text-slate-700 outline-none transition focus:border-[#80bf94] focus:bg-white focus:ring-4 focus:ring-[#16824b]/8"
                   >
                     {["All Programmes", ...unique(mappedProjects.map((project) => project.programme))].map((option) => (
                       <option key={option}>{option}</option>
@@ -1167,7 +1167,7 @@ function ProjectMap({
                   <select
                     value={stateFilter}
                     onChange={(event) => selectStateFilter(event.target.value)}
-                    className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-700 outline-none focus:border-[#16824b]"
+                    className="h-11 w-full rounded-xl border border-[#dbe6df] bg-[#fbfdfb] px-3 text-[11px] font-semibold text-slate-700 outline-none transition focus:border-[#80bf94] focus:bg-white focus:ring-4 focus:ring-[#16824b]/8"
                   >
                     {stateOptions.map((option) => (
                       <option key={option}>{option}</option>
@@ -1180,7 +1180,7 @@ function ProjectMap({
                   <select
                     value={lgaFilter}
                     onChange={(event) => selectLgaFilter(event.target.value)}
-                    className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-700 outline-none focus:border-[#16824b]"
+                    className="h-11 w-full rounded-xl border border-[#dbe6df] bg-[#fbfdfb] px-3 text-[11px] font-semibold text-slate-700 outline-none transition focus:border-[#80bf94] focus:bg-white focus:ring-4 focus:ring-[#16824b]/8"
                   >
                     {lgaOptions.map((option) => (
                       <option key={option}>{option}</option>
@@ -1193,7 +1193,7 @@ function ProjectMap({
                   <select
                     value={component}
                     onChange={(event) => setComponent(event.target.value)}
-                    className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-700 outline-none focus:border-[#16824b]"
+                    className="h-11 w-full rounded-xl border border-[#dbe6df] bg-[#fbfdfb] px-3 text-[11px] font-semibold text-slate-700 outline-none transition focus:border-[#80bf94] focus:bg-white focus:ring-4 focus:ring-[#16824b]/8"
                   >
                     {["All Components", ...unique(mappedProjects.map((project) => project.component))].map((option) => (
                       <option key={option}>{option}</option>
@@ -1206,7 +1206,7 @@ function ProjectMap({
                   <select
                     value={contractor}
                     onChange={(event) => setContractor(event.target.value)}
-                    className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-700 outline-none focus:border-[#16824b]"
+                    className="h-11 w-full rounded-xl border border-[#dbe6df] bg-[#fbfdfb] px-3 text-[11px] font-semibold text-slate-700 outline-none transition focus:border-[#80bf94] focus:bg-white focus:ring-4 focus:ring-[#16824b]/8"
                   >
                     {["All Contractors", ...unique(mappedProjects.map((project) => project.contractor))].map((option) => (
                       <option key={option}>{option}</option>
@@ -1226,7 +1226,7 @@ function ProjectMap({
                       key={layer}
                       type="button"
                       onClick={() => setLayers((current) => ({ ...current, [layer]: !current[layer] }))}
-                      className="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-[10px] font-semibold text-slate-600 transition hover:bg-slate-50"
+                      className="flex w-full items-center justify-between rounded-xl border border-transparent bg-[#fbfdfb] px-3 py-2.5 text-left text-[10px] font-semibold text-slate-600 transition-all hover:border-[#d8e7dd] hover:bg-[#f3faf5]"
                       aria-pressed={layers[layer]}
                     >
                       <span>{layer}</span>
@@ -1243,7 +1243,7 @@ function ProjectMap({
       )}
 
       {selectedProject && (
-        <aside className="veritas-detail-panel absolute bottom-0 right-0 top-0 z-50 w-full max-w-[390px] overflow-y-auto border-l border-slate-200 bg-white shadow-[-14px_0_30px_rgba(31,52,41,0.12)] sm:w-[390px]">
+        <aside className="veritas-detail-panel absolute bottom-0 right-0 top-0 z-50 w-full max-w-[410px] overflow-y-auto border-l border-[#dbe8df] bg-white shadow-[-18px_0_45px_rgba(21,70,43,.14)] sm:w-[410px]">
           <div className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 px-5 py-4 backdrop-blur">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
