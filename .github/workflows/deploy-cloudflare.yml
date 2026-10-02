@@ -71,10 +71,11 @@ jobs:
 
       - name: Validate satellite analysis pipeline
         run: |
+          node --check worker/project-assistant.js
           node --check worker/satellite-analysis.js
           node --check worker/satellite-verify.js
           node --check worker/nightlight-analysis.js
-          node --test tests/satellite-analysis.test.mjs tests/nightlight-analysis.test.mjs tests/geospatial-compare.test.mjs
+          node --test tests/veritas-project-assistant.test.mjs tests/satellite-analysis.test.mjs tests/nightlight-analysis.test.mjs tests/geospatial-compare.test.mjs
 
       - name: Validate VIIRS ingestion pipeline
         run: python -m py_compile scripts/ingest-viirs-nightlights.py
