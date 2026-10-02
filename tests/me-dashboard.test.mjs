@@ -16,14 +16,16 @@ test("M&E has a dedicated role-gated dashboard route", () => {
   assert.match(auth, /staffRole === "M&E Admin" \|\| staffRole === "M&E Officer"/);
 });
 
-test("M&E role is available to REA user management", () => {
-  assert.match(staff, /"M&E Admin"/);\n  assert.match(staff, /"M&E Officer"/);
-  assert.match(users, /"M&E Admin"/);\n  assert.match(users, /"M&E Officer"/);
+test("M&E roles are available to REA user management", () => {
+  assert.match(staff, /"M&E Admin"/);
+  assert.match(staff, /"M&E Officer"/);
+  assert.match(users, /"M&E Admin"/);
+  assert.match(users, /"M&E Officer"/);
   assert.match(staff, /"Findings"/);
   assert.match(staff, /"Analytics"/);
 });
 
-test("M&E dashboard is monitoring focused and does not expose admin controls", () => {
+test("M&E dashboard keeps assignment-scoped monitoring content", () => {
   assert.match(page, /Projects Monitored/);
   assert.match(page, /Pending Review/);
   assert.match(page, /Projects at Risk/);
@@ -36,8 +38,8 @@ test("REA staff may read projects but only administrators may manage portal user
   assert.match(worker, /REA Administrator access required/);
 });
 
-test("M&E inspection access is read-only at the API boundary", () => {
+test("M&E Officer is read-only while M&E Admin can manage teams", () => {
   assert.match(fieldApi, /r\.staff_role AS staffRole/);
-  assert.match(fieldApi, /user\.staffRole === "M&E Officer" && request\.method !== "GET"/);
-  assert.match(fieldApi, /M&E access is read-only for inspection administration/);
+  assert.match(fieldApi, /const canManageMeTeams = user\.role === "rea_admin" \|\| user\.staffRole === "M&E Admin"/);
+  assert.match(fieldApi, /M&E team administration access required/);
 });
