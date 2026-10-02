@@ -663,11 +663,11 @@ export default function ProjectMapSatelliteEnhancer() {
 
   return createPortal(
     <>
-      <div className="absolute right-4 top-4 z-[40] flex overflow-hidden rounded-2xl border border-[#d8e5dc] bg-white/95 p-1 shadow-[0_10px_26px_rgba(21,70,43,.10)] backdrop-blur" aria-label="Project map imagery mode">
+      <div className="absolute right-4 top-4 z-[40] flex overflow-hidden rounded-xl border border-[#d8e5dc] bg-white/96 p-1 shadow-sm backdrop-blur" aria-label="Project map imagery mode">
         <button
           type="button"
           onClick={() => setImageryProvider("map")}
-          className={`flex h-9 items-center gap-2 rounded-xl px-3 text-[10px] font-extrabold transition-all duration-200 ${imageryProvider === "map" ? "bg-[#e9f7ed] text-[#08733f] shadow-sm" : "text-slate-500 hover:bg-[#f5f8f6]"}`}
+          className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[10px] font-bold transition-all duration-200 ${imageryProvider === "map" ? "bg-[#e9f7ed] text-[#08733f] shadow-sm" : "text-slate-500 hover:bg-[#f5f8f6]"}`}
           aria-pressed={imageryProvider === "map"}
           title="Standard project map"
         >
@@ -676,7 +676,7 @@ export default function ProjectMapSatelliteEnhancer() {
         <button
           type="button"
           onClick={() => setImageryProvider("esri")}
-          className={`flex h-9 items-center gap-2 rounded-xl px-3 text-[10px] font-extrabold transition-all duration-200 ${imageryProvider === "esri" ? "bg-[#173b2a] text-white shadow-sm" : "text-slate-500 hover:bg-[#f5f8f6]"}`}
+          className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[10px] font-bold transition-all duration-200 ${imageryProvider === "esri" ? "bg-[#173b2a] text-white shadow-sm" : "text-slate-500 hover:bg-[#f5f8f6]"}`}
           aria-pressed={imageryProvider === "esri"}
           title="Esri World Imagery"
         >
@@ -686,7 +686,7 @@ export default function ProjectMapSatelliteEnhancer() {
           type="button"
           onClick={() => googleReady && setImageryProvider("google")}
           disabled={!googleReady}
-          className={`flex h-9 items-center gap-2 rounded-xl px-3 text-[10px] font-extrabold transition-all duration-200 ${imageryProvider === "google" ? "bg-[#173b2a] text-white shadow-sm" : googleReady ? "text-slate-500 hover:bg-[#f5f8f6]" : "cursor-not-allowed text-slate-300"}`}
+          className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[10px] font-bold transition-all duration-200 ${imageryProvider === "google" ? "bg-[#173b2a] text-white shadow-sm" : googleReady ? "text-slate-500 hover:bg-[#f5f8f6]" : "cursor-not-allowed text-slate-300"}`}
           aria-pressed={imageryProvider === "google"}
           title={googleReady ? "Google Satellite" : "Google Satellite requires VITE_GOOGLE_MAPS_API_KEY"}
         >
