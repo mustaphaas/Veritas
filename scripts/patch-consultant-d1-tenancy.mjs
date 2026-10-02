@@ -376,7 +376,9 @@ const dashboardStateReplacement = `  const [reviewing, setReviewing] = useState<
   const handleOfficerStatus=async(id:string,status:FieldOfficerAccount["status"])=>{try{await updateFieldOfficerStatusApi(id,status);setFieldOfficerStatus(id,status);window.dispatchEvent(new Event("veritas-cloud-session"));}catch(error){window.alert(error instanceof Error?error.message:"Unable to update field officer.");}};
   const handleDeleteOfficer=async(id:string)=>{if(!window.confirm("Delete this field officer? This is only allowed when the officer has no assignment history."))return;try{await deleteFieldOfficerApi(id);window.dispatchEvent(new Event("veritas-cloud-session"));}catch(error){window.alert(error instanceof Error?error.message:"Unable to delete field officer.");}};
   const location = useLocation();`;
-dashboard = replaceOnce(dashboard, dashboardStateAnchor, dashboardStateReplacement, "field officer lifecycle handlers");
+if (!dashboard.includes("const handleOfficerStatus")) {
+  dashboard = replaceOnce(dashboard, dashboardStateAnchor, dashboardStateReplacement, "field officer lifecycle handlers");
+}
 dashboard = dashboard.replace('          onOfficerStatus={setFieldOfficerStatus}\n          onReview={setReviewing}', '          onOfficerStatus={handleOfficerStatus}\n          onDeleteOfficer={handleDeleteOfficer}\n          onReview={setReviewing}');
 fs.writeFileSync(dashboardPath, dashboard);
 
