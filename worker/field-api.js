@@ -330,7 +330,13 @@ async function handleCollaborativeInspections(request, env, user) {
   }
 
   const canManageMeTeams = user.role === "rea_admin" || user.staffRole === "M&E Admin";
-  if (request.method !== "GET" && !canManageMeTeams) {
+  const meOfficerCanWorkInspection =
+    user.staffRole === "M&E Officer" &&
+    (
+      (request.method === "PATCH" && /^\/api\/field\/rea-inspections\/[^/]+$/.test(path)) ||
+      (request.method === "POST" && /^\/api\/field\/rea-inspections\/[^/]+\/submit$/.test(path))
+    );
+  if (request.method !== "GET" && !canManageMeTeams && !meOfficerCanWorkInspection) {
     return response({ error: "M&E team administration access required." }, 403);
   }
 
@@ -424,9 +430,36 @@ async function handleCollaborativeInspections(request, env, user) {
     const body = await request.json().catch(() => null);
     const currentForm = JSON.parse(inspection.form_json || "{}");
     const currentAssignments = JSON.parse(inspection.section_assignments_json || "{}");
+    if (body?.sectionAssignments && team.team_lead_id !== user.id && user.role !== "rea_admin" && user.staffRole !== "M&E Admin") {
+      return response({ error: "Only the Team Lead or M&E Administrator can assign sections." }, 403);
+    }
+
+    if (user.staffRole === "M&E Officer" && body?.formPatch && typeof body.formPatch === "object") {
+      const sectionFields = {
+        project: ["Project reference confirmed","Programme and component","Contractor details"],
+        site: ["Site condition","GPS/location notes","Access and surroundings"],
+        equipment: ["Equipment installed","Capacity / specification","Condition and operation"],
+        beneficiaries: ["Beneficiary count","Community served","Service availability"],
+        evidence: ["Photo references","Supporting documents","Evidence notes"],
+        hse: ["HSE observations","Environmental observations","Corrective actions"],
+        final: ["Overall observation","Outstanding issues","Recommendation"],
+      };
+      const assignedSectionIds = Object.entries(currentAssignments)
+        .filter(([, assigneeId]) => assigneeId === user.id)
+        .map(([sectionId]) => sectionId);
+      const allowedFields = new Set(assignedSectionIds.flatMap((sectionId) => sectionFields[sectionId] || []));
+      const changedFields = Object.keys(body.formPatch);
+      const deniedFields = changedFields.filter((field) => !allowedFields.has(field));
+      if (!assignedSectionIds.length) {
+        return response({ error: "No inspection section is assigned to you for this project." }, 403);
+      }
+      if (deniedFields.length) {
+        return response({ error: "You can only edit fields in sections assigned to you.", deniedFields }, 403);
+      }
+    }
+
     const nextForm = body?.formPatch && typeof body.formPatch === "object" ? { ...currentForm, ...body.formPatch } : currentForm;
     const nextAssignments = body?.sectionAssignments && typeof body.sectionAssignments === "object" ? body.sectionAssignments : currentAssignments;
-    if (body?.sectionAssignments && team.team_lead_id !== user.id && user.role !== "rea_admin" && user.staffRole !== "M&E Admin") return response({ error: "Only the Team Lead or REA Administrator can assign sections." }, 403);
     const timestamp = now();
     await env.DB.prepare("UPDATE collaborative_inspections SET form_json=?,section_assignments_json=?,status='In Progress',version=version+1,last_saved_by=?,updated_at=? WHERE id=?")
       .bind(JSON.stringify(nextForm), JSON.stringify(nextAssignments), user.id, timestamp, inspection.id).run();

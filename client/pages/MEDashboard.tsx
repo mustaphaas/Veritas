@@ -58,6 +58,8 @@ type Inspection = {
   submittedAt?: string | null;
   teamName?: string;
   form?: Record<string, string>;
+  sectionAssignments?: Record<string, string>;
+  version?: number;
 };
 
 type MeMember = { id: string; name: string; email: string };
@@ -76,6 +78,16 @@ const navigation: Array<{ label: Tab; icon: typeof LayoutDashboard; adminOnly?: 
   { label: "Findings", icon: AlertTriangle },
   { label: "Analytics", icon: BarChart3 },
   { label: "Reports", icon: FileText },
+];
+
+const meInspectionSections = [
+  { id: "project", title: "Project Details", description: "Confirm the project and implementation details.", fields: ["Project reference confirmed", "Programme and component", "Contractor details"] },
+  { id: "site", title: "Site Assessment", description: "Record physical site observations and installation condition.", fields: ["Site condition", "GPS/location notes", "Access and surroundings"] },
+  { id: "equipment", title: "Equipment & Infrastructure", description: "Capture installed equipment and technical observations.", fields: ["Equipment installed", "Capacity / specification", "Condition and operation"] },
+  { id: "beneficiaries", title: "Beneficiary Verification", description: "Record beneficiary and service information.", fields: ["Beneficiary count", "Community served", "Service availability"] },
+  { id: "evidence", title: "Photos & Evidence", description: "Record evidence references and inspection notes.", fields: ["Photo references", "Supporting documents", "Evidence notes"] },
+  { id: "hse", title: "HSE / Environment", description: "Capture health, safety and environmental observations.", fields: ["HSE observations", "Environmental observations", "Corrective actions"] },
+  { id: "final", title: "Final Observations", description: "Complete the final inspection assessment.", fields: ["Overall observation", "Outstanding issues", "Recommendation"] },
 ];
 
 async function fetchMeWorkspace(token: string): Promise<MePayload> {
@@ -115,6 +127,7 @@ export default function MEDashboard() {
   const [teams, setTeams] = useState<MeTeam[]>([]);
   const [staff, setStaff] = useState<MeStaff[]>([]);
   const [workspaceRole, setWorkspaceRole] = useState(session?.roleLabel || "");
+  const [currentUserId, setCurrentUserId] = useState("");
   const [teamName, setTeamName] = useState("");
   const [teamLeadId, setTeamLeadId] = useState("");
   const [memberIds, setMemberIds] = useState<string[]>([]);
@@ -143,6 +156,7 @@ export default function MEDashboard() {
       setTeams(Array.isArray(workspace.teams) ? workspace.teams : []);
       setStaff(Array.isArray(workspace.staff) ? workspace.staff : []);
       setWorkspaceRole(workspace.staffRole || session.roleLabel || "");
+      setCurrentUserId(workspace.currentUserId || "");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Unable to load the M&E workspace.");
     } finally {
@@ -247,6 +261,20 @@ export default function MEDashboard() {
     } finally { setAdminSaving(false); }
   };
 
+  const saveAssignedSectionField = async (inspectionId: string, field: string, value: string) => {
+    if (!session?.apiToken) return;
+    setInspections((current) => current.map((item) => item.id === inspectionId
+      ? { ...item, form: { ...(item.form || {}), [field]: value }, status: "In Progress" }
+      : item
+    ));
+    try {
+      await meMutation(session.apiToken, `/api/field/rea-inspections/${inspectionId}`, { formPatch: { [field]: value } }, "PATCH");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Unable to save assigned inspection section.");
+      await loadWorkspace();
+    }
+  };
+
   const resetFilters = () => {
     setQuery("");
     setProgrammeFilter("All programmes");
@@ -343,7 +371,7 @@ export default function MEDashboard() {
               </section>
             </div>}
             {activeTab === "Projects" && <DataTableProjects projects={visibleProjects}/>}
-            {activeTab === "Inspections" && <DataTableInspections inspections={visibleInspections}/>}
+            {activeTab === "Inspections" && <DataTableInspections inspections={visibleInspections} currentUserId={currentUserId} isMeAdmin={isMeAdmin} onSaveField={saveAssignedSectionField}/>}
             {activeTab === "Verification" && <DataTableProjects projects={visibleProjects.filter((project)=>!project.verified)} verificationMode/>}
 
             {activeTab === "Findings" && <section className="veritas-data-panel overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div className="border-b border-[#e3ece6] px-5 py-4"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 text-rose-600"><AlertTriangle className="h-4 w-4"/></span><div><h2 className="text-base font-bold text-[#173b2a]">Findings & Corrective Attention</h2><p className="mt-1 text-xs text-slate-500">Read-only register of inspection records with outstanding or risk signals.</p></div></div></div>{findings.length ? <div className="divide-y divide-slate-100">{findings.map((item)=><div key={item.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4"><div><p className="text-xs font-bold text-[#173b2a]">{item.projectName}</p><p className="mt-1 text-[10px] text-slate-500">{item.state} · {item.lga} · {item.teamName || "Inspection team"}</p></div><span className={`rounded-full border px-2 py-1 text-[10px] font-bold ${statusTone(item.status)}`}>{item.status}</span></div>)}</div> : <div className="p-8 text-center text-xs text-slate-500">No risk or corrective-action signals are currently recorded.</div>}</section>}
@@ -370,8 +398,87 @@ function DataTableProjects({ projects, verificationMode = false }: { projects: P
   return <section className="veritas-data-panel overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center justify-between border-b border-[#e3ece6] px-5 py-4"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#cce5d4] bg-[#eef8f1] text-[#08733f]"><MapPinned className="h-4 w-4"/></span><div><h2 className="text-base font-bold text-[#173b2a]">{verificationMode ? "Pending Verification" : "Projects Monitored"}</h2><p className="mt-1 text-xs text-slate-500">{projects.length.toLocaleString()} records in current view</p></div></div></div><div className="overflow-x-auto"><table className="veritas-data-table w-full min-w-[900px] text-left"><thead><tr><th className="px-5 py-3">Project</th><th className="px-5 py-3">Programme</th><th className="px-5 py-3">Location</th><th className="px-5 py-3">Contractor</th><th className="px-5 py-3">Component</th><th className="px-5 py-3">Status</th></tr></thead><tbody>{projects.slice(0,100).map((project)=><tr key={project.id || project.name}><td className="px-5 py-3 text-xs font-bold text-[#173b2a]">{project.name}</td><td className="px-5 py-3 text-xs">{project.programme}</td><td className="px-5 py-3 text-xs">{project.state}{project.lga ? ` · ${project.lga}` : ""}</td><td className="px-5 py-3 text-xs">{project.contractor}</td><td className="px-5 py-3 text-xs">{project.component}</td><td className="px-5 py-3"><span className={`rounded-full border px-2 py-1 text-[10px] font-bold ${project.verified ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>{project.verified ? "Verified" : project.status || "Pending"}</span></td></tr>)}</tbody></table></div></section>
 }
 
-function DataTableInspections({ inspections }: { inspections: Inspection[] }) {
-  return <section className="veritas-data-panel overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center justify-between border-b border-[#e3ece6] px-5 py-4"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#cce5d4] bg-[#eef8f1] text-[#08733f]"><CheckCircle2 className="h-4 w-4"/></span><div><h2 className="text-base font-bold text-[#173b2a]">Inspection Monitoring</h2><p className="mt-1 text-xs text-slate-500">{inspections.length.toLocaleString()} inspection records</p></div></div></div><div className="overflow-x-auto"><table className="veritas-data-table w-full min-w-[900px] text-left"><thead><tr><th className="px-5 py-3">Project</th><th className="px-5 py-3">Programme</th><th className="px-5 py-3">Location</th><th className="px-5 py-3">Team</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Updated</th></tr></thead><tbody>{inspections.slice(0,100).map((item)=><tr key={item.id}><td className="px-5 py-3 text-xs font-bold text-[#173b2a]">{item.projectName}</td><td className="px-5 py-3 text-xs">{item.programme}</td><td className="px-5 py-3 text-xs">{item.state} · {item.lga}</td><td className="px-5 py-3 text-xs">{item.teamName || "—"}</td><td className="px-5 py-3"><span className={`rounded-full border px-2 py-1 text-[10px] font-bold ${statusTone(item.status)}`}>{item.status}</span></td><td className="px-5 py-3 text-xs text-slate-500">{item.updatedAt ? new Date(item.updatedAt).toLocaleDateString() : "—"}</td></tr>)}</tbody></table></div></section>
+function DataTableInspections({
+  inspections,
+  currentUserId,
+  isMeAdmin,
+  onSaveField,
+}: {
+  inspections: Inspection[];
+  currentUserId: string;
+  isMeAdmin: boolean;
+  onSaveField: (inspectionId: string, field: string, value: string) => Promise<void>;
+}) {
+  const [selectedId, setSelectedId] = useState("");
+  const selected = inspections.find((item) => item.id === selectedId) || null;
+  const assignedSections = selected
+    ? meInspectionSections.filter((section) => isMeAdmin || selected.sectionAssignments?.[section.id] === currentUserId)
+    : [];
+  const locked = selected ? ["Submitted","Approved","Verified"].includes(selected.status) : false;
+
+  return <div className="space-y-4">
+    <section className="veritas-data-panel overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b border-[#e3ece6] px-5 py-4">
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#cce5d4] bg-[#eef8f1] text-[#08733f]"><CheckCircle2 className="h-4 w-4"/></span>
+          <div><h2 className="text-base font-bold text-[#173b2a]">Inspection Monitoring</h2><p className="mt-1 text-xs text-slate-500">{inspections.length.toLocaleString()} inspection records · open a project to view your assigned sections</p></div>
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="veritas-data-table w-full min-w-[980px] text-left">
+          <thead><tr><th className="px-5 py-3">Project</th><th className="px-5 py-3">Programme</th><th className="px-5 py-3">Location</th><th className="px-5 py-3">Team</th><th className="px-5 py-3">My Sections</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Action</th></tr></thead>
+          <tbody>{inspections.slice(0,100).map((item) => {
+            const mine = meInspectionSections.filter((section) => item.sectionAssignments?.[section.id] === currentUserId);
+            return <tr key={item.id}>
+              <td className="px-5 py-3 text-xs font-bold text-[#173b2a]">{item.projectName}</td>
+              <td className="px-5 py-3 text-xs">{item.programme}</td>
+              <td className="px-5 py-3 text-xs">{item.state} · {item.lga}</td>
+              <td className="px-5 py-3 text-xs">{item.teamName || "—"}</td>
+              <td className="px-5 py-3"><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${mine.length ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{isMeAdmin ? "Admin view" : `${mine.length} assigned`}</span></td>
+              <td className="px-5 py-3"><span className={`rounded-full border px-2 py-1 text-[10px] font-bold ${statusTone(item.status)}`}>{item.status}</span></td>
+              <td className="px-5 py-3"><button type="button" onClick={()=>setSelectedId(item.id)} className="rounded-lg border border-[#b9dfc5] bg-white px-3 py-2 text-[10px] font-bold text-[#08733f] hover:bg-[#f2faf4]">View Sections</button></td>
+            </tr>;
+          })}</tbody>
+        </table>
+      </div>
+    </section>
+
+    {selected && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex flex-col gap-3 border-b border-[#e3ece6] bg-[#fbfefb] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div><p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#08733f]">{isMeAdmin ? "Inspection Sections" : "My Assigned Sections"}</p><h3 className="mt-1 text-base font-extrabold text-[#173b2a]">{selected.projectName}</h3><p className="mt-1 text-xs text-slate-500">{selected.teamName || "M&E Team"} · {selected.state} / {selected.lga}</p></div>
+        <button type="button" onClick={()=>setSelectedId("")} className="self-start rounded-lg border border-slate-200 px-3 py-2 text-[10px] font-bold text-slate-500">Close</button>
+      </div>
+
+      {!assignedSections.length && !isMeAdmin ? <div className="p-8 text-center">
+        <ClipboardCheck className="mx-auto h-8 w-8 text-slate-300"/>
+        <p className="mt-3 text-sm font-bold text-slate-600">No section assigned to you</p>
+        <p className="mt-1 text-xs text-slate-400">Your M&E Admin or Team Lead must assign at least one form section to your account.</p>
+      </div> : <div className="grid gap-4 p-4 lg:grid-cols-2">
+        {assignedSections.map((section) => {
+          const completed = section.fields.filter((field) => String(selected.form?.[field] || "").trim()).length;
+          return <article key={section.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div><h4 className="text-sm font-extrabold text-[#173b2a]">{section.title}</h4><p className="mt-1 text-[10px] leading-4 text-slate-500">{section.description}</p></div>
+              <span className="rounded-full bg-[#edf8f0] px-2 py-1 text-[9px] font-bold text-[#08733f]">{completed}/{section.fields.length}</span>
+            </div>
+            <div className="mt-4 space-y-3">
+              {section.fields.map((field) => <label key={field} className="block">
+                <span className="text-[10px] font-bold text-slate-600">{field}</span>
+                <textarea
+                  disabled={locked || (!isMeAdmin && selected.sectionAssignments?.[section.id] !== currentUserId)}
+                  value={selected.form?.[field] || ""}
+                  onChange={(event)=>void onSaveField(selected.id, field, event.target.value)}
+                  rows={field.toLowerCase().includes("observation") || field.toLowerCase().includes("notes") ? 4 : 2}
+                  className="mt-1.5 w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs text-[#173b2a] outline-none focus:border-[#08733f] focus:ring-2 focus:ring-[#08733f]/10 disabled:bg-slate-50 disabled:text-slate-400"
+                  placeholder="Enter inspection information…"
+                />
+              </label>)}
+            </div>
+          </article>;
+        })}
+      </div>}
+    </section>}
+  </div>;
 }
 
 
