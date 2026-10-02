@@ -1109,10 +1109,7 @@ export default function ConsultantAdminDashboard() {
           onOfficerStatus={handleOfficerStatus}
           onDeleteOfficer={handleDeleteOfficer}
           onReview={setReviewing}
-          onMap={(assignment) => {
-            setSelectedMapProjectId(assignment.id);
-            navigate("/consultant-admin");
-          }}
+          onMap={() => navigate("/consultant-admin")}
         />
       )}
       <div className={activeView === "Overview" ? "" : "hidden"}>
@@ -1126,11 +1123,9 @@ export default function ConsultantAdminDashboard() {
                 className={inputClass}
               >
                 <option>All Programmes</option>
-                {[...new Set(assignments.map((item) => item.programme))].map(
-                  (item) => (
-                    <option key={item}>{item}</option>
-                  ),
-                )}
+                {programmeOptions.map((item) => (
+                  <option key={item}>{item}</option>
+                ))}
               </select>
             </label>
             <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
@@ -1141,11 +1136,9 @@ export default function ConsultantAdminDashboard() {
                 className={inputClass}
               >
                 <option>All States</option>
-                {[...new Set(assignments.map((item) => item.state))].map(
-                  (item) => (
-                    <option key={item}>{item}</option>
-                  ),
-                )}
+                {stateOptions.map((item) => (
+                  <option key={item}>{item}</option>
+                ))}
               </select>
             </label>
             <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
@@ -1156,8 +1149,8 @@ export default function ConsultantAdminDashboard() {
                 className={inputClass}
               >
                 <option>All Field Officers</option>
-                {fieldOfficers.map((item) => (
-                  <option key={item.name}>{item.name}</option>
+                {officerOptions.map((item) => (
+                  <option key={item}>{item}</option>
                 ))}
               </select>
             </label>
@@ -1201,52 +1194,17 @@ export default function ConsultantAdminDashboard() {
             <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
               <div>
                 <h2 className="text-sm font-bold text-[#173b2a]">
-                  Interactive Project Map
+                  Consultant Project Coverage
                 </h2>
                 <p className="mt-1 text-[10px] text-slate-500">
-                  Select an assignment to inspect its field location
+                  Nigeria → State → LGA drill-down with LGA resolved from project coordinates
                 </p>
               </div>
-              {mapTarget && (
-                <span className="rounded-full border border-[#d6e9da] bg-[#f3faf5] px-2.5 py-1 text-[9px] font-bold text-[#08733f]">
-                  {mapTarget.status}
-                </span>
-              )}
+              <span className="rounded-full border border-[#d6e9da] bg-[#f3faf5] px-2.5 py-1 text-[9px] font-bold text-[#08733f]">
+                {filteredPortfolio.length} projects
+              </span>
             </div>
-            {mapTarget ? (
-              <div className="grid lg:grid-cols-[1fr_230px]">
-                <iframe
-                  title="Consultant project map"
-                  src={mapUrl}
-                  className="h-[350px] w-full bg-slate-100"
-                  loading="lazy"
-                />
-                <div className="max-h-[350px] overflow-y-auto border-l border-slate-100 p-3">
-                  <p className="mb-2 text-[9px] font-bold uppercase tracking-wide text-slate-500">
-                    Consultant project portfolio
-                  </p>
-                  {mapPortfolio.slice(0, 12).map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => setSelectedMapProjectId(item.id)}
-                      className={`mb-2 w-full rounded-md border p-2.5 text-left ${mapTarget.id === item.id ? "border-[#8bcba0] bg-[#eff9f2]" : "border-slate-100 hover:bg-slate-50"}`}
-                    >
-                      <p className="truncate text-[10px] font-bold text-[#173b2a]">
-                        {item.projectName}
-                      </p>
-                      <p className="mt-1 flex items-center gap-1 text-[9px] text-slate-500">
-                        <MapPin className="h-3 w-3" /> {item.community},{" "}
-                        {item.state}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="p-10 text-center text-sm text-slate-500">
-                No consultant projects with coordinates match these filters.
-              </div>
-            )}
+            <ConsultantCoverageMap assignments={mapAssignments} filters={mapFilters} />
           </section>
         </div>
         <div className="mt-3 grid gap-3 xl:grid-cols-2">
