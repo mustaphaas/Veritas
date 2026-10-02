@@ -89,12 +89,14 @@ function filteredProjects(rows, question) {
   const wantedComponent = componentWanted(question);
   const state = longestMention(question, rows, "state");
   const lga = longestMention(question, rows, "lga");
+  const community = longestMention(question, rows, "community");
   const programme = longestMention(question, rows, "programme");
 
   return rows.filter((row) => {
     if (!componentMatches(row.component, wantedComponent)) return false;
     if (state && clean(row.state).toLowerCase() !== state.toLowerCase()) return false;
     if (lga && clean(row.lga).toLowerCase() !== lga.toLowerCase()) return false;
+    if (community && clean(row.community).toLowerCase() !== community.toLowerCase()) return false;
     if (programme && clean(row.programme).toLowerCase() !== programme.toLowerCase()) return false;
     return true;
   });
