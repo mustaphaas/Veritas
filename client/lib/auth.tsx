@@ -8,6 +8,7 @@ import { authenticateFieldApi, fetchConsultantProfileWithToken } from "./field-a
 
 export type DemoRole = "rea" | "field" | "consultant";
 export type DemoAccount = { role: DemoRole; roleLabel: string; name: string; initials: string; email: string; password: string; path: string; consultantId?: string; };
+const reaStaffPath = (staffRole?: string) => staffRole === "M&E Officer" ? "/me-dashboard" : "/";
 export const demoAccounts: DemoAccount[] = [
  { role:"rea", roleLabel:"REA Dashboard", name:"REA Administrator", initials:"RA", email:"rea.admin@demo.ng", password:"REA2024!", path:"/" },
  { role:"field", roleLabel:"Field Officer", name:"Amina Yusuf", initials:"AY", email:"field.officer@demo.ng", password:"Field2024!", path:"/field-officer", consultantId:"con-001" },
@@ -31,7 +32,7 @@ export function authenticateDemoAccount(email:string,password:string):LoginAccou
  const staff=reaStaff.find(x=>x.email.toLowerCase()===normalized);
  if(staff){
   if(staff.status!=="Active"||staff.password!==password)return null;
-  return {role:"rea",roleLabel:staff.role,name:staff.name,initials:initials(staff.name),email:staff.email,password:staff.password,path:"/",access:[...staff.access]};
+  return {role:"rea",roleLabel:staff.role,name:staff.name,initials:initials(staff.name),email:staff.email,password:staff.password,path:reaStaffPath(staff.role),access:[...staff.access]};
  }
  const consultant=readConsultants().find(x=>x.adminEmail.toLowerCase()===normalized);
  if(consultant){
@@ -56,8 +57,9 @@ function hydrateSession(session:AuthSession):AuthSession|null{
  if(!hasUsableCloudSession(session))return null;
  if(session.role==="rea"){
   const staff=readReaStaff().find(account=>account.email.toLowerCase()===session.email.toLowerCase());
-  if(!staff||staff.status!=="Active")return null;
-  return {...session,roleLabel:staff.role,name:staff.name,initials:initials(staff.name),email:staff.email,access:[...staff.access]};
+  if(staff?.status==="Suspended")return null;
+  if(!staff)return {...session,path:reaStaffPath(session.roleLabel)};
+  return {...session,roleLabel:staff.role,name:staff.name,initials:initials(staff.name),email:staff.email,path:reaStaffPath(staff.role),access:[...staff.access]};
  }
  if(session.role==="consultant"){
   const consultant=readConsultants().find(account=>account.adminEmail.toLowerCase()===session.email.toLowerCase());
@@ -110,7 +112,7 @@ export function AuthProvider({children}:{children:ReactNode}){
   }
   const local=authenticateDemoAccount(email,password);
   if(local&&local.role!==cloudRole)return null;
-  const account:LoginAccount=local??{role:cloudRole,roleLabel:cloudRole==="rea"?(cloud.user.staffRole||"REA Staff"):cloudRole==="consultant"?"Consultant Admin":"Field Officer",name:cloud.user.name||email,initials:initials(cloud.user.name||email),email:cloud.user.email||email,password,path:cloudRole==="rea"?"/":cloudRole==="consultant"?"/consultant-admin":"/field-officer",consultantId,access:cloudRole==="rea"?cloud.user.access:undefined};
+  const account:LoginAccount=local??{role:cloudRole,roleLabel:cloudRole==="rea"?(cloud.user.staffRole||"REA Staff"):cloudRole==="consultant"?"Consultant Admin":"Field Officer",name:cloud.user.name||email,initials:initials(cloud.user.name||email),email:cloud.user.email||email,password,path:cloudRole==="rea"?reaStaffPath(cloud.user.staffRole):cloudRole==="consultant"?"/consultant-admin":"/field-officer",consultantId,access:cloudRole==="rea"?cloud.user.access:undefined};
   if(cloudRole==="consultant"&&consultantId)account.consultantId=consultantId;
   if(account.role==="rea")appendAuditEvent({actor:account.name,action:"Signed in",category:"Authentication",target:"REA Dashboard",details:`Successful login for ${account.email}`,severity:"Success"});
   const{password:_password,...baseSession}=account;const nextSession={...baseSession,apiToken:cloud.token,apiExpiresAt:cloud.expiresAt};setSession(nextSession);window.sessionStorage.setItem(SESSION_KEY,JSON.stringify(nextSession));window.dispatchEvent(new Event("veritas-cloud-session"));return nextSession;
@@ -120,3 +122,5 @@ export function AuthProvider({children}:{children:ReactNode}){
 }
 export function useAuth(){const c=useContext(AuthContext);if(!c)throw new Error("useAuth must be used inside AuthProvider");return c;}
 export function RequireRole({role,children}:{role:DemoRole;children:ReactNode}){const{session}=useAuth();const location=useLocation();if(!session)return <Navigate to="/login" replace state={{from:location.pathname}}/>;if(session.role!==role)return <Navigate to={session.path} replace/>;return children;}
+
+export function RequireReaStaffRole({staffRole,children}:{staffRole:string;children:ReactNode}){const{session}=useAuth();const location=useLocation();if(!session)return <Navigate to="/login" replace state={{from:location.pathname}}/>;if(session.role!=="rea")return <Navigate to={session.path} replace/>;if(session.roleLabel!==staffRole)return <Navigate to={session.path===location.pathname?"/":session.path} replace/>;return children;}

@@ -58,8 +58,8 @@ jobs:
       - name: Apply database-backed REA users and classifications
         run: node scripts/patch-rea-users-database.mjs
 
-      - name: Validate REA users database regression
-        run: node --test tests/rea-users-database.test.mjs
+      - name: Validate REA users and M&E access regression
+        run: node --test tests/rea-users-database.test.mjs tests/me-dashboard.test.mjs
 
       - name: Remove Project Map summary badges
         run: node scripts/patch-project-map-summary-badges.mjs

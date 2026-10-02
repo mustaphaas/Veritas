@@ -10,7 +10,7 @@ type PortalUser = {
   status: "Active" | "Suspended"; createdAt?: string;
 };
 
-const STAFF_ROLES = ["Programme Manager", "Verification Officer", "Claims Officer", "Analyst", "Viewer"];
+const STAFF_ROLES = ["Programme Manager", "M&E Officer", "Verification Officer", "Claims Officer", "Analyst", "Viewer"];
 
 function roleLabel(role: string) {
   if (role === "rea_admin") return "REA Administrator";
@@ -149,7 +149,7 @@ export default function ReaUserManagement() {
           <Field label="Email address"><input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="name@rea.gov.ng" className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-[#08733f]"/></Field>
           <Field label="Phone number"><input value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})} placeholder="Optional" className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-[#08733f]"/></Field>
           <Field label="Department"><input value={form.department} onChange={e=>setForm({...form,department:e.target.value})} placeholder="e.g. Programme Delivery" className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-[#08733f]"/></Field>
-          <Field label="Role"><select value={form.staffRole} onChange={e=>setForm({...form,staffRole:e.target.value})} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-[#08733f]">{STAFF_ROLES.map(role=><option key={role}>{role}</option>)}</select></Field>
+          <Field label="Role"><select value={form.staffRole} onChange={e=>{const staffRole=e.target.value;setForm({...form,staffRole,access:staffRole==="M&E Officer"?["Overview","Projects","Project Map","Field Inspections","Verification","Findings","Analytics","Reports"]:form.access})}} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-[#08733f]">{STAFF_ROLES.map(role=><option key={role}>{role}</option>)}</select></Field>
           <Field label="Temporary password"><div className="flex gap-2"><input value={form.temporaryPassword} onChange={e=>setForm({...form,temporaryPassword:e.target.value})} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-[#08733f]"/><button type="button" onClick={()=>setForm({...form,temporaryPassword:makePassword()})} className="rounded-lg border border-slate-200 px-3 text-[10px] font-bold text-slate-600">Generate</button></div></Field>
           <div className="sm:col-span-2"><p className="mb-2 text-xs font-bold text-slate-700">Dashboard access</p><div className="grid gap-2 sm:grid-cols-3">{reaAccessModules.map(module=><label key={module} className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 p-3 text-xs font-medium text-slate-700"><input type="checkbox" checked={form.access.includes(module)} onChange={()=>toggleAccess(module)}/>{module}</label>)}</div></div>
           {error && <div className="sm:col-span-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700">{error}</div>}

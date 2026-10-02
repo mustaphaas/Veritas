@@ -18,6 +18,7 @@ import {
 import Index from "./pages/Index";
 import FieldOfficerDashboard from "./pages/FieldOfficerDashboard";
 import ConsultantAdminDashboard from "./pages/ConsultantAdminDashboard";
+import MEDashboard from "./pages/MEDashboard";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
@@ -35,7 +36,7 @@ import FieldOfficerGpsKmDisplay from "./components/FieldOfficerGpsKmDisplay";
 import FieldOfficerDraftsNavEnhancer from "./components/FieldOfficerDraftsNavEnhancer";
 import FieldOfficerDraftAutosave from "./components/FieldOfficerDraftAutosave";
 import FieldOfficerDraftNormalizer from "./components/FieldOfficerDraftNormalizer";
-import { AuthProvider, RequireRole, useAuth } from "./lib/auth";
+import { AuthProvider, RequireReaStaffRole, RequireRole, useAuth } from "./lib/auth";
 import { InspectionWorkflowProvider } from "./lib/inspection-workflow";
 
 const queryClient = new QueryClient();
@@ -98,6 +99,14 @@ const App = () => (
                   <RequireRole role="rea">
                     <ReaFieldInspections />
                   </RequireRole>
+                }
+              />
+              <Route
+                path="/me-dashboard/*"
+                element={
+                  <RequireReaStaffRole staffRole="M&E Officer">
+                    <MEDashboard />
+                  </RequireReaStaffRole>
                 }
               />
               <Route

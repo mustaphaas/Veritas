@@ -22,7 +22,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const [error, setError] = useState("");
-  const [selectedRole, setSelectedRole] = useState(demoAccounts[0].role);
+  const [selectedAccount, setSelectedAccount] = useState(demoAccounts[0].email);
   const [showForgot, setShowForgot] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetting, setResetting] = useState(false);
@@ -32,7 +32,7 @@ export default function Login() {
   if (session) return <Navigate to={session.path} replace />;
 
   const selectAccount = (account: (typeof demoAccounts)[number]) => {
-    setSelectedRole(account.role);
+    setSelectedAccount(account.email);
     setEmail(account.email);
     setPassword(account.password);
   };
@@ -120,10 +120,10 @@ export default function Login() {
             <div className="mt-6 grid gap-2 sm:grid-cols-3">
               {demoAccounts.map((account) => {
                 const Icon = account.role === "rea" ? ShieldCheck : UsersRound;
-                const selected = selectedRole === account.role;
+                const selected = selectedAccount === account.email;
                 return (
                   <button
-                    key={account.role}
+                    key={account.email}
                     type="button"
                     onClick={() => selectAccount(account)}
                     className={`rounded-lg border p-3 text-left transition-colors ${selected ? "border-[#08733f] bg-[#edf8f0]" : "border-slate-200 bg-white hover:bg-slate-50"}`}

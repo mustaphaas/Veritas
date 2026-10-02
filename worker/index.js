@@ -83,7 +83,7 @@ async function consultantFieldOfficerResponse(request, env) {
 async function reaUsersResponse(request, env) {
   const user = await authenticatedDatabaseUser(request, env);
   if (!user) return json({ error: "Authentication required." }, 401);
-  if (!String(user.role || "").startsWith("rea_")) return json({ error: "REA access required." }, 403);
+  if (user.role !== "rea_admin") return json({ error: "REA Administrator access required." }, 403);
 
   const result = await env.DB.prepare(`SELECT u.id,u.name,u.email,u.phone,u.role,u.consultant_firm AS consultantFirm,u.status,
     r.staff_role AS staffRole,r.department,r.access_json AS accessJson,u.created_at AS createdAt
@@ -412,7 +412,7 @@ async function reaAuditEventsResponse(request, env) {
 async function reaProjectsResponse(request, env) {
   const user = await authenticatedDatabaseUser(request, env);
   if (!user) return json({ error: "Authentication required." }, 401);
-  if (user.role !== "rea_admin") return json({ error: "REA access required." }, 403);
+  if (user.role !== "rea_admin" && user.role !== "rea_staff") return json({ error: "REA access required." }, 403);
   const result = await env.DB.prepare(`SELECT id,name,programme,component,contractor,consultant_firm AS consultantFirm,state,lga,community,
     reporting_month AS reportingMonth,portfolio_status AS status,installed_capacity_kw AS installedCapacityKw,
     households,verified,latitude,longitude,geofence_radius_metres AS geofenceRadiusMetres,

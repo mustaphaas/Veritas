@@ -40,8 +40,12 @@ async function currentUser(request, env) {
   const bearer = request.headers.get("Authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
   if (!bearer) return null;
   const tokenHash = await digest(bearer);
-  const user = await env.DB.prepare(`SELECT u.id,u.name,u.email,u.phone,u.role,u.consultant_firm AS consultantFirm
-    FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? AND u.status='active'`).bind(tokenHash, now()).first();
+  const user = await env.DB.prepare(`SELECT u.id,u.name,u.email,u.phone,
+    CASE WHEN u.role='rea_admin' AND COALESCE(r.staff_role,'REA Administrator')<>'REA Administrator' THEN 'rea_staff' ELSE u.role END AS role,
+    u.consultant_firm AS consultantFirm,r.staff_role AS staffRole,r.department,r.access_json AS accessJson
+    FROM sessions s JOIN users u ON u.id=s.user_id
+    LEFT JOIN rea_staff_accounts r ON r.user_id=u.id
+    WHERE s.token_hash=? AND s.expires_at>? AND u.status='active'`).bind(tokenHash, now()).first();
   if (user) await env.DB.prepare("UPDATE sessions SET last_seen_at=? WHERE token_hash=?").bind(now(), tokenHash).run();
   return user;
 }
@@ -288,6 +292,10 @@ async function handleCollaborativeInspections(request, env, user) {
       inspections: await collaborativeInspections(env),
       serverTime: now(),
     });
+  }
+
+  if (user.staffRole === "M&E Officer" && request.method !== "GET") {
+    return response({ error: "M&E access is read-only for inspection administration." }, 403);
   }
 
   if (path === "/api/field/rea-inspections/teams" && request.method === "POST") {
