@@ -195,31 +195,37 @@ export default function ReaVerificationManagement(){
           </div>
         </header>
 
-        <section className="rea-v-summary veritas-verification-summary" aria-label="Verification status summary">
-          <article className="rea-v-summary-card rea-v-summary-awaiting">
-            <span className="rea-v-icon"><ClipboardCheck aria-hidden="true"/></span>
-            <div className="rea-v-summary-copy">
-              <small>Awaiting REA</small>
-              <strong>{awaiting.length}</strong>
-              <p>Consultant-approved reports ready for final review</p>
+        <section className="rea-v-summary veritas-verification-summary veritas-overview-kpis" aria-label="Verification status summary">
+          <article className="veritas-overview-kpi-card rea-v-summary-card rea-v-summary-awaiting">
+            <div className="rea-v-kpi-layout">
+              <span className="rea-v-kpi-icon rea-v-kpi-icon-awaiting"><ClipboardCheck aria-hidden="true"/></span>
+              <div className="rea-v-kpi-copy">
+                <p className="rea-v-kpi-label">Awaiting REA</p>
+                <strong className="rea-v-kpi-value">{awaiting.length}</strong>
+                <p className="rea-v-kpi-detail">Consultant-approved reports ready for final review</p>
+              </div>
             </div>
           </article>
 
-          <article className="rea-v-summary-card rea-v-summary-verified">
-            <span className="rea-v-icon"><BadgeCheck aria-hidden="true"/></span>
-            <div className="rea-v-summary-copy">
-              <small>Verified</small>
-              <strong>{verified.length}</strong>
-              <p>Reports cleared through REA final verification</p>
+          <article className="veritas-overview-kpi-card rea-v-summary-card rea-v-summary-verified">
+            <div className="rea-v-kpi-layout">
+              <span className="rea-v-kpi-icon rea-v-kpi-icon-verified"><BadgeCheck aria-hidden="true"/></span>
+              <div className="rea-v-kpi-copy">
+                <p className="rea-v-kpi-label">Verified</p>
+                <strong className="rea-v-kpi-value">{verified.length}</strong>
+                <p className="rea-v-kpi-detail">Reports cleared through REA final verification</p>
+              </div>
             </div>
           </article>
 
-          <article className="rea-v-summary-card rea-v-summary-reinspection">
-            <span className="rea-v-icon rea-v-icon-warn"><RotateCcw aria-hidden="true"/></span>
-            <div className="rea-v-summary-copy">
-              <small>Re-inspection</small>
-              <strong>{reinspection.length}</strong>
-              <p>Reports returned for corrective field action</p>
+          <article className="veritas-overview-kpi-card rea-v-summary-card rea-v-summary-reinspection">
+            <div className="rea-v-kpi-layout">
+              <span className="rea-v-kpi-icon rea-v-kpi-icon-reinspection"><RotateCcw aria-hidden="true"/></span>
+              <div className="rea-v-kpi-copy">
+                <p className="rea-v-kpi-label">Re-inspection</p>
+                <strong className="rea-v-kpi-value">{reinspection.length}</strong>
+                <p className="rea-v-kpi-detail">Reports returned for corrective field action</p>
+              </div>
             </div>
           </article>
         </section>
@@ -288,7 +294,8 @@ export default function ReaVerificationManagement(){
                       <th>Beneficiaries</th>
                       <th>GPS</th>
                       <th>Awaiting since</th>
-                      <th>Review actions</th>
+                      <th>View</th>
+                      <th>Review action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -309,29 +316,29 @@ export default function ReaVerificationManagement(){
                           </span>
                         </td>
                         <td className="min-w-[150px]">{formatDate(awaitingAt(item))}</td>
-                        <td className="min-w-[245px]">
-                          <div className="rea-v-action-stack">
-                            <div className="rea-v-action-row">
-                              <button type="button" onClick={()=>openReport(item)} className="rea-v-action-button rea-v-action-secondary">
-                                <Eye aria-hidden="true"/>View report
-                              </button>
-                              <button type="button" onClick={()=>openReport(item,true)} className="rea-v-action-button rea-v-action-secondary">
-                                <FileDown aria-hidden="true"/>PDF
-                              </button>
-                            </div>
-                            <div className="rea-v-action-row">
-                              <button type="button" onClick={()=>decide(item.id,"Verified")} className="rea-v-action-button rea-v-action-primary">
-                                <BadgeCheck aria-hidden="true"/>Verify
-                              </button>
-                              <button type="button" onClick={()=>decide(item.id,"Re-inspection")} className="rea-v-action-button rea-v-action-warning">
-                                <RotateCcw aria-hidden="true"/>Re-inspect
-                              </button>
-                            </div>
+                        <td className="min-w-[210px]">
+                          <div className="rea-v-action-row rea-v-action-row-view">
+                            <button type="button" onClick={()=>openReport(item)} className="rea-v-action-button rea-v-action-secondary">
+                              <Eye aria-hidden="true"/>View report
+                            </button>
+                            <button type="button" onClick={()=>openReport(item,true)} className="rea-v-action-button rea-v-action-secondary">
+                              <FileDown aria-hidden="true"/>PDF
+                            </button>
+                          </div>
+                        </td>
+                        <td className="min-w-[210px]">
+                          <div className="rea-v-action-row rea-v-action-row-review">
+                            <button type="button" onClick={()=>decide(item.id,"Verified")} className="rea-v-action-button rea-v-action-primary">
+                              <BadgeCheck aria-hidden="true"/>Verify
+                            </button>
+                            <button type="button" onClick={()=>decide(item.id,"Re-inspection")} className="rea-v-action-button rea-v-action-warning">
+                              <RotateCcw aria-hidden="true"/>Re-inspect
+                            </button>
                           </div>
                         </td>
                       </tr>
                     )) : (
-                      <tr><td colSpan={8} className="rea-v-empty">No reports are currently awaiting REA verification.</td></tr>
+                      <tr><td colSpan={9} className="rea-v-empty">No reports are currently awaiting REA verification.</td></tr>
                     )}
                   </tbody>
                 </table>
