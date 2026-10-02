@@ -19,6 +19,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Apply verified consultant report view
+        run: node scripts/patch-consultant-verified-report-view.mjs
       - name: Run Node regression tests
         run: node --test tests/*.test.mjs
       - name: Run client Vitest suite
