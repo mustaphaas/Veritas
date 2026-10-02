@@ -102,7 +102,7 @@ const App = () => (
               <Route
                 path="/me-dashboard/*"
                 element={
-                  <RequireReaStaffRole staffRole="M&E Officer">
+                  <RequireReaStaffRole staffRole={["M&E Admin", "M&E Officer"]}>
                     <MEDashboard />
                   </RequireReaStaffRole>
                 }
