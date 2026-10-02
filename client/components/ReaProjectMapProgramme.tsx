@@ -722,55 +722,59 @@ function ProjectMap({
       <style>{MAP_VISUAL_STYLES}</style>
       <section className="flex h-full min-w-0 flex-col">
         <header className="veritas-project-map-header flex min-h-[62px] items-center justify-between gap-3 border-b border-[#dfeae2] bg-white px-4 shadow-[0_4px_16px_rgba(21,70,43,.04)] lg:px-5">
-          <div className="flex min-w-0 items-center gap-1 overflow-x-auto text-[11px] font-bold text-slate-500">
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedState(null);
-                setSelectedLga(null);
-                setSelectedProject(null);
-                setStateFilter("All States");
-                setLgaFilter("All LGAs");
-                setZoom(1);
-              }}
-              className={`whitespace-nowrap rounded-md px-2 py-1.5 ${!selectedState ? "bg-[#edf8f0] text-[#138049]" : "hover:bg-slate-100"}`}
-            >
-              Nigeria
-            </button>
-            {selectedState && <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-300" />}
-            {selectedState && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedLga(null);
-                  setSelectedProject(null);
-                  setLgaFilter("All LGAs");
-                  setZoom(1);
-                }}
-                className={`whitespace-nowrap rounded-md px-2 py-1.5 ${!selectedLga ? "bg-[#edf8f0] text-[#138049]" : "hover:bg-slate-100"}`}
-              >
-                {selectedState}
-              </button>
-            )}
-            {selectedLga && <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-300" />}
-            {selectedLga && (
-              <span className="whitespace-nowrap rounded-md bg-[#edf8f0] px-2 py-1.5 text-[#138049]">
-                {selectedLga}
-              </span>
-            )}
+          <div className="min-w-0">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#edf7f0] text-[#08733f]"><MapPinned className="h-4 w-4" /></span>
+              <div className="min-w-0">
+                <p className="text-[13px] font-bold leading-tight text-[#173b2a]">Project Map</p>
+                <div className="mt-0.5 flex min-w-0 items-center gap-1 overflow-x-auto text-[9.5px] font-semibold text-slate-500">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedState(null);
+                      setSelectedLga(null);
+                      setSelectedProject(null);
+                      setStateFilter("All States");
+                      setLgaFilter("All LGAs");
+                      setZoom(1);
+                    }}
+                    className={`whitespace-nowrap rounded px-1.5 py-0.5 ${!selectedState ? "bg-[#edf8f0] text-[#138049]" : "hover:bg-slate-100"}`}
+                  >
+                    Nigeria
+                  </button>
+                  {selectedState && <ChevronRight className="h-3 w-3 shrink-0 text-slate-300" />}
+                  {selectedState && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedLga(null);
+                        setSelectedProject(null);
+                        setLgaFilter("All LGAs");
+                        setZoom(1);
+                      }}
+                      className={`whitespace-nowrap rounded px-1.5 py-0.5 ${!selectedLga ? "bg-[#edf8f0] text-[#138049]" : "hover:bg-slate-100"}`}
+                    >
+                      {selectedState}
+                    </button>
+                  )}
+                  {selectedLga && <ChevronRight className="h-3 w-3 shrink-0 text-slate-300" />}
+                  {selectedLga && <span className="whitespace-nowrap text-[#138049]">{selectedLga}</span>}
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="hidden items-center gap-2 md:flex">
-            <span className="inline-flex items-center gap-2 rounded-lg border border-[#d7e6dc] bg-[#f8fbf9] px-2.5 py-1.5 text-[9px] font-extrabold text-[#405b4a] shadow-sm">
+            <span className="inline-flex items-center gap-2 rounded-lg border border-[#d7e6dc] bg-[#f8fbf9] px-2.5 py-1.5 text-[9px] font-extrabold text-[#405b4a] ">
               <MapPinned className="h-3.5 w-3.5 text-[#08733f]" /> {displayMetrics.projects.toLocaleString()} Projects
             </span>
-            <span className="inline-flex items-center gap-2 rounded-lg border border-[#c7e2d0] bg-[#f0f8f3] px-2.5 py-1.5 text-[9px] font-extrabold text-[#08733f] shadow-sm">
+            <span className="inline-flex items-center gap-2 rounded-lg border border-[#c7e2d0] bg-[#f0f8f3] px-2.5 py-1.5 text-[9px] font-extrabold text-[#08733f] ">
               <CheckCircle2 className="h-3.5 w-3.5" /> {displayMetrics.verified.toLocaleString()} Verified
             </span>
-            <span className="inline-flex items-center gap-2 rounded-lg border border-[#cfdef1] bg-[#f4f8fc] px-2.5 py-1.5 text-[9px] font-extrabold text-[#285f96] shadow-sm">
+            <span className="inline-flex items-center gap-2 rounded-lg border border-[#cfdef1] bg-[#f4f8fc] px-2.5 py-1.5 text-[9px] font-extrabold text-[#285f96] ">
               <Zap className="h-3.5 w-3.5" /> {formatMw(displayMetrics.kw)}
             </span>
-            <span className="inline-flex items-center gap-2 rounded-lg border border-[#eadcb8] bg-[#fffaf0] px-2.5 py-1.5 text-[9px] font-extrabold text-[#9e6900] shadow-sm">
+            <span className="inline-flex items-center gap-2 rounded-lg border border-[#eadcb8] bg-[#fffaf0] px-2.5 py-1.5 text-[9px] font-extrabold text-[#9e6900] ">
               <UsersRound className="h-3.5 w-3.5" /> {displayMetrics.households.toLocaleString()} Households
             </span>
             <button
@@ -799,10 +803,7 @@ function ProjectMap({
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
-              <div className="hidden rounded-xl border border-[#dbe8df] bg-white/96 px-3 py-2.5 shadow-sm backdrop-blur sm:block">
-                <p className="text-[9px] font-black uppercase tracking-[0.13em] text-[#128149]">{mapTitle}</p>
-                <p className="mt-0.5 text-[9px] text-slate-500">Dots are projects; colour identifies programme.</p>
-              </div>
+
             </div>
 
             <div className="absolute right-4 top-4 z-20 flex overflow-hidden rounded-xl border border-[#d8e5dc] bg-white shadow-sm">
