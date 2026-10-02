@@ -12,6 +12,7 @@ export type SatelliteChoice = {
   programme?: string;
   status?: string;
   verified?: boolean;
+  isDemo?: boolean;
 };
 
 export type SatelliteCardData = {
@@ -196,13 +197,16 @@ export function SatelliteChoiceList({
         ) : null}
       </div>
 
-      <div className="max-h-[310px] space-y-1.5 overflow-y-auto p-2">
-        {filtered.length ? filtered.map((choice) => {
+      <div className="max-h-[360px] space-y-1.5 overflow-y-auto p-2">
+        {filtered.length ? filtered.map((choice, index) => {
           const place = [choice.community, choice.lga, choice.state].filter(Boolean).join(", ");
           const meta = [choice.programme, choice.component, choice.status].filter(Boolean).join(" · ");
+          const previousState = index > 0 ? filtered[index - 1]?.state : "";
+          const showState = !query && choice.state && choice.state !== previousState;
           return (
+            <div key={choice.id}>
+              {showState ? <div className="sticky top-0 z-10 mb-1 mt-1 flex items-center justify-between rounded-md bg-[#f2f8f4]/95 px-2 py-1.5 backdrop-blur"><span className="text-[9px] font-extrabold uppercase tracking-[0.12em] text-[#456654]">{choice.state}</span></div> : null}
             <button
-              key={choice.id}
               type="button"
               disabled={disabled}
               onClick={() => onChoose(choice)}
@@ -214,17 +218,21 @@ export function SatelliteChoiceList({
                   <span className="block text-[9px] leading-4 text-slate-500">{place || "Location not specified"}</span>
                   {meta ? <span className="block text-[9px] leading-4 text-slate-400">{meta}</span> : null}
                 </span>
-                {typeof choice.verified === "boolean" ? (
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[8px] font-bold ${
-                    choice.verified
-                      ? "bg-[#e9f7ee] text-[#08733f]"
-                      : "bg-[#fff7df] text-[#8a6400]"
-                  }`}>
-                    {choice.verified ? "Verified" : "Pending"}
-                  </span>
-                ) : null}
+                <span className="flex shrink-0 flex-col items-end gap-1">
+                  {choice.isDemo ? <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[8px] font-bold text-slate-600">External Demo</span> : null}
+                  {typeof choice.verified === "boolean" ? (
+                    <span className={`rounded-full px-2 py-0.5 text-[8px] font-bold ${
+                      choice.verified
+                        ? "bg-[#e9f7ee] text-[#08733f]"
+                        : "bg-[#fff7df] text-[#8a6400]"
+                    }`}>
+                      {choice.verified ? "Verified" : "Pending"}
+                    </span>
+                  ) : null}
+                </span>
               </span>
             </button>
+            </div>
           );
         }) : (
           <div className="px-3 py-6 text-center text-[10px] leading-4 text-slate-500">
