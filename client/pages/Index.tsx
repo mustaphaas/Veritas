@@ -360,18 +360,32 @@ export default function Index() {
       return (leftIndex < 0 ? order.length : leftIndex) - (rightIndex < 0 ? order.length : rightIndex);
     });
   }, [visibleProjects]);
-  const componentPerformance = useMemo(() => [...new Set(visibleProjects.map((project) => project.component))].map((component) => {
-    const matching = visibleProjects.filter((project) => project.component === component);
-    const verified = matching.filter((project) => project.verified).length;
-    return {
-      component,
-      projects: matching.length,
-      capacity: matching.reduce((total, project) => total + project.kw, 0) / 1000,
-      households: matching.reduce((total, project) => total + project.households, 0),
-      verified: matching.length ? Math.round((verified / matching.length) * 100) : 0,
-      share: visibleProjects.length ? Math.round((matching.length / visibleProjects.length) * 100) : 0,
-    };
-  }).sort((left, right) => right.projects - left.projects), [visibleProjects]);
+  const componentPerformance = useMemo(() => {
+    const priority = ["Mini Grid", "Solar Street Light", "Solar Home System"];
+    return [...new Set(visibleProjects.map((project) => project.component))]
+      .map((component) => {
+        const matching = visibleProjects.filter((project) => project.component === component);
+        const verified = matching.filter((project) => project.verified).length;
+        return {
+          component,
+          projects: matching.length,
+          capacity: matching.reduce((total, project) => total + project.kw, 0) / 1000,
+          households: matching.reduce((total, project) => total + project.households, 0),
+          verified: matching.length ? Math.round((verified / matching.length) * 100) : 0,
+          share: visibleProjects.length ? Math.round((matching.length / visibleProjects.length) * 100) : 0,
+        };
+      })
+      .sort((left, right) => {
+        const leftPriority = priority.indexOf(left.component);
+        const rightPriority = priority.indexOf(right.component);
+        if (leftPriority >= 0 || rightPriority >= 0) {
+          if (leftPriority < 0) return 1;
+          if (rightPriority < 0) return -1;
+          return leftPriority - rightPriority;
+        }
+        return right.projects - left.projects;
+      });
+  }, [visibleProjects]);
   const trendData = useMemo(() => [...new Set(visibleProjects.map((project) => project.month))].sort((left, right) => Date.parse(`1 ${left}`) - Date.parse(`1 ${right}`)).map((month) => {
     const monthProjects = visibleProjects.filter((project) => project.month === month);
     return { month: month.slice(0, 3), inspections: monthProjects.length, submitted: monthProjects.filter((project) => project.status !== "In progress").length, verified: monthProjects.filter((project) => project.verified).length, verificationRate: monthProjects.length ? Math.round((monthProjects.filter((project) => project.verified).length / monthProjects.length) * 100) : 0 };
@@ -430,8 +444,8 @@ export default function Index() {
             {visibleNavigation.map((item) => {
               const Icon = item.icon;
               const active = item.label === resolvedActiveNav;
-              return <button key={item.label} type="button" onClick={() => { setActiveNav(item.label); setMobileMenuOpen(false); }} aria-current={active ? "page" : undefined} className={`flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-xs font-bold transition-colors ${active ? "border-[#08733f] text-[#08733f]" : "border-transparent text-slate-500 hover:border-[#b8dfc5] hover:text-[#173b2a]"}`}>
-                <Icon className="h-4 w-4" />{item.label}
+              return <button key={item.label} type="button" onClick={() => { setActiveNav(item.label); setMobileMenuOpen(false); }} aria-current={active ? "page" : undefined} aria-label={item.label} className={`group flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-xs font-bold transition-all duration-300 ease-out ${active ? "border-[#08733f] text-[#08733f]" : "border-transparent text-slate-500 hover:border-[#b8dfc5] hover:text-[#173b2a]"}`}>
+                <Icon className="h-4 w-4" /><span className="veritas-rea-nav-label">{item.label}</span>
               </button>;
             })}
           </div>
@@ -505,21 +519,35 @@ export default function Index() {
                 </div>}
                 {!programmePerformance.length && <p className="px-5 py-8 text-center text-sm text-slate-500">No programme data matches the selected filters.</p>}
               </section>
-              <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                <div className="flex flex-col gap-2 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div><h2 className="text-sm font-bold text-[#173b2a]">Project Components</h2><p className="mt-1 text-xs text-slate-500">Delivery mix and component-level analytics for the filtered portfolio</p></div>
-                  <span className="w-fit rounded-full bg-[#eef8f1] px-3 py-1 text-[10px] font-bold text-[#08733f]">{componentPerformance.length} active components</span>
+                            <section className="overflow-hidden rounded-2xl border border-[#dbe9df] bg-white shadow-[0_10px_32px_rgba(21,70,43,.06)]">
+                <div className="flex flex-col gap-3 border-b border-[#edf3ef] bg-gradient-to-r from-white via-[#fbfefc] to-[#f3faf5] px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
+                  <div><h2 className="text-base font-bold tracking-[-0.01em] text-[#173b2a]">Project Components</h2><p className="mt-1 text-xs text-slate-500">Delivery mix and component-level analytics for the filtered portfolio</p></div>
+                  <span className="w-fit rounded-full border border-[#cfe7d6] bg-white px-3 py-1.5 text-[10px] font-bold text-[#08733f] shadow-sm">{componentPerformance.length} active components</span>
                 </div>
-                {!!componentPerformance.length && <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-4">{componentPerformance.map((row, index) => { const style = [{ card: "border-[#cbe6d4] bg-[#f2faf5]", icon: "bg-[#08733f]", accent: "text-[#08733f]", bar: "bg-[#08733f]" }, { card: "border-[#cfdef2] bg-[#f2f7fd]", icon: "bg-[#3772ad]", accent: "text-[#285f96]", bar: "bg-[#3772ad]" }, { card: "border-[#ddd5f2] bg-[#f7f4fd]", icon: "bg-[#7452bd]", accent: "text-[#6344a9]", bar: "bg-[#7452bd]" }, { card: "border-[#f0ddad] bg-[#fff9e9]", icon: "bg-[#d28a00]", accent: "text-[#ad7100]", bar: "bg-[#d28a00]" }][index % 4]; return <article key={row.component} className={`rounded-xl border p-4 ${style.card}`}>
-                  <div className="flex items-start justify-between gap-3"><div className={`flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-sm ${style.icon}`}><SolarCapacityIcon className="h-5 w-5" /></div><span className={`rounded-full bg-white/80 px-2.5 py-1 text-[10px] font-bold ${style.accent}`}>{row.share}% of portfolio</span></div>
-                  <h3 className="mt-4 min-h-10 text-sm font-bold leading-5 text-[#173b2a]">{row.component}</h3>
-                  <div className="mt-3 flex items-end gap-2"><strong className={`text-3xl leading-none ${style.accent}`}>{row.projects}</strong><span className="pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">projects</span></div>
-                  <dl className="mt-4 grid grid-cols-3 gap-2 border-t border-white/80 pt-3"><div><dt className="text-[9px] uppercase tracking-wide text-slate-500">Capacity</dt><dd className="mt-1 text-xs font-bold text-[#173b2a]">{row.capacity.toFixed(1)} MW</dd></div><div><dt className="text-[9px] uppercase tracking-wide text-slate-500">Households</dt><dd className="mt-1 text-xs font-bold text-[#173b2a]">{row.households.toLocaleString()}</dd></div><div><dt className="text-[9px] uppercase tracking-wide text-slate-500">Verified</dt><dd className={`mt-1 text-xs font-bold ${style.accent}`}>{row.verified}%</dd></div></dl>
-                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-white"><div className={`h-full rounded-full ${style.bar}`} style={{ width: `${row.verified}%` }} /></div>
-                </article>; })}</div>}
+                {!!componentPerformance.length && <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-3">{componentPerformance.map((row, index) => {
+                  const style = [
+                    { card: "border-[#c9e4d2] from-[#f3fbf6] via-white to-[#eef9f2]", icon: "bg-[#08733f]", accent: "text-[#08733f]", bar: "bg-[#08733f]", ring: "ring-[#d9eee0]" },
+                    { card: "border-[#cfdff0] from-[#f4f8fd] via-white to-[#eef5fc]", icon: "bg-[#3772ad]", accent: "text-[#285f96]", bar: "bg-[#3772ad]", ring: "ring-[#dce9f5]" },
+                    { card: "border-[#eadcb8] from-[#fffaf0] via-white to-[#fff7e5]", icon: "bg-[#d28a00]", accent: "text-[#a66c00]", bar: "bg-[#d28a00]", ring: "ring-[#f4e8c8]" },
+                    { card: "border-[#ded5ef] from-[#f8f5fd] via-white to-[#f4f0fb]", icon: "bg-[#7452bd]", accent: "text-[#6244a4]", bar: "bg-[#7452bd]", ring: "ring-[#e7def5]" },
+                    { card: "border-[#cbe7e1] from-[#f2fbf9] via-white to-[#edf8f6]", icon: "bg-[#188878]", accent: "text-[#117267]", bar: "bg-[#188878]", ring: "ring-[#d8eee9]" },
+                  ][index % 5];
+                  const ComponentIcon = row.component === "Mini Grid" ? Zap : row.component === "Solar Street Light" ? LocateFixed : row.component === "Solar Home System" ? Home : PanelsTopLeft;
+                  return <article key={row.component} className={`group flex min-h-[270px] flex-col items-center rounded-2xl border bg-gradient-to-br p-5 text-center transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_35px_rgba(21,70,43,.10)] ${style.card}`}>
+                    <div className="flex w-full items-center justify-between gap-3"><span className={`flex h-11 w-11 items-center justify-center rounded-2xl text-white shadow-md ring-4 transition-transform duration-300 group-hover:scale-105 group-hover:-rotate-2 ${style.icon} ${style.ring}`}><ComponentIcon className="h-5 w-5" /></span><span className={`rounded-full border border-white/90 bg-white/90 px-3 py-1.5 text-[10px] font-bold shadow-sm ${style.accent}`}>{row.share}% of portfolio</span></div>
+                    <h3 className="mt-5 text-[15px] font-bold tracking-[-0.01em] text-[#173b2a]">{row.component}</h3>
+                    <div className="mt-3 flex items-end justify-center gap-1.5"><strong className={`text-[34px] font-extrabold leading-none tracking-[-0.04em] ${style.accent}`}>{row.projects.toLocaleString()}</strong><span className="pb-1 text-[11px] font-semibold text-slate-500">projects</span></div>
+                    <dl className="mt-5 grid w-full grid-cols-3 gap-2.5">
+                      <div className="rounded-xl border border-white bg-white/85 px-2 py-3 text-center shadow-[0_5px_16px_rgba(30,72,47,.05)]"><dt className="text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-400">Capacity</dt><dd className="mt-1.5 text-[13px] font-extrabold text-[#173b2a]">{row.capacity.toFixed(1)} MW</dd></div>
+                      <div className="rounded-xl border border-white bg-white/85 px-2 py-3 text-center shadow-[0_5px_16px_rgba(30,72,47,.05)]"><dt className="text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-400">Households</dt><dd className="mt-1.5 text-[13px] font-extrabold text-[#173b2a]">{row.households.toLocaleString()}</dd></div>
+                      <div className="rounded-xl border border-white bg-white/85 px-2 py-3 text-center shadow-[0_5px_16px_rgba(30,72,47,.05)]"><dt className="text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-400">Verified</dt><dd className={`mt-1.5 text-[13px] font-extrabold ${style.accent}`}>{row.verified}%</dd></div>
+                    </dl>
+                    <div className="mt-auto w-full pt-4"><div className="h-1.5 overflow-hidden rounded-full bg-white/90"><div className={`h-full rounded-full transition-[width] duration-1000 ease-out ${style.bar}`} style={{ width: `${row.verified}%` }} /></div></div>
+                  </article>;
+                })}</div>}
                 {!componentPerformance.length && <p className="px-5 py-8 text-center text-sm text-slate-500">No project component data matches the selected filters.</p>}
               </section>
-              <section className="overflow-hidden rounded-xl border border-slate-200 bg-gradient-to-br from-white via-white to-[#f4f9ff] p-5 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-700">
+<section className="overflow-hidden rounded-xl border border-slate-200 bg-gradient-to-br from-white via-white to-[#f4f9ff] p-5 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-700">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-sm font-bold text-[#173b2a]">Project &amp; Verification Trend</h2><p className="mt-1 text-xs text-slate-500">Monthly submissions, verified reports, and verification rate</p></div><span className="w-fit rounded-md border border-slate-200 px-2.5 py-1 text-[10px] font-semibold text-slate-600">Current period</span></div>
                 <div className="mt-4 flex flex-wrap gap-2.5 text-[10px]">{[["#4f8fd8", "#edf5ff", "Submitted"], ["#20a862", "#eaf8f0", "Verified"], ["#e29a00", "#fff6de", "Verification rate"]].map(([color, background, label]) => <span key={label} className="flex items-center gap-2 rounded-full border border-white bg-white/80 px-3 py-1.5 font-semibold text-slate-600 shadow-sm"><i className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color, boxShadow: `0 0 0 4px ${background}` }} />{label}</span>)}</div>
                 <div className="mt-3 h-[280px] rounded-xl border border-white/80 bg-white/65 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,.8)] sm:h-[320px]" aria-label="Animated project and verification trend chart"><ResponsiveContainer width="100%" height="100%"><ComposedChart key={JSON.stringify(filters)} data={trendData} margin={{ top: 16, right: 8, left: -18, bottom: 4 }}><defs><linearGradient id="submittedTrend" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#4f8fd8" /><stop offset="100%" stopColor="#b9d7f5" /></linearGradient><linearGradient id="verifiedTrend" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#20a862" /><stop offset="100%" stopColor="#8bd7ad" /></linearGradient></defs><CartesianGrid strokeDasharray="3 5" stroke="#dfe9e3" vertical={false} /><XAxis dataKey="month" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} /><YAxis yAxisId="reports" allowDecimals={false} tick={{ fontSize: 10, fill: "#64748b" }} axisLine={false} tickLine={false} /><YAxis yAxisId="rate" orientation="right" domain={[0, 100]} tickFormatter={(value) => `${value}%`} tick={{ fontSize: 10, fill: "#64748b" }} axisLine={false} tickLine={false} /><Tooltip cursor={{ fill: "#eef6ff", opacity: 0.65 }} contentStyle={{ borderRadius: 12, borderColor: "#d7e5dc", boxShadow: "0 12px 28px rgba(23,59,42,.12)", fontSize: 12 }} /><Bar yAxisId="reports" dataKey="submitted" name="Submitted" fill="url(#submittedTrend)" radius={[6, 6, 0, 0]} isAnimationActive animationBegin={80} animationDuration={1100} animationEasing="ease-out" /><Bar yAxisId="reports" dataKey="verified" name="Verified" fill="url(#verifiedTrend)" radius={[6, 6, 0, 0]} isAnimationActive animationBegin={280} animationDuration={1250} animationEasing="ease-out" /><Line yAxisId="rate" type="monotone" dataKey="verificationRate" name="Verification rate" stroke="#e29a00" strokeWidth={3} dot={{ r: 4, fill: "#e29a00", stroke: "#ffffff", strokeWidth: 2 }} activeDot={{ r: 7, fill: "#e29a00", stroke: "#fff", strokeWidth: 3 }} isAnimationActive animationBegin={550} animationDuration={1450} animationEasing="ease-in-out" /></ComposedChart></ResponsiveContainer></div>
@@ -541,7 +569,28 @@ export default function Index() {
               </div>
             </article>
           </section>
-          <section id="projects-table" className="mt-4 scroll-mt-20 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center justify-between border-b border-slate-200 px-5 py-4"><div><h2 className="font-bold text-[#173b2a]">Projects across Nigeria</h2><p className="mt-1 text-xs text-slate-500">{filters.contractors === defaultFilters.contractors ? "Breakdown by program and contractor" : `${filters.contractors} projects across Nigeria`}</p></div><button type="button" onClick={() => setShowAllProjects((showAll) => !showAll)} disabled={visibleProjects.length <= 20} className="text-xs font-semibold text-[#08733f] hover:underline disabled:cursor-default disabled:text-slate-400 disabled:no-underline">{visibleProjects.length <= 20 ? "All projects shown" : showAllProjects ? "Show first 20" : "View all projects"}</button></div><div className="overflow-x-auto"><table className="w-full min-w-[780px] text-left"><thead className="bg-slate-50 text-[10px] uppercase tracking-[0.1em] text-slate-500"><tr><th className="px-5 py-3 font-semibold">Project</th><th className="px-4 py-3 font-semibold">Programme</th><th className="px-4 py-3 font-semibold">Contractor</th><th className="px-4 py-3 font-semibold">Status</th><th className="px-5 py-3 text-right font-semibold">Updated</th></tr></thead><tbody>{displayedProjects.map((project, index) => <tr key={project.name} className={index !== displayedProjects.length - 1 ? "border-b border-slate-100" : ""}><td className="px-5 py-4"><p className="text-sm font-semibold text-[#173b2a]">{project.name}</p><p className="mt-1 flex items-center gap-1 text-xs text-slate-500"><MapPin className="h-3 w-3" />{project.state}</p></td><td className="px-4 py-4 text-xs font-medium text-slate-600">{project.programme}</td><td className="px-4 py-4 text-xs font-medium text-slate-600">{project.contractor}</td><td className="px-4 py-4"><StatusBadge tone={project.tone}>{project.status}</StatusBadge></td><td className="px-5 py-4 text-right text-xs text-slate-500">{index === 0 ? "Today, 10:24" : `${index + 1} days ago`}</td></tr>)}</tbody></table></div><div className="flex flex-col gap-3 border-t border-slate-200 bg-[#fbfefb] px-5 py-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-slate-500">Showing {displayedProjects.length.toLocaleString()} of {visibleProjects.length.toLocaleString()} projects</p>{visibleProjects.length > 20 && <button type="button" onClick={() => setShowAllProjects((showAll) => !showAll)} className="inline-flex items-center gap-2 text-xs font-bold text-[#08733f] hover:underline">{showAllProjects ? "Show first 20" : "View all projects"}<ArrowRight className={`h-4 w-4 transition-transform ${showAllProjects ? "rotate-180" : ""}`} /></button>}</div></section>
+          <section id="projects-table" className="mt-5 scroll-mt-20 overflow-hidden rounded-2xl border border-[#dbe9df] bg-white shadow-[0_12px_34px_rgba(21,70,43,.07)]">
+            <div className="flex flex-col gap-3 border-b border-[#e8f0ea] bg-gradient-to-r from-[#f6fbf7] via-white to-[#f7fafc] px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[#cce6d4] bg-[#eaf8ef] text-[#08733f] shadow-sm"><FolderKanban className="h-5 w-5" /></span><div className="min-w-0"><h2 className="text-base font-bold tracking-[-0.01em] text-[#173b2a]">Projects across Nigeria</h2><p className="mt-1 text-xs text-slate-500">{filters.contractors === defaultFilters.contractors ? "National project register by programme, contractor and verification status" : `${filters.contractors} projects across Nigeria`}</p></div></div>
+              <button type="button" onClick={() => setShowAllProjects((showAll) => !showAll)} disabled={visibleProjects.length <= 20} className="inline-flex h-9 items-center justify-center gap-2 self-start rounded-full border border-[#b9dbc4] bg-white px-4 text-[11px] font-bold text-[#08733f] shadow-sm transition-all hover:border-[#08733f] hover:bg-[#f1faf4] disabled:cursor-default disabled:border-slate-200 disabled:text-slate-400 sm:self-auto">{visibleProjects.length <= 20 ? "All projects shown" : showAllProjects ? "Show first 20" : "View all projects"}<ArrowRight className={`h-3.5 w-3.5 transition-transform ${showAllProjects ? "rotate-180" : ""}`} /></button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[860px] text-left">
+                <thead className="bg-[#fbfdfb] text-[10px] uppercase tracking-[0.11em] text-slate-400"><tr><th className="px-5 py-3.5 font-bold">Project</th><th className="px-4 py-3.5 font-bold">Programme</th><th className="px-4 py-3.5 font-bold">Contractor</th><th className="px-4 py-3.5 font-bold">Status</th><th className="px-5 py-3.5 text-right font-bold">Updated</th></tr></thead>
+                <tbody className="divide-y divide-[#eef3ef]">{displayedProjects.map((project, index) => <tr key={project.name} className="group transition-colors hover:bg-[#f8fcf9]">
+                  <td className="px-5 py-4"><div className="flex items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#d8e9dd] bg-[#f2faf5] text-[#08733f] transition-transform group-hover:scale-105"><MapPin className="h-4 w-4" /></span><div className="min-w-0"><p className="max-w-[330px] truncate text-sm font-bold text-[#173b2a]">{project.name}</p><p className="mt-1 text-[11px] font-medium text-slate-500">{project.state}</p></div></div></td>
+                  <td className="px-4 py-4"><span className="inline-flex rounded-full border border-[#cfe3d5] bg-[#f2faf4] px-2.5 py-1 text-[10px] font-bold text-[#08733f]">{project.programme}</span></td>
+                  <td className="px-4 py-4"><div className="flex max-w-[230px] items-center gap-2 text-xs font-semibold text-slate-600"><Building2 className="h-3.5 w-3.5 shrink-0 text-slate-400" /><span className="truncate">{project.contractor}</span></div></td>
+                  <td className="px-4 py-4"><StatusBadge tone={project.tone}>{project.status}</StatusBadge></td>
+                  <td className="px-5 py-4 text-right"><span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-500"><Clock3 className="h-3.5 w-3.5 text-slate-400" />{index === 0 ? "Today, 10:24" : `${index + 1} days ago`}</span></td>
+                </tr>)}</tbody>
+              </table>
+            </div>
+            <div className="flex flex-col gap-3 border-t border-[#e8f0ea] bg-[#f8fcf9] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] text-slate-500"><span>Showing <strong className="text-[#173b2a]">{displayedProjects.length.toLocaleString()}</strong> of <strong className="text-[#173b2a]">{visibleProjects.length.toLocaleString()}</strong> projects</span><span className="hidden h-4 w-px bg-[#dbe7df] sm:block" /><span><strong className="text-[#08733f]">{visibleProjects.filter((project) => project.verified).length.toLocaleString()}</strong> verified in the filtered portfolio</span></div>
+              {visibleProjects.length > 20 && <button type="button" onClick={() => setShowAllProjects((showAll) => !showAll)} className="inline-flex items-center gap-2 text-[11px] font-bold text-[#08733f] hover:underline">{showAllProjects ? "Show first 20" : "View all projects"}<ArrowRight className={`h-4 w-4 transition-transform ${showAllProjects ? "rotate-180" : ""}`} /></button>}
+            </div>
+          </section>
             </>
           )}
         </div>
