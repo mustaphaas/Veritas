@@ -338,11 +338,18 @@ async function handleCollaborativeInspections(request, env, user) {
     const body = await request.json().catch(() => null);
     const memberIds = [...new Set([body?.teamLeadId, ...(Array.isArray(body?.memberIds) ? body.memberIds : [])].filter(Boolean))];
     if (!body?.name || !body?.teamLeadId || !memberIds.length) return response({ error: "Team name, Team Lead and at least one staff member are required." }, 400);
-    const lead = await env.DB.prepare("SELECT id FROM users WHERE id=? AND role='rea_admin' AND status='active'").bind(body.teamLeadId).first();
-    if (!lead) return response({ error: "Team Lead must be an active REA staff member." }, 422);
+    const meOnly = user.staffRole === "M&E Admin";
+    const lead = meOnly
+      ? await env.DB.prepare(`SELECT u.id FROM users u JOIN rea_staff_accounts r ON r.user_id=u.id
+          WHERE u.id=? AND u.role='rea_admin' AND u.status='active' AND r.staff_role IN ('M&E Admin','M&E Officer')`).bind(body.teamLeadId).first()
+      : await env.DB.prepare("SELECT id FROM users WHERE id=? AND role='rea_admin' AND status='active'").bind(body.teamLeadId).first();
+    if (!lead) return response({ error: meOnly ? "Team Lead must be an active M&E staff member." : "Team Lead must be an active REA staff member." }, 422);
     const placeholders = memberIds.map(() => "?").join(",");
-    const valid = await env.DB.prepare(`SELECT u.id FROM users u WHERE u.role='rea_admin' AND u.status='active' AND u.id IN (${placeholders})`).bind(...memberIds).all();
-    if (valid.results.length !== memberIds.length) return response({ error: "All team members must be active REA staff." }, 422);
+    const valid = meOnly
+      ? await env.DB.prepare(`SELECT u.id FROM users u JOIN rea_staff_accounts r ON r.user_id=u.id
+          WHERE u.role='rea_admin' AND u.status='active' AND r.staff_role IN ('M&E Admin','M&E Officer') AND u.id IN (${placeholders})`).bind(...memberIds).all()
+      : await env.DB.prepare(`SELECT u.id FROM users u WHERE u.role='rea_admin' AND u.status='active' AND u.id IN (${placeholders})`).bind(...memberIds).all();
+    if (valid.results.length !== memberIds.length) return response({ error: meOnly ? "All team members must be active M&E staff." : "All team members must be active REA staff." }, 422);
     const id = `team-${crypto.randomUUID()}`, timestamp = now();
     await env.DB.prepare("INSERT INTO inspection_teams(id,name,team_lead_id,status,created_at,updated_at) VALUES(?,?,?,?,?,?)")
       .bind(id, String(body.name).trim(), body.teamLeadId, "Active", timestamp, timestamp).run();
