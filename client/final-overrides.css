@@ -897,3 +897,135 @@ body.veritas-project-map-open [data-veritas-project-map="true"] {
     transition: none !important;
   }
 }
+
+
+/* Project Map typography and formal government-ready polish. */
+.veritas-project-map-workspace,
+.veritas-project-map-workspace button,
+.veritas-project-map-workspace input,
+.veritas-project-map-workspace select,
+.veritas-project-map-workspace textarea,
+.veritas-project-map-workspace .leaflet-container,
+.veritas-project-map-workspace .leaflet-popup-content,
+.veritas-project-map-workspace .gm-style {
+  font-family: var(--veritas-font) !important;
+}
+
+.veritas-project-map-workspace svg text {
+  font-family: var(--veritas-font) !important;
+  letter-spacing: 0 !important;
+}
+
+.veritas-project-map-header {
+  font-family: var(--veritas-font) !important;
+}
+
+.veritas-project-map-header > div:first-child button,
+.veritas-project-map-header > div:first-child span {
+  font-weight: 600 !important;
+}
+
+.veritas-project-map-workspace .veritas-filter-panel {
+  width: 318px !important;
+}
+
+.veritas-project-map-workspace .veritas-filter-panel > div:first-child {
+  padding: 16px !important;
+}
+
+.veritas-project-map-workspace .veritas-filter-panel h2 {
+  font-size: 15px !important;
+  letter-spacing: -.01em;
+}
+
+.veritas-project-map-workspace .veritas-filter-panel label > span,
+.veritas-project-map-workspace .veritas-filter-panel p[class*="uppercase"] {
+  letter-spacing: .06em !important;
+}
+
+.veritas-project-map-workspace .veritas-detail-panel {
+  max-width: 392px !important;
+}
+
+.veritas-project-map-workspace .veritas-detail-panel h2 {
+  font-size: 15px !important;
+  letter-spacing: -.01em;
+}
+
+.veritas-project-map-workspace .veritas-detail-panel section {
+  border-color: #dfe8e2 !important;
+}
+
+.veritas-project-map-workspace .veritas-tooltip {
+  border-radius: 12px !important;
+  font-family: var(--veritas-font) !important;
+}
+
+.veritas-project-map-workspace .leaflet-control-zoom a,
+.veritas-project-map-workspace .leaflet-popup-content-wrapper,
+.veritas-project-map-workspace .leaflet-popup-tip {
+  font-family: var(--veritas-font) !important;
+}
+
+.veritas-project-map-workspace .leaflet-popup-content-wrapper {
+  border-radius: 12px !important;
+  box-shadow: 0 12px 32px rgba(15,45,28,.14) !important;
+}
+
+.veritas-project-map-workspace .leaflet-popup-content {
+  margin: 12px 14px !important;
+}
+
+/* More disciplined government UI treatment across modules. */
+.veritas-module-shell {
+  font-family: var(--veritas-font) !important;
+}
+
+.veritas-module-shell h1,
+.veritas-module-shell h2,
+.veritas-module-shell h3,
+.veritas-module-shell h4 {
+  letter-spacing: -.015em;
+}
+
+.veritas-page-header {
+  background: #ffffff !important;
+  box-shadow: 0 6px 20px rgba(21,70,43,.045) !important;
+}
+
+.veritas-data-panel,
+.veritas-kpi-grid > article,
+.veritas-kpi-grid > div,
+.veritas-entity-card {
+  box-shadow: 0 6px 22px rgba(21,70,43,.045) !important;
+}
+
+.veritas-data-panel:hover,
+.veritas-entity-card:hover {
+  box-shadow: 0 10px 28px rgba(21,70,43,.07) !important;
+}
+
+.veritas-filter-bar {
+  box-shadow: 0 4px 16px rgba(21,70,43,.035) !important;
+}
+
+.veritas-data-table thead th {
+  background: #f8faf9 !important;
+  color: #66746d !important;
+}
+
+.veritas-data-table tbody td {
+  color: #42564a;
+}
+
+.veritas-module-shell button:not([class*="bg-red"]):not([class*="bg-rose"]):not([class*="bg-amber"]) {
+  border-radius: 10px;
+}
+
+@media (min-width: 1280px) {
+  .veritas-module-shell {
+    max-width: 1580px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
