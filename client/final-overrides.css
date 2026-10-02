@@ -263,3 +263,166 @@ aside > div.flex.h-\[94px\].items-center.gap-3.px-4 > div:first-child img {
     border-radius: 0 !important;
   }
 }
+
+
+/* White Veritas desktop shell with expandable icon-first left navigation. */
+@media (min-width: 1024px) {
+  body,
+  #root,
+  .veritas-rea-main {
+    background: #ffffff !important;
+  }
+
+  .veritas-rea-main {
+    min-height: 100vh;
+    padding-left: 72px;
+    transition: padding-left .2s ease;
+  }
+
+  .veritas-rea-main:has(.veritas-rea-side-rail:hover),
+  .veritas-rea-main:has(.veritas-rea-side-rail:focus-within) {
+    padding-left: 220px;
+  }
+
+  .veritas-rea-side-rail {
+    position: fixed !important;
+    inset: 0 auto 0 0 !important;
+    z-index: 40 !important;
+    width: 72px !important;
+    height: 100vh !important;
+    overflow: hidden !important;
+    border: 0 !important;
+    border-right: 1px solid #e2e9e4 !important;
+    background: #ffffff !important;
+    box-shadow: 4px 0 18px rgba(15, 55, 33, .045) !important;
+    transition: width .2s ease, box-shadow .2s ease !important;
+  }
+
+  .veritas-rea-side-rail:hover,
+  .veritas-rea-side-rail:focus-within {
+    width: 220px !important;
+    box-shadow: 8px 0 26px rgba(15, 55, 33, .08) !important;
+  }
+
+  .veritas-rea-side-rail-inner {
+    width: 220px !important;
+    max-width: none !important;
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    overflow: visible !important;
+    padding: 18px 12px !important;
+  }
+
+  .veritas-rea-side-rail button {
+    width: 196px !important;
+    min-width: 196px !important;
+    height: 44px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 12px !important;
+    overflow: hidden !important;
+    border: 1px solid transparent !important;
+    border-radius: 11px !important;
+    padding: 0 13px !important;
+    color: #68766e !important;
+    white-space: nowrap !important;
+  }
+
+  .veritas-rea-side-rail button svg {
+    width: 18px !important;
+    height: 18px !important;
+    min-width: 18px !important;
+  }
+
+  .veritas-rea-side-rail:not(:hover):not(:focus-within) button {
+    width: 48px !important;
+    min-width: 48px !important;
+    padding: 0 14px !important;
+    gap: 18px !important;
+  }
+
+  .veritas-rea-side-rail button:hover {
+    border-color: #dce8e0 !important;
+    background: #f5faf7 !important;
+    color: #08733f !important;
+  }
+
+  .veritas-rea-side-rail button[aria-current="page"] {
+    border-color: #bfe7cf !important;
+    background: #e8f8ed !important;
+    color: #08733f !important;
+    box-shadow: inset 3px 0 0 #16a15a !important;
+  }
+
+  .veritas-side-rail {
+    transition: width .2s ease, box-shadow .2s ease !important;
+  }
+
+  .veritas-side-rail:hover,
+  .veritas-side-rail:focus-within {
+    width: 220px !important;
+    box-shadow: 8px 0 26px rgba(15, 55, 33, .08) !important;
+  }
+
+  .veritas-side-rail:hover ~ main,
+  .veritas-side-rail:focus-within ~ main {
+    padding-left: 220px !important;
+  }
+
+  .veritas-side-rail ~ main {
+    padding-left: 72px !important;
+    transition: padding-left .2s ease !important;
+  }
+
+  .veritas-side-rail:hover .veritas-rail-brand,
+  .veritas-side-rail:focus-within .veritas-rail-brand {
+    display: flex !important;
+    justify-content: flex-start !important;
+    gap: 10px !important;
+    padding-left: 14px !important;
+  }
+
+  .veritas-side-rail:hover .veritas-rail-brand > div:last-child,
+  .veritas-side-rail:focus-within .veritas-rail-brand > div:last-child {
+    display: block !important;
+  }
+
+  .veritas-side-rail:hover .veritas-rail-nav,
+  .veritas-side-rail:focus-within .veritas-rail-nav {
+    align-items: stretch !important;
+  }
+
+  .veritas-side-rail:hover .veritas-rail-link,
+  .veritas-side-rail:focus-within .veritas-rail-link,
+  .veritas-side-rail:hover .veritas-rail-footer > button,
+  .veritas-side-rail:focus-within .veritas-rail-footer > button {
+    display: flex !important;
+    justify-content: flex-start !important;
+    gap: 12px !important;
+    padding: 0 13px !important;
+  }
+
+  .veritas-side-rail:hover .veritas-rail-link > span,
+  .veritas-side-rail:focus-within .veritas-rail-link > span,
+  .veritas-side-rail:hover .veritas-rail-footer span,
+  .veritas-side-rail:focus-within .veritas-rail-footer span {
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    clip: auto !important;
+    white-space: nowrap !important;
+    font-size: 12px !important;
+    font-weight: 650 !important;
+  }
+
+  .veritas-side-rail:hover [data-label]::after,
+  .veritas-side-rail:focus-within [data-label]::after {
+    display: none !important;
+  }
+}
