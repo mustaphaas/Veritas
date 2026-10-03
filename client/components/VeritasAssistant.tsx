@@ -83,7 +83,7 @@ const quickActions = [
     label: "Monthly Report",
     detail: "Executive monthly reporting",
     prompt:
-      "Generate a Monthly Report from the current Veritas system data, using the most recent reporting period represented in the data.",
+      "Generate a concise Monthly Performance Report from the current live Veritas data. Keep portfolio verification, inspection workflow and satellite checks separate. Use an executive scorecard, highlight only material programme/geographic/contractor exceptions, avoid repetitive sections, state when a true monthly period is not available, and give no more than five evidence-led management actions.",
     icon: FileText,
   },
   {
