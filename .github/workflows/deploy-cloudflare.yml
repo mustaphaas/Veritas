@@ -50,7 +50,7 @@ jobs:
         run: node scripts/patch-consultant-assignment-normalized-identity.mjs
 
       - name: Validate consultant tenancy regression
-        run: node --test --test-concurrency=1 tests/consultant-tenancy-patch.test.mjs tests/consultant-live-profile.test.mjs tests/consultant-projects-visible-before-field-assignment.test.mjs tests/consultant-portfolio-refresh-resilience.test.mjs tests/consultant-project-identity-lookup.test.mjs tests/consultant-assignment-normalized-identity.test.mjs
+        run: node --test --test-concurrency=1 tests/consultant-tenancy-patch.test.mjs tests/consultant-live-profile.test.mjs tests/consultant-projects-visible-before-field-assignment.test.mjs tests/consultant-portfolio-refresh-resilience.test.mjs tests/consultant-project-identity-lookup.test.mjs tests/consultant-assignment-normalized-identity.test.mjs tests/security-tenancy-hardening.test.mjs
 
       - name: Validate consultant coverage map interactions
         run: npx vitest --run client/components/ConsultantCoverageMap.spec.tsx client/components/ConsultantEsriCoverageMap.spec.tsx
