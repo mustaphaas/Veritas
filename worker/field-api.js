@@ -118,20 +118,52 @@ async function listAssignments(env, user, url) {
 async function createAssignment(request, env, user) {
   if (!["consultant_admin", "rea_admin"].includes(user.role)) return response({ error: "Consultant or REA access required." }, 403);
   const body = await request.json().catch(() => null), project = body?.project ?? body;
+  if (!project?.id) return response({ error: "Assignment identifier is required." }, 400);
+
   const officer = await env.DB.prepare("SELECT id,name,consultant_firm FROM users WHERE role='field_officer' AND status='active' AND (id=? OR name=? OR lower(email)=? OR phone=?)")
     .bind(body?.officerId || "", body?.officer || "", String(body?.officerEmail || "").toLowerCase(), body?.officerPhone || "").first();
   if (!officer) return response({ error: "Active field officer not found." }, 422);
-  if (user.role === "consultant_admin" && officer.consultant_firm !== user.consultantFirm) return response({ error: "Officer is outside your consultant firm." }, 403);
-  const required = ["id", "projectName", "programme", "component", "contractor", "state", "lga", "community", "latitude", "longitude", "dueDate"];
-  if (required.some((key) => project?.[key] === undefined || project?.[key] === "")) return response({ error: "Complete project and assignment details are required." }, 400);
-  const projectId = project.projectId || project.id, timestamp = now(), consultantFirm = user.role === "consultant_admin" ? user.consultantFirm : project.consultantFirm || officer.consultant_firm;
-  await env.DB.prepare(`INSERT INTO projects(id,name,programme,component,contractor,consultant_firm,state,lga,community,latitude,longitude,geofence_radius_metres,created_at,updated_at)
-    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,programme=excluded.programme,component=excluded.component,contractor=excluded.contractor,consultant_firm=excluded.consultant_firm,state=excluded.state,lga=excluded.lga,community=excluded.community,latitude=excluded.latitude,longitude=excluded.longitude,updated_at=excluded.updated_at`)
-    .bind(projectId, project.projectName, project.programme, project.component, project.contractor, consultantFirm, project.state, project.lga, project.community, Number(project.latitude), Number(project.longitude), Number(project.geofenceRadius || project.geofenceRadiusMetres || 250), timestamp, timestamp).run();
+
+  const sameFirm = (left, right) => String(left || "").trim().toLowerCase() === String(right || "").trim().toLowerCase();
+  const projectId = project.projectId || project.id;
+  const assignmentId = project.id;
+  const timestamp = now();
+
+  if (user.role === "consultant_admin") {
+    if (!user.consultantFirm) return response({ error: "Consultant firm is required." }, 403);
+    if (!sameFirm(officer.consultant_firm, user.consultantFirm)) return response({ error: "Officer is outside your consultant firm." }, 403);
+
+    // Consultant admins may only assign projects that REA has already allocated
+    // to their own firm. Never let a consultant upsert project ownership.
+    const existingProject = await env.DB.prepare("SELECT id,consultant_firm FROM projects WHERE id=?").bind(projectId).first();
+    if (!existingProject) return response({ error: "Project must be allocated by REA before consultant assignment." }, 404);
+    if (!sameFirm(existingProject.consultant_firm, user.consultantFirm)) {
+      return response({ error: "Project is outside your consultant firm." }, 403);
+    }
+
+    // Also protect existing assignment IDs from cross-tenant reassignment.
+    const existingAssignment = await env.DB.prepare(`SELECT a.id,p.consultant_firm
+      FROM assignments a JOIN projects p ON p.id=a.project_id WHERE a.id=?`).bind(assignmentId).first();
+    if (existingAssignment && !sameFirm(existingAssignment.consultant_firm, user.consultantFirm)) {
+      return response({ error: "Assignment is outside your consultant firm." }, 403);
+    }
+
+    if (!project.dueDate) return response({ error: "Assignment due date is required." }, 400);
+  } else {
+    const required = ["projectName", "programme", "component", "contractor", "state", "lga", "community", "latitude", "longitude", "dueDate"];
+    if (required.some((key) => project?.[key] === undefined || project?.[key] === "")) {
+      return response({ error: "Complete project and assignment details are required." }, 400);
+    }
+    const consultantFirm = project.consultantFirm || officer.consultant_firm;
+    await env.DB.prepare(`INSERT INTO projects(id,name,programme,component,contractor,consultant_firm,state,lga,community,latitude,longitude,geofence_radius_metres,created_at,updated_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,programme=excluded.programme,component=excluded.component,contractor=excluded.contractor,consultant_firm=excluded.consultant_firm,state=excluded.state,lga=excluded.lga,community=excluded.community,latitude=excluded.latitude,longitude=excluded.longitude,updated_at=excluded.updated_at`)
+      .bind(projectId, project.projectName, project.programme, project.component, project.contractor, consultantFirm, project.state, project.lga, project.community, Number(project.latitude), Number(project.longitude), Number(project.geofenceRadius || project.geofenceRadiusMetres || 250), timestamp, timestamp).run();
+  }
+
   await env.DB.prepare("INSERT INTO assignments(id,project_id,officer_id,status,due_date,sync_revision,created_at,updated_at) VALUES(?,?,?,?,?,1,?,?) ON CONFLICT(id) DO UPDATE SET officer_id=excluded.officer_id,due_date=excluded.due_date,updated_at=excluded.updated_at,sync_revision=assignments.sync_revision+1")
-    .bind(project.id, projectId, officer.id, "Assigned", project.dueDate, timestamp, timestamp).run();
-  await audit(env, request, user, project.id, "assignment-created", { officerId: officer.id, projectId });
-  return response({ ok: true, assignmentId: project.id, serverTime: timestamp }, 201);
+    .bind(assignmentId, projectId, officer.id, "Assigned", project.dueDate, timestamp, timestamp).run();
+  await audit(env, request, user, assignmentId, "assignment-created", { officerId: officer.id, projectId });
+  return response({ ok: true, assignmentId, serverTime: timestamp }, 201);
 }
 
 async function createFieldOfficer(request, env, user) {
