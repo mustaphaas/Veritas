@@ -8,12 +8,13 @@
 const LIST_VERB = /\b(list|show|display|browse|find|view|see|give me|open)\b/i;
 const PROJECT_SUBJECT = /\b(projects?|mini[\s-]*grids?|minigrids?|grid[\s-]*extensions?|standalone\s+solar(?:\s+systems?)?|sas)\b/i;
 const GENERIC_VERIFY = /\b(?:verify|check|validate|inspect)\s+(?:(?:a|one|any|the|all)\s+)?(?:project|mini[\s-]*grid|minigrid|mini[\s-]*grids|minigrids|grid[\s-]*extension|grid[\s-]*extensions|standalone\s+solar|sas)\b[?.!\s]*$/i;
-const WANT_TO_VERIFY = /\b(?:want|need|like)\s+to\s+(?:verify|check|validate|inspect)\s+(?:(?:a|one|any|the)\s+)?(?:project|mini[\s-]*grid|minigrid)\b/i;\nconst PROJECT_VERIFY_INTENT = /^\s*(?:please\s+)?(?:verify|check|validate|inspect)\b[\s\S]{0,100}\b(?:project|mini[\s-]*grid|minigrid|grid[\s-]*extension|standalone\s+solar|sas)\b/i;
+const WANT_TO_VERIFY = /\b(?:want|need|like)\s+to\s+(?:verify|check|validate|inspect)\s+(?:(?:a|one|any|the)\s+)?(?:project|mini[\s-]*grid|minigrid)\b/i;
+const PROJECT_VERIFY_INTENT = /^\s*(?:please\s+)?(?:verify|check|validate|inspect)\b[\s\S]{0,100}\b(?:project|mini[\s-]*grid|minigrid|grid[\s-]*extension|standalone\s+solar|sas)\b/i;
 const PROJECT_RECORD = /\b(?:show|open|view|review|give me|tell me about)\b[\s\S]{0,70}\b(?:project\s+record|project\s+details?|project\s+profile|record|details?|profile)\b|\bproject\s+(?:record|details?|profile)\b/i;
 
-const PROJECT_COLUMNS = \`id,name,programme,component,contractor,consultant_firm AS consultantFirm,
+const PROJECT_COLUMNS = `id,name,programme,component,contractor,consultant_firm AS consultantFirm,
   state,lga,community,portfolio_status AS status,installed_capacity_kw AS installedCapacityKw,
-  households,verified,latitude,longitude,commissioned_at AS commissionedAt,data_source AS dataSource\`;
+  households,verified,latitude,longitude,commissioned_at AS commissionedAt,data_source AS dataSource`;
 
 function clean(value) {
   return String(value || "").trim();
@@ -30,7 +31,7 @@ function escapeRegex(value) {
 function containsPhrase(question, value) {
   const phrase = clean(value);
   if (!phrase || phrase.length < 2) return false;
-  const pattern = new RegExp(\`(^|[^a-z0-9])\${escapeRegex(phrase.toLowerCase())}([^a-z0-9]|$)\`, "i");
+  const pattern = new RegExp(`(^|[^a-z0-9])${escapeRegex(phrase.toLowerCase())}([^a-z0-9]|$)`, "i");
   return pattern.test(String(question || "").toLowerCase());
 }
 
@@ -80,7 +81,7 @@ export function shouldRunProjectAssistant(question, hints = {}) {
 
 async function loadProjects(env) {
   const result = await env.DB.prepare(
-    \`SELECT \${PROJECT_COLUMNS} FROM projects ORDER BY name COLLATE NOCASE LIMIT 2000\`,
+    `SELECT ${PROJECT_COLUMNS} FROM projects ORDER BY name COLLATE NOCASE LIMIT 2000`,
   ).all();
   return result?.results || [];
 }
@@ -191,16 +192,16 @@ function projectProfileAnswer(project) {
   const viirsReady = hasCoordinates && Boolean(project.commissionedAt);
 
   const lead = [
-    \`**\${project.name}**\`,
-    place ? \`is recorded in \${place}\` : "is in the Veritas project register",
-    classification ? \`under \${classification}\` : "",
+    `**${project.name}**`,
+    place ? `is recorded in ${place}` : "is in the Veritas project register",
+    classification ? `under ${classification}` : "",
   ].filter(Boolean).join(" ");
 
   const operational = [
-    project.status ? \`portfolio status **\${project.status}**\` : null,
+    project.status ? `portfolio status **${project.status}**` : null,
     verified ? "**Verified** in the project register" : "**not currently marked Verified**",
-    capacity > 0 ? \`\${capacity.toLocaleString("en-GB", { maximumFractionDigits: 2 })} kW installed capacity\` : null,
-    households > 0 ? \`\${households.toLocaleString("en-GB")} households recorded\` : null,
+    capacity > 0 ? `${capacity.toLocaleString("en-GB", { maximumFractionDigits: 2 })} kW installed capacity` : null,
+    households > 0 ? `${households.toLocaleString("en-GB")} households recorded` : null,
   ].filter(Boolean);
 
   const checks = [
@@ -213,8 +214,8 @@ function projectProfileAnswer(project) {
   ];
 
   return [
-    \`\${lead}.\`,
-    operational.length ? \`Current record: \${operational.join(" · ")}.\` : "",
+    `${lead}.`,
+    operational.length ? `Current record: ${operational.join(" · ")}.` : "",
     ...checks,
     "You can now ask me to verify it by satellite, check its VIIRS night-light impact, or review its verification status and project record.",
   ].filter(Boolean).join("\n\n");
@@ -226,7 +227,7 @@ export async function runProjectAssistant(env, question, hints = {}) {
   const selectedId = clean(hints.projectId);
   if (selectedId && isProjectRecordQuestion(question)) {
     const project = await env.DB.prepare(
-      \`SELECT \${PROJECT_COLUMNS} FROM projects WHERE id=? LIMIT 1\`,
+      `SELECT ${PROJECT_COLUMNS} FROM projects WHERE id=? LIMIT 1`,
     ).bind(selectedId).first();
     if (!project) {
       return {
@@ -258,7 +259,7 @@ export async function runProjectAssistant(env, question, hints = {}) {
       return {
         kind: "verify-select",
         answer: scope
-          ? \`I could not find a \${scope} project with a stored map location that is ready for satellite verification.\`
+          ? `I could not find a ${scope} project with a stored map location that is ready for satellite verification.`
           : "I could not find a project with a stored map location that is ready for satellite verification.",
         choices: [],
         choiceMode: "satellite",
@@ -267,8 +268,8 @@ export async function runProjectAssistant(env, question, hints = {}) {
     return {
       kind: "verify-select",
       answer: [
-        scope ? \`Which \${scope} project do you want me to verify?\` : "Which project do you want me to verify?",
-        \`I found \${mappable.length.toLocaleString("en-GB")} selectable project\${mappable.length === 1 ? "" : "s"} with stored map locations. Choose one below; you can search by project name, state, LGA, community or programme.\`,
+        scope ? `Which ${scope} project do you want me to verify?` : "Which project do you want me to verify?",
+        `I found ${mappable.length.toLocaleString("en-GB")} selectable project${mappable.length === 1 ? "" : "s"} with stored map locations. Choose one below; you can search by project name, state, LGA, community or programme.`,
       ].join("\n\n"),
       choices: mappable.map(choiceOf),
       choiceMode: "satellite",
@@ -289,8 +290,8 @@ export async function runProjectAssistant(env, question, hints = {}) {
       kind: "list",
       answer: [
         scope
-          ? \`I found \${matches.length.toLocaleString("en-GB")} \${scope} project\${matches.length === 1 ? "" : "s"} in the current Veritas register.\`
-          : \`I found \${matches.length.toLocaleString("en-GB")} matching project\${matches.length === 1 ? "" : "s"} in the current Veritas register.\`,
+          ? `I found ${matches.length.toLocaleString("en-GB")} ${scope} project${matches.length === 1 ? "" : "s"} in the current Veritas register.`
+          : `I found ${matches.length.toLocaleString("en-GB")} matching project${matches.length === 1 ? "" : "s"} in the current Veritas register.`,
         "Select any project below to open its record. Use the search box to narrow the list by project name, state, LGA, community or programme.",
       ].join("\n\n"),
       choices: matches.map(choiceOf),
