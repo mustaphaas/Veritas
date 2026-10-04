@@ -209,16 +209,28 @@ async function uploadEvidence(request, env, user, assignment, evidenceId) {
   if (user.role !== "field_officer" || assignment.officer_id !== user.id) return response({ error: "Not assigned to this officer." }, 403);
   if (!assignment.arrival_json) return response({ error: "GPS verification is required." }, 423);
   if (["Submitted", "Approved", "Verified"].includes(assignment.status)) return response({ error: "Inspection is locked." }, 423);
+  if (!evidenceId || evidenceId.length > 200 || /[\/\\\u0000-\u001f]/.test(evidenceId)) return response({ error: "Invalid evidence id." }, 400);
   const bytes = await request.arrayBuffer();
   if (!bytes.byteLength || bytes.byteLength > 100 * 1024 * 1024) return response({ error: "Evidence must be between 1 byte and 100 MB." }, 413);
   const actualHash = await digest(bytes), claimedHash = request.headers.get("X-Content-SHA256")?.toLowerCase();
   if (!claimedHash || claimedHash !== actualHash) return response({ error: "Evidence integrity check failed." }, 422);
-  const metadata = JSON.parse(decodeURIComponent(request.headers.get("X-Veritas-Metadata") || "%7B%7D"));
+  let metadata;
+  try { metadata = JSON.parse(decodeURIComponent(request.headers.get("X-Veritas-Metadata") || "%7B%7D")); } catch { metadata = null; }
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return response({ error: "Invalid evidence metadata." }, 400);
   const mediaType = metadata.type === "video" ? "video" : "photo";
   const key = `assignments/${assignment.id}/${evidenceId}`;
   await env.EVIDENCE.put(key, bytes, { httpMetadata: { contentType: request.headers.get("Content-Type") || "application/octet-stream" }, customMetadata: { sha256: actualHash, assignmentId: assignment.id } });
-  await env.DB.prepare("INSERT OR REPLACE INTO evidence(id,assignment_id,r2_key,media_type,content_type,size_bytes,sha256,metadata_json,captured_at,uploaded_at) VALUES(?,?,?,?,?,?,?,?,?,?)")
-    .bind(evidenceId, assignment.id, key, mediaType, request.headers.get("Content-Type") || "application/octet-stream", bytes.byteLength, actualHash, JSON.stringify(metadata), metadata.capturedAt || now(), now()).run();
+  // Evidence rows are keyed per assignment. Client ids are NOT globally unique (the web client uses `${capturedAt}-${index}`),
+  // so a plain global id let one assignment's upload silently replace another's record. Rows created before this fix kept the
+  // bare client id; if that legacy row belongs to THIS assignment we update it in place (no duplicate), otherwise we use a scoped id.
+  const legacy = await env.DB.prepare("SELECT id,assignment_id FROM evidence WHERE id=?").bind(evidenceId).first();
+  const rowId = legacy && legacy.assignment_id === assignment.id ? evidenceId : `${assignment.id}/${evidenceId}`;
+  const contentType = request.headers.get("Content-Type") || "application/octet-stream";
+  const saved = await env.DB.prepare(`INSERT INTO evidence(id,assignment_id,r2_key,media_type,content_type,size_bytes,sha256,metadata_json,captured_at,uploaded_at) VALUES(?,?,?,?,?,?,?,?,?,?)
+    ON CONFLICT(id) DO UPDATE SET media_type=excluded.media_type,content_type=excluded.content_type,size_bytes=excluded.size_bytes,sha256=excluded.sha256,metadata_json=excluded.metadata_json,captured_at=excluded.captured_at,uploaded_at=excluded.uploaded_at
+    WHERE evidence.assignment_id=excluded.assignment_id`)
+    .bind(rowId, assignment.id, key, mediaType, contentType, bytes.byteLength, actualHash, JSON.stringify(metadata), metadata.capturedAt || now(), now()).run();
+  if (saved?.meta?.changes === 0) return response({ error: "Evidence id is already in use." }, 409);
   await audit(env, request, user, assignment.id, "evidence-uploaded", { evidenceId, mediaType, sizeBytes: bytes.byteLength, sha256: actualHash });
   return response({ ok: true, evidenceId, sha256: actualHash, serverTime: now() }, 201);
 }
